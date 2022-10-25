@@ -8,7 +8,7 @@ use std::mem::swap;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, Sub, SubAssign};
 
 fn main() {
-    
+
 }
 
 /*************************************************************************************/
@@ -30,28 +30,28 @@ pub trait ChangeMinMax {
 }
 impl<T: PartialOrd + Copy> ChangeMinMax for T {
     fn chmin(&mut self, rhs: Self) -> bool {
-        let mut ret = false;
         if *self > rhs {
             *self = rhs;
-            ret = true;
+            true
+        } else {
+            false
         }
-        ret
     }
     fn chmax(&mut self, rhs: Self) -> bool {
-        let mut ret = false;
         if *self < rhs {
             *self = rhs;
-            ret = true;
+            true
+        } else {
+            false
         }
-        ret
     }
 }
 
 pub trait RepeatedSquaring {
-    fn power(self, p: i32) -> Self;
+    fn power(self, p: i64) -> Self;
 }
 impl<T: std::ops::MulAssign + From<usize> + Copy> RepeatedSquaring for T {
-    fn power(self, mut p: i32) -> Self {
+    fn power(self, mut p: i64) -> Self {
         #[allow(clippy::eq_op)]
         let mut ret: Self = T::from(1_usize);
         let mut mul: Self = self;
@@ -616,15 +616,15 @@ mod modint {
 }
 use modint::ModInt as mint;
 
-pub trait PrimeDecompose {
-    fn prime_decompose(&self) -> BTreeMap<Self, usize>
+pub trait IntoPrimes {
+    fn into_primes(&self) -> BTreeMap<Self, usize>
     where
         Self: Sized;
 }
 impl<T: Copy + Ord + From<i32> + AddAssign + DivAssign + Mul<Output = T> + Rem<Output = T>>
-    PrimeDecompose for T
+IntoPrimes for T
 {
-    fn prime_decompose(&self) -> BTreeMap<T, usize> // O(N^0.5 x logN)
+    fn into_primes(&self) -> BTreeMap<T, usize> // O(N^0.5 x logN)
     {
         let zero = T::from(0_i32);
         let one = T::from(1_i32);
@@ -649,16 +649,16 @@ impl<T: Copy + Ord + From<i32> + AddAssign + DivAssign + Mul<Output = T> + Rem<O
     }
 }
 
-pub trait Divisors {
-    fn divisors(&self) -> Vec<Self>
+pub trait IntoDivisors {
+    fn into_divisors(&self) -> Vec<Self>
     where
         Self: Sized;
 }
 impl<
         T: Copy + Ord + Div<Output = T> + From<i32> + Mul<Output = T> + Rem<Output = T> + AddAssign,
-    > Divisors for T
+    > IntoDivisors for T
 {
-    fn divisors(&self) -> Vec<T> // O(N^0.5)
+    fn into_divisors(&self) -> Vec<T> // O(N^0.5)
     {
         let zero = T::from(0_i32);
         let one = T::from(1_i32);
