@@ -1,18 +1,29 @@
 #![allow(unused_macros, unused_imports, dead_code)]
 use proconio::input;
-use proconio::marker::Usize1;
+use proconio::marker::{Chars, Usize1};
 use std::any::{Any, TypeId};
 use std::cmp::{max, min, Reverse};
-use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, BinaryHeap, VecDeque};
 use std::fmt;
 use std::mem::swap;
-use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign, Rem};
+use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, Sub, SubAssign};
 
 fn main() {
+    
 }
 
 /*************************************************************************************/
 /*************************************************************************************/
+
+macro_rules! dbg {
+    ($($xs:expr),+) => {
+        if cfg!(debug_assertions) {
+            std::dbg!($($xs),+)
+        } else {
+            ($($xs),+)
+        }
+    }
+}
 
 pub trait ChangeMinMax {
     fn chmin(&mut self, rhs: Self) -> bool;
@@ -56,36 +67,39 @@ impl<T: std::ops::MulAssign + From<usize> + Copy> RepeatedSquaring for T {
     }
 }
 
-fn factorial<T: Clone + Copy + From<usize> + Into<usize> + Mul<Output = T> + 'static>(
+fn factorial_impl<
+    T: Clone + Copy + From<usize> + Into<usize> + Mul<Output = T> + Div<Output = T>,
+>(
     p: usize,
+    memo: &mut Vec<usize>,
+    update_op: fn(T, T) -> T,
 ) -> T {
-    static mut MEMO: Vec<usize> = Vec::<usize>::new();
-    unsafe {
-        while MEMO.len() < 2 {
-            MEMO.push(1);
-        }
-        while MEMO.len() <= p + 1 {
-            let last_val: T = T::from(*MEMO.last().unwrap());
-            MEMO.push((last_val * T::from(MEMO.len())).into());
-        }
-        T::from(MEMO[p])
+    while memo.len() < 2_usize {
+        memo.push(1_usize);
     }
+    while memo.len() <= p + 1 {
+        let last_val: T = T::from(*memo.last().unwrap());
+        memo.push(update_op(last_val, T::from(memo.len())).into());
+    }
+    T::from(memo[p])
 }
 
-fn factorial_inv<T: Clone + Copy + From<usize> + Into<usize> + Div<Output = T> + 'static>(
+fn factorial<
+    T: Clone + Copy + From<usize> + Into<usize> + Mul<Output = T> + Div<Output = T> + 'static,
+>(
     p: usize,
 ) -> T {
     static mut MEMO: Vec<usize> = Vec::<usize>::new();
-    unsafe {
-        while MEMO.len() < 2 {
-            MEMO.push(1);
-        }
-        while MEMO.len() <= p + 1 {
-            let last_val: T = T::from(*MEMO.last().unwrap());
-            MEMO.push((last_val / T::from(MEMO.len())).into());
-        }
-        T::from(MEMO[p])
-    }
+    unsafe { factorial_impl(p, &mut MEMO, |x: T, y: T| x * y) }
+}
+
+fn factorial_inv<
+    T: Clone + Copy + From<usize> + Into<usize> + Mul<Output = T> + Div<Output = T> + 'static,
+>(
+    p: usize,
+) -> T {
+    static mut MEMO: Vec<usize> = Vec::<usize>::new();
+    unsafe { factorial_impl(p, &mut MEMO, |x: T, y: T| x / y) }
 }
 
 fn combination<
@@ -568,9 +582,13 @@ impl<X: Copy, M: Copy> LazySegmentTree<X, M> {
 }
 
 pub trait PrimeDecompose {
-    fn prime_decompose(&self) -> BTreeMap<Self, usize> where Self: Sized;
+    fn prime_decompose(&self) -> BTreeMap<Self, usize>
+    where
+        Self: Sized;
 }
-impl <T: Copy + Ord + From<i32> + AddAssign + DivAssign + Mul<Output = T> + Rem<Output = T>> PrimeDecompose for T {
+impl<T: Copy + Ord + From<i32> + AddAssign + DivAssign + Mul<Output = T> + Rem<Output = T>>
+    PrimeDecompose for T
+{
     fn prime_decompose(&self) -> BTreeMap<T, usize> // O(N^0.5 x logN)
     {
         let zero = T::from(0_i32);
@@ -597,10 +615,15 @@ impl <T: Copy + Ord + From<i32> + AddAssign + DivAssign + Mul<Output = T> + Rem<
 }
 
 pub trait Divisors {
-    fn divisors(&self) -> Vec<Self> where Self: Sized;
+    fn divisors(&self) -> Vec<Self>
+    where
+        Self: Sized;
 }
-impl<T: Copy + Ord + Div<Output = T> + From<i32> + Mul<Output = T> + Rem<Output = T> + AddAssign> Divisors for T {
-    fn divisors<>(&self) -> Vec<T> // O(N^0.5)
+impl<
+        T: Copy + Ord + Div<Output = T> + From<i32> + Mul<Output = T> + Rem<Output = T> + AddAssign,
+    > Divisors for T
+{
+    fn divisors(&self) -> Vec<T> // O(N^0.5)
     {
         let zero = T::from(0_i32);
         let one = T::from(1_i32);
