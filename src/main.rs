@@ -9,8 +9,6 @@ use std::mem::swap;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub, SubAssign, Rem};
 
 fn main() {
-    println!("{:?}", 20_i32.divisors());
-    println!("{:?}", 20_i64.divisors());
 }
 
 /*************************************************************************************/
@@ -569,25 +567,33 @@ impl<X: Copy, M: Copy> LazySegmentTree<X, M> {
     }
 }
 
-fn prime_decompose(mut x: i64) -> BTreeMap<i64, usize> // O(N^0.5 x logN)
-{
-    let mut ans = BTreeMap::<i64, usize>::new();
+pub trait PrimeDecompose {
+    fn prime_decompose(&self) -> BTreeMap<Self, usize> where Self: Sized;
+}
+impl <T: Copy + Ord + From<i32> + AddAssign + DivAssign + Mul<Output = T> + Rem<Output = T>> PrimeDecompose for T {
+    fn prime_decompose(&self) -> BTreeMap<T, usize> // O(N^0.5 x logN)
     {
-        let mut i = 2;
-        while i * i <= x {
-            while x % i == 0 {
-                let v = ans.entry(i).or_insert(0);
-                *v += 1;
-                x /= i;
+        let zero = T::from(0_i32);
+        let one = T::from(1_i32);
+        let mut n = *self;
+        let mut ans = BTreeMap::<T, usize>::new();
+        {
+            let mut i = T::from(2_i32);
+            while i * i <= n {
+                while n % i == zero {
+                    let v = ans.entry(i).or_insert(0_usize);
+                    *v += 1_usize;
+                    n /= i;
+                }
+                i += one;
             }
-            i += 1;
         }
+        if n != one {
+            let v = ans.entry(n).or_insert(0);
+            *v += 1_usize;
+        }
+        ans
     }
-    if x != 1 {
-        let v = ans.entry(x).or_insert(0);
-        *v += 1;
-    }
-    ans
 }
 
 pub trait Divisors {
