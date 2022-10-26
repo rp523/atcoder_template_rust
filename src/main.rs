@@ -8,43 +8,7 @@ use std::mem::swap;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, Sub, SubAssign};
 
 fn main() {
-    /*
-    input!{
-        n: usize,
-        c: [Usize1; n],
-        x: [Usize1; n],
-    }
-    let mut cols = vec![vec![]; n];
-    for (i, cv) in c.iter().enumerate(){
-        cols[*cv].push(x[i]);
-    }
-    let mut st = SegmentTree::new(
-        n,
-        |x, y| x + y,
-        0
-    );
-    let mut ans = 0;
-    for xv in x.into_iter() {
-        if xv < n - 1 {
-            ans += st.query(xv + 1, n - 1);
-        }
-        st.set(xv, st.get(xv) + 1);
-    }
-    for col in cols {
-        let mut st = SegmentTree::new(
-            n,
-            |x, y| x + y,
-            0
-        );
-        for xv in col.into_iter() {
-            if xv < n - 1 {
-                ans -= st.query(xv + 1, n - 1);
-            }
-            st.set(xv, st.get(xv) + 1);
-        }
-    }
-    println!("{}", ans);
-    */
+    
 }
 
 /*************************************************************************************/
@@ -732,5 +696,22 @@ impl<
         }
         ret.sort();
         ret
+    }
+}
+
+pub trait CoordinateCompress {
+    fn compress(self) -> Vec<usize>;
+}
+impl<T: Copy + Ord> CoordinateCompress for Vec<T> {
+    fn compress(self) -> Vec<usize> {
+        let mut keys = BTreeSet::<T>::new();
+        for x in self.iter() {
+            keys.insert(*x);
+        }
+        let mut dict = BTreeMap::<T, usize>::new();
+        for (i, key) in keys.into_iter().enumerate() {
+            dict.insert(key, i);
+        }
+        self.into_iter().map(|x| dict[&x]).collect::<Vec<usize>>()
     }
 }
