@@ -715,3 +715,27 @@ impl<T: Copy + Ord> CoordinateCompress for Vec<T> {
         self.into_iter().map(|x| dict[&x]).collect::<Vec<usize>>()
     }
 }
+
+mod xor_shift_64 {
+    pub struct XorShift64(u64);
+    impl XorShift64 {
+        pub fn new() -> Self {
+            XorShift64(
+                88172645463325252_u64
+            )
+        }
+        pub fn next_u64(&mut self) -> u64
+        {
+            self.0 = self.0 ^ (self.0 << 7);
+            self.0 = self.0 ^ (self.0 >> 9);
+            self.0
+        }
+        pub fn next_f64(&mut self) -> f64
+        {
+            self.0 = self.0 ^ (self.0 << 7);
+            self.0 = self.0 ^ (self.0 >> 9);
+            self.0 as f64 * 5.421_010_862_427_522e-20
+        }
+    }
+}
+use xor_shift_64::XorShift64;
