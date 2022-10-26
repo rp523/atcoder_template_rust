@@ -8,7 +8,43 @@ use std::mem::swap;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, Sub, SubAssign};
 
 fn main() {
-
+    /*
+    input!{
+        n: usize,
+        c: [Usize1; n],
+        x: [Usize1; n],
+    }
+    let mut cols = vec![vec![]; n];
+    for (i, cv) in c.iter().enumerate(){
+        cols[*cv].push(x[i]);
+    }
+    let mut st = SegmentTree::new(
+        n,
+        |x, y| x + y,
+        0
+    );
+    let mut ans = 0;
+    for xv in x.into_iter() {
+        if xv < n - 1 {
+            ans += st.query(xv + 1, n - 1);
+        }
+        st.set(xv, st.get(xv) + 1);
+    }
+    for col in cols {
+        let mut st = SegmentTree::new(
+            n,
+            |x, y| x + y,
+            0
+        );
+        for xv in col.into_iter() {
+            if xv < n - 1 {
+                ans -= st.query(xv + 1, n - 1);
+            }
+            st.set(xv, st.get(xv) + 1);
+        }
+    }
+    println!("{}", ans);
+    */
 }
 
 /*************************************************************************************/
@@ -220,6 +256,24 @@ mod segment_tree {
                 s.set(i, ini_val);
             }
             s
+        }
+        pub fn new_from(pair_op: fn(T, T) -> T, ini_values: &Vec<T>) -> Self {
+            let n = ini_values.len();
+            let mut n2 = 1_usize;
+            while n > n2 {
+                n2 *= 2;
+            }
+            let mut st = Self {
+                n2,
+                neff: n,
+                pair_op,
+                dat: vec![ini_values[0]; 2 * n2 - 1],
+            };
+
+            for (i, ini_val) in ini_values.iter().enumerate() {
+                st.set(i, *ini_val);
+            }
+            st
         }
         pub fn set(&mut self, mut pos: usize, val: T) {
             pos += self.n2 - 1;
@@ -616,15 +670,15 @@ mod modint {
 }
 use modint::ModInt as mint;
 
-pub trait IntoPrimes {
-    fn into_primes(&self) -> BTreeMap<Self, usize>
+pub trait ToPrimes {
+    fn to_primes(&self) -> BTreeMap<Self, usize>
     where
         Self: Sized;
 }
-impl<T: Copy + Ord + From<i32> + AddAssign + DivAssign + Mul<Output = T> + Rem<Output = T>>
-IntoPrimes for T
+impl<T: Copy + Ord + From<i32> + AddAssign + DivAssign + Mul<Output = T> + Rem<Output = T>> ToPrimes
+    for T
 {
-    fn into_primes(&self) -> BTreeMap<T, usize> // O(N^0.5 x logN)
+    fn to_primes(&self) -> BTreeMap<T, usize> // O(N^0.5 x logN)
     {
         let zero = T::from(0_i32);
         let one = T::from(1_i32);
@@ -649,16 +703,16 @@ IntoPrimes for T
     }
 }
 
-pub trait IntoDivisors {
-    fn into_divisors(&self) -> Vec<Self>
+pub trait ToDivisors {
+    fn to_divisors(&self) -> Vec<Self>
     where
         Self: Sized;
 }
 impl<
         T: Copy + Ord + Div<Output = T> + From<i32> + Mul<Output = T> + Rem<Output = T> + AddAssign,
-    > IntoDivisors for T
+    > ToDivisors for T
 {
-    fn into_divisors(&self) -> Vec<T> // O(N^0.5)
+    fn to_divisors(&self) -> Vec<T> // O(N^0.5)
     {
         let zero = T::from(0_i32);
         let one = T::from(1_i32);
