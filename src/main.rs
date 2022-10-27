@@ -52,7 +52,7 @@ impl<T: PartialOrd + Copy> ChangeMinMax for T {
 pub trait RepeatedSquaring {
     fn power(self, p: i64) -> Self;
 }
-impl<T: std::ops::MulAssign + Div<Output = T> + Copy> RepeatedSquaring for T {
+impl<T: MulAssign + Div<Output = T> + Copy> RepeatedSquaring for T {
     fn power(self, mut p: i64) -> Self {
         #[allow(clippy::eq_op)]
         let one = self / self;
@@ -985,7 +985,13 @@ mod strongly_connected_component {
             let mut order = Vec::<usize>::new();
             for i in 0..self.n {
                 if !fwd_seen[i] {
-                    StronglyConnectedComponent::fwd_dfs(&self.graph, i, None, &mut fwd_seen, &mut order);
+                    StronglyConnectedComponent::fwd_dfs(
+                        &self.graph,
+                        i,
+                        None,
+                        &mut fwd_seen,
+                        &mut order,
+                    );
                 }
             }
             order.reverse();
@@ -994,7 +1000,13 @@ mod strongly_connected_component {
                 let i = *i_;
                 if !bwd_seen[i] {
                     let mut grp = Vec::<usize>::new();
-                    StronglyConnectedComponent::bwd_dfs(&self.bwd_graph, i, None, &mut bwd_seen, &mut grp);
+                    StronglyConnectedComponent::bwd_dfs(
+                        &self.bwd_graph,
+                        i,
+                        None,
+                        &mut bwd_seen,
+                        &mut grp,
+                    );
                     grp.reverse();
                     scc.push(grp);
                 }
