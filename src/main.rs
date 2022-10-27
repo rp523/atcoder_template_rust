@@ -52,10 +52,11 @@ impl<T: PartialOrd + Copy> ChangeMinMax for T {
 pub trait RepeatedSquaring {
     fn power(self, p: i64) -> Self;
 }
-impl<T: std::ops::MulAssign + From<usize> + Copy> RepeatedSquaring for T {
+impl<T: std::ops::MulAssign + Div<Output = T> + Copy> RepeatedSquaring for T {
     fn power(self, mut p: i64) -> Self {
         #[allow(clippy::eq_op)]
-        let mut ret: Self = T::from(1_usize);
+        let one = self / self;
+        let mut ret: Self = one;
         let mut mul: Self = self;
         while p > 0 {
             if p & 1 != 0 {
@@ -647,9 +648,10 @@ pub trait IntegerDecompose {
 impl<
         T: Copy
             + Ord
-            + From<i32>
             + AddAssign
             + DivAssign
+            + Add<Output = T>
+            + Sub<Output = T>
             + Mul<Output = T>
             + Div<Output = T>
             + Rem<Output = T>,
@@ -657,12 +659,18 @@ impl<
 {
     fn into_primes(self) -> BTreeMap<T, usize> // O(N^0.5 x logN)
     {
-        let zero = T::from(0_i32);
-        let one = T::from(1_i32);
+        #[allow(clippy::eq_op)]
+        let zero = self - self;
+        if self == zero {
+            panic!("Zero has no divisors.");
+        }
+        #[allow(clippy::eq_op)]
+        let one = self / self;
+        let two = one + one;
         let mut n = self;
         let mut ans = BTreeMap::<T, usize>::new();
         {
-            let mut i = T::from(2_i32);
+            let mut i = two;
             while i * i <= n {
                 while n % i == zero {
                     let v = ans.entry(i).or_insert(0_usize);
@@ -680,8 +688,13 @@ impl<
     }
     fn into_divisors(self) -> Vec<T> // O(N^0.5)
     {
-        let zero = T::from(0_i32);
-        let one = T::from(1_i32);
+        #[allow(clippy::eq_op)]
+        let zero = self - self;
+        if self == zero {
+            panic!("Zero has no primes.");
+        }
+        #[allow(clippy::eq_op)]
+        let one = self / self;
         let n = self;
         let mut ret: Vec<T> = Vec::new();
         {
