@@ -1,10 +1,12 @@
 #![allow(unused_macros, unused_imports, dead_code)]
+use num::integer::gcd;
 use proconio::input;
 use proconio::marker::{Chars, Usize1};
 use std::any::TypeId;
 use std::cmp::{max, min, Reverse};
-use std::collections::{BTreeMap, BTreeSet, BinaryHeap, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, VecDeque};
 use std::mem::swap;
+use std::ops::Bound::{Excluded, Included, Unbounded};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, Sub, SubAssign};
 
 fn main() {
@@ -367,7 +369,7 @@ mod lazy_segment_tree {
             }
             if let Some(lazy_val) = self.lazy_ops[node] {
                 if node < self.n2 - 1 {
-                    // 葉でなければ子に伝搬
+                    // if the target node is not a terminal one, propagate to its' children.
                     for d in 1..=2_usize {
                         let nc = node * 2 + d;
                         if let Some(nc_lazy_val) = self.lazy_ops[nc] {
@@ -377,7 +379,7 @@ mod lazy_segment_tree {
                         }
                     }
                 }
-                // 自身を更新
+                // update the target node
                 self.dat[node] = (self.update_op)(self.dat[node], lazy_val);
                 self.lazy_ops[node] = None;
             }
@@ -393,15 +395,15 @@ mod lazy_segment_tree {
         ) {
             self.lazy_eval(node);
             if (a <= node_l) && (node_r <= b) {
-                // 完全に内側の時
+                // this node is inside the query range.
                 if let Some(lazy_val) = self.lazy_ops[node] {
                     self.lazy_ops[node] = Some((self.update_concat)(lazy_val, m));
                 } else {
                     self.lazy_ops[node] = Some(m);
                 }
                 self.lazy_eval(node);
-            } else if (a < node_r) && (node_l < b) {
-                // 一部区間が被る時
+            } else if (node_r > a) && (b > node_l) {
+                // this node and query range overlap partly.
                 self.reserve_sub(a, b, m, node * 2 + 1, node_l, (node_l + node_r) / 2); // 左の子
                 self.reserve_sub(a, b, m, node * 2 + 2, (node_l + node_r) / 2, node_r); // 右の子
                 self.dat[node] = (self.pair_op)(self.dat[node * 2 + 1], self.dat[node * 2 + 2]);
@@ -417,7 +419,7 @@ mod lazy_segment_tree {
         ) -> X {
             self.lazy_eval(node);
             if (a <= node_l) && (node_r <= b) {
-                // this node is inside query range.
+                // this node is inside the query range.
                 self.dat[node]
             } else if (node_r > a) && (b > node_l) {
                 // this node and query range overlap partly.
@@ -634,19 +636,30 @@ mod modint {
 }
 use modint::ModInt as mint;
 
-pub trait ToPrimes {
-    fn to_primes(&self) -> BTreeMap<Self, usize>
+pub trait IntegerDecompose {
+    fn into_primes(self) -> BTreeMap<Self, usize>
+    where
+        Self: Sized;
+    fn into_divisors(self) -> Vec<Self>
     where
         Self: Sized;
 }
-impl<T: Copy + Ord + From<i32> + AddAssign + DivAssign + Mul<Output = T> + Rem<Output = T>> ToPrimes
-    for T
+impl<
+        T: Copy
+            + Ord
+            + From<i32>
+            + AddAssign
+            + DivAssign
+            + Mul<Output = T>
+            + Div<Output = T>
+            + Rem<Output = T>,
+    > IntegerDecompose for T
 {
-    fn to_primes(&self) -> BTreeMap<T, usize> // O(N^0.5 x logN)
+    fn into_primes(self) -> BTreeMap<T, usize> // O(N^0.5 x logN)
     {
         let zero = T::from(0_i32);
         let one = T::from(1_i32);
-        let mut n = *self;
+        let mut n = self;
         let mut ans = BTreeMap::<T, usize>::new();
         {
             let mut i = T::from(2_i32);
@@ -665,22 +678,11 @@ impl<T: Copy + Ord + From<i32> + AddAssign + DivAssign + Mul<Output = T> + Rem<O
         }
         ans
     }
-}
-
-pub trait ToDivisors {
-    fn to_divisors(&self) -> Vec<Self>
-    where
-        Self: Sized;
-}
-impl<
-        T: Copy + Ord + Div<Output = T> + From<i32> + Mul<Output = T> + Rem<Output = T> + AddAssign,
-    > ToDivisors for T
-{
-    fn to_divisors(&self) -> Vec<T> // O(N^0.5)
+    fn into_divisors(self) -> Vec<T> // O(N^0.5)
     {
         let zero = T::from(0_i32);
         let one = T::from(1_i32);
-        let n = *self;
+        let n = self;
         let mut ret: Vec<T> = Vec::new();
         {
             let mut i = one;
@@ -720,18 +722,14 @@ mod xor_shift_64 {
     pub struct XorShift64(u64);
     impl XorShift64 {
         pub fn new() -> Self {
-            XorShift64(
-                88172645463325252_u64
-            )
+            XorShift64(88172645463325252_u64)
         }
-        pub fn next_u64(&mut self) -> u64
-        {
+        pub fn next_u64(&mut self) -> u64 {
             self.0 = self.0 ^ (self.0 << 7);
             self.0 = self.0 ^ (self.0 >> 9);
             self.0
         }
-        pub fn next_f64(&mut self) -> f64
-        {
+        pub fn next_f64(&mut self) -> f64 {
             self.0 = self.0 ^ (self.0 << 7);
             self.0 = self.0 ^ (self.0 >> 9);
             self.0 as f64 * 5.421_010_862_427_522e-20
@@ -739,3 +737,295 @@ mod xor_shift_64 {
     }
 }
 use xor_shift_64::XorShift64;
+
+mod rooted_tree {
+    use std::mem::swap;
+
+    use crate::union_find::UnionFind;
+    pub struct RootedTree {
+        n: usize,
+        doubling_bit_width: usize,
+        root: usize,
+        rise_tbl: Vec<Vec<Option<usize>>>,
+        dist: Vec<Option<i64>>,
+        step: Vec<Option<usize>>,
+        pub graph: Vec<Vec<(i64, usize)>>,
+        edge_cnt: usize,
+        uf: UnionFind,
+    }
+    impl RootedTree {
+        pub fn new(n: usize, root: usize) -> RootedTree {
+            let mut doubling_bit_width = 0;
+            while (1 << doubling_bit_width) < n {
+                doubling_bit_width += 1;
+            }
+            RootedTree {
+                n,
+                doubling_bit_width,
+                root,
+                rise_tbl: vec![vec![None; n]; doubling_bit_width],
+                dist: vec![None; n],
+                step: vec![None; n],
+                graph: vec![vec![]; n],
+                edge_cnt: 0,
+                uf: UnionFind::new(n),
+            }
+        }
+        pub fn unite(&mut self, a: usize, b: usize) {
+            self.unite_with_distance(a, b, 1);
+        }
+        pub fn unite_with_distance(&mut self, a: usize, b: usize, delta: i64) {
+            self.graph[a].push((delta, b));
+            self.graph[b].push((delta, a));
+            self.edge_cnt += 1;
+            self.uf.unite(a, b);
+            if self.edge_cnt >= self.n - 1 {
+                if self.uf.group_num() != 1 {
+                    panic!("nodes are NOT connected into one union.")
+                }
+                self.analyze(self.root);
+            }
+        }
+        pub fn stepback(&self, from: usize, step: usize) -> usize {
+            let mut v = from;
+            for d in (0..self.doubling_bit_width - 1).rev() {
+                if ((step >> d) & 1) != 0 {
+                    v = self.rise_tbl[d][v].unwrap();
+                }
+            }
+            v
+        }
+        fn dfs(
+            v: usize,
+            pre: Option<usize>,
+            graph: &Vec<Vec<(i64, usize)>>,
+            dist: &mut Vec<Option<i64>>,
+            step: &mut Vec<Option<usize>>,
+            rise_tbl: &mut Vec<Vec<Option<usize>>>,
+        ) {
+            for (delta, nv) in graph[v].iter() {
+                if let Some(pre) = pre {
+                    if *nv == pre {
+                        continue;
+                    }
+                }
+                if dist[*nv].is_none() {
+                    dist[*nv] = Some(dist[v].unwrap() + *delta);
+                    step[*nv] = Some(step[v].unwrap() + 1);
+                    rise_tbl[0][*nv] = Some(v);
+                    Self::dfs(*nv, Some(v), graph, dist, step, rise_tbl);
+                }
+            }
+        }
+        fn analyze(&mut self, root: usize) {
+            self.dist[root] = Some(0);
+            self.step[root] = Some(0);
+            self.rise_tbl[0][root] = Some(root);
+            Self::dfs(
+                root,
+                None,
+                &self.graph,
+                &mut self.dist,
+                &mut self.step,
+                &mut self.rise_tbl,
+            );
+            // doubling
+            for d in (0..self.doubling_bit_width).skip(1) {
+                for v in 0_usize..self.n {
+                    self.rise_tbl[d][v] = self.rise_tbl[d - 1][self.rise_tbl[d - 1][v].unwrap()];
+                }
+            }
+        }
+        pub fn lca(&self, mut a: usize, mut b: usize) -> usize {
+            if self.step[a] > self.step[b] {
+                swap(&mut a, &mut b);
+            }
+            assert!(self.step[a] <= self.step[b]);
+            // bring up the deeper one to the same level of the shallower one.
+            for d in (0..self.doubling_bit_width).rev() {
+                let rise_v = self.rise_tbl[d][b].unwrap();
+                if self.step[rise_v] >= self.step[a] {
+                    b = rise_v;
+                }
+            }
+            assert!(self.step[a] == self.step[b]);
+            if a != b {
+                // simultaneously rise to the previous level of LCA.
+                for d in (0..self.doubling_bit_width).rev() {
+                    if self.rise_tbl[d][a] != self.rise_tbl[d][b] {
+                        a = self.rise_tbl[d][a].unwrap();
+                        b = self.rise_tbl[d][b].unwrap();
+                    }
+                }
+                // 1-step higher level is LCA.
+                a = self.rise_tbl[0][a].unwrap();
+                b = self.rise_tbl[0][b].unwrap();
+            }
+            assert!(a == b);
+            a
+        }
+        pub fn distance(&self, a: usize, b: usize) -> i64 {
+            let lca_v = self.lca(a, b);
+            self.dist[a].unwrap() + self.dist[b].unwrap() - 2 * self.dist[lca_v].unwrap()
+        }
+    }
+}
+use rooted_tree::RootedTree;
+
+pub trait BTreeMapBinarySearch<K, V> {
+    fn greater_equal(&self, key: &K) -> Option<(K, &V)>;
+    fn greater_than(&self, key: &K) -> Option<(K, &V)>;
+    fn less_equal(&self, key: &K) -> Option<(K, &V)>;
+    fn less_than(&self, key: &K) -> Option<(K, &V)>;
+}
+impl<K: Ord + Copy, V> BTreeMapBinarySearch<K, V> for BTreeMap<K, V> {
+    fn greater_equal(&self, key: &K) -> Option<(K, &V)> {
+        self.range((Included(key), Unbounded))
+            .next()
+            .map(|(k, v)| (*k, v))
+    }
+    fn greater_than(&self, key: &K) -> Option<(K, &V)> {
+        self.range((Excluded(key), Unbounded))
+            .next()
+            .map(|(k, v)| (*k, v))
+    }
+    fn less_equal(&self, key: &K) -> Option<(K, &V)> {
+        self.range((Unbounded, Included(key)))
+            .next_back()
+            .map(|(k, v)| (*k, v))
+    }
+    fn less_than(&self, key: &K) -> Option<(K, &V)> {
+        self.range((Unbounded, Excluded(key)))
+            .next_back()
+            .map(|(k, v)| (*k, v))
+    }
+}
+
+pub trait BTreeSetBinarySearch<T> {
+    fn greater_equal(&self, key: &T) -> Option<T>;
+    fn greater_than(&self, key: &T) -> Option<T>;
+    fn less_equal(&self, key: &T) -> Option<T>;
+    fn less_than(&self, key: &T) -> Option<T>;
+}
+impl<T: Ord + Copy> BTreeSetBinarySearch<T> for BTreeSet<T> {
+    fn greater_equal(&self, key: &T) -> Option<T> {
+        self.range((Included(key), Unbounded)).next().copied()
+    }
+    fn greater_than(&self, key: &T) -> Option<T> {
+        self.range((Excluded(key), Unbounded)).next().copied()
+    }
+    fn less_equal(&self, key: &T) -> Option<T> {
+        self.range((Unbounded, Included(key))).next_back().copied()
+    }
+    fn less_than(&self, key: &T) -> Option<T> {
+        self.range((Unbounded, Excluded(key))).next_back().copied()
+    }
+}
+
+#[derive(Eq, Hash, PartialEq)]
+struct Line2d(i64, i64, i64);
+impl Line2d {
+    // identify line from 2 differemt point
+    fn new(y0: i64, x0: i64, y1: i64, x1: i64) -> Line2d {
+        let mut b = y1 - y0;
+        let mut a = x1 - x0;
+        let mut c = x1 * y0 - x0 * y1;
+        let r = gcd(a.abs(), gcd(b.abs(), c.abs()));
+        a /= r;
+        b /= r;
+        c /= r;
+        if (a == 0) && (b < 0) {
+            a = -a;
+            b = -b;
+            c = -c;
+        }
+        if a < 0 {
+            a = -a;
+            b = -b;
+            c = -c;
+        }
+        Line2d(a, b, c)
+    }
+}
+
+struct Scc {
+    n: usize,
+    pub graph: Vec<Vec<usize>>,
+    bwd_graph: Vec<Vec<usize>>,
+}
+impl Scc {
+    pub fn new(n: usize) -> Scc {
+        Scc {
+            n,
+            graph: vec![vec![]; n],
+            bwd_graph: vec![vec![]; n],
+        }
+    }
+    fn add(&mut self, from: usize, into: usize) {
+        self.graph[from].push(into);
+        self.bwd_graph[into].push(from);
+    }
+    pub fn decompose(&mut self) -> Vec<Vec<usize>> {
+        let mut scc = Vec::<Vec<usize>>::new();
+        let mut fwd_seen = vec![false; self.n];
+        let mut order = VecDeque::<usize>::new();
+        for i in 0..self.n {
+            if !fwd_seen[i] {
+                Scc::fwd_dfs(&self.graph, i, None, &mut fwd_seen, &mut order);
+            }
+        }
+        let mut bwd_seen = vec![false; self.n];
+        for i_ in &order {
+            let i = *i_;
+            if !bwd_seen[i] {
+                let mut grp = Vec::<usize>::new();
+                Scc::bwd_dfs(&self.bwd_graph, i, None, &mut bwd_seen, &mut grp);
+                grp.reverse();
+                scc.push(grp);
+            }
+        }
+        scc
+    }
+    fn bwd_dfs(
+        graph: &Vec<Vec<usize>>,
+        v: usize,
+        pre: Option<usize>,
+        seen: &mut Vec<bool>,
+        grp: &mut Vec<usize>,
+    ) {
+        seen[v] = true;
+        grp.push(v);
+        for nv_ in &graph[v] {
+            let nv = *nv_;
+            if let Some(pre_v) = pre {
+                if nv == pre_v {
+                    continue;
+                }
+            }
+            if !seen[nv] {
+                Scc::bwd_dfs(graph, nv, Some(v), seen, grp);
+            }
+        }
+    }
+    fn fwd_dfs(
+        graph: &Vec<Vec<usize>>,
+        v: usize,
+        pre: Option<usize>,
+        seen: &mut Vec<bool>,
+        order: &mut VecDeque<usize>,
+    ) {
+        seen[v] = true;
+        for nv_ in &graph[v] {
+            let nv = *nv_;
+            if let Some(pre_v) = pre {
+                if nv == pre_v {
+                    continue;
+                }
+            }
+            if !seen[nv] {
+                Scc::fwd_dfs(graph, nv, Some(v), seen, order);
+            }
+        }
+        order.push_front(v);
+    }
+}
