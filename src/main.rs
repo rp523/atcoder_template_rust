@@ -968,12 +968,13 @@ impl Scc {
     pub fn decompose(&mut self) -> Vec<Vec<usize>> {
         let mut scc = Vec::<Vec<usize>>::new();
         let mut fwd_seen = vec![false; self.n];
-        let mut order = VecDeque::<usize>::new();
+        let mut order = Vec::<usize>::new();
         for i in 0..self.n {
             if !fwd_seen[i] {
                 Scc::fwd_dfs(&self.graph, i, None, &mut fwd_seen, &mut order);
             }
         }
+        order.reverse();
         let mut bwd_seen = vec![false; self.n];
         for i_ in &order {
             let i = *i_;
@@ -994,7 +995,6 @@ impl Scc {
         grp: &mut Vec<usize>,
     ) {
         seen[v] = true;
-        grp.push(v);
         for nv_ in &graph[v] {
             let nv = *nv_;
             if let Some(pre_v) = pre {
@@ -1006,13 +1006,14 @@ impl Scc {
                 Scc::bwd_dfs(graph, nv, Some(v), seen, grp);
             }
         }
+        grp.push(v);
     }
     fn fwd_dfs(
         graph: &Vec<Vec<usize>>,
         v: usize,
         pre: Option<usize>,
         seen: &mut Vec<bool>,
-        order: &mut VecDeque<usize>,
+        order: &mut Vec<usize>,
     ) {
         seen[v] = true;
         for nv_ in &graph[v] {
@@ -1026,6 +1027,6 @@ impl Scc {
                 Scc::fwd_dfs(graph, nv, Some(v), seen, order);
             }
         }
-        order.push_front(v);
+        order.push(v);
     }
 }
