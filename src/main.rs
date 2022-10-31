@@ -662,7 +662,7 @@ pub trait IntegerOperation {
     fn into_divisors(self) -> Vec<Self>
     where
         Self: Sized;
-    fn hypot(&self, rhs : Self) -> Self;
+    fn squared_length(&self, rhs : Self) -> Self;
 }
 impl<
         T: Copy
@@ -731,7 +731,7 @@ impl<
         ret.sort();
         ret
     }
-    fn hypot(&self, rhs : Self) -> Self {
+    fn squared_length(&self, rhs : Self) -> Self {
         *self * *self + rhs * rhs
     }
 }
