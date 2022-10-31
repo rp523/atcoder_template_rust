@@ -957,6 +957,66 @@ impl<T: Ord + Copy> BTreeSetBinarySearch<T> for BTreeSet<T> {
     }
 }
 
+pub trait SortVecBinarySearch<T> {
+    fn sort_vec_binary_search(&self, key: &T, earlier: fn(&T, &T) -> bool) -> (Option<usize>, Option<usize>);
+    fn greater_equal(&self, key: &T) -> Option<(usize, T)>;
+    fn greater_than(&self, key: &T) -> Option<(usize, T)>;
+    fn less_equal(&self, key: &T) -> Option<(usize, T)>;
+    fn less_than(&self, key: &T) -> Option<(usize, T)>;
+}
+static mut VEC_IS_SORTED_ONCE: bool = false;
+impl<T: Ord + Copy> SortVecBinarySearch<T> for Vec<T> {
+    fn sort_vec_binary_search(&self, key: &T, earlier: fn(&T, &T) -> bool) -> (Option<usize>, Option<usize>) {
+        unsafe {
+            if !VEC_IS_SORTED_ONCE {
+                let mut cpy: Vec<T> = self.clone();
+                cpy.sort();
+                for i in 0..self.len() {
+                    assert!(self[i] == cpy[i]);
+                }
+                VEC_IS_SORTED_ONCE = true;
+            }
+        }
+        if self.is_empty() {
+            return (None, None);
+        }
+
+        if !earlier(&self[0], key) {
+            (None, Some(0))
+        } else if earlier(self.last().unwrap(), key) {
+            (Some(self.len() - 1), None)
+        } else {
+            let mut l = 0;
+            let mut r = self.len() - 1;
+            while r - l > 1 {
+                let m = (l + r) / 2;
+                if earlier(&self[m], key) {
+                    l = m;
+                } else {
+                    r = m;
+                }
+            }
+            (Some(l), Some(r))
+        }
+    }
+    fn greater_equal(&self, key: &T) -> Option<(usize, T)> {
+        let (_l, r) = self.sort_vec_binary_search(key, |x: &T, y: &T| x < y);
+        r.map(|r| (r, self[r]))
+    }
+    fn greater_than(&self, key: &T) -> Option<(usize, T)> {
+        let (_l, r) = self.sort_vec_binary_search(key, |x: &T, y: &T| x <= y);
+        r.map(|r| (r, self[r]))
+    }
+    fn less_equal(&self, key: &T) -> Option<(usize, T)> {
+        let (l, _r) = self.sort_vec_binary_search(key, |x: &T, y: &T| x <= y);
+        l.map(|l| (l, self[l]))
+    }
+    fn less_than(&self, key: &T) -> Option<(usize, T)> {
+        let (l, _r) = self.sort_vec_binary_search(key, |x: &T, y: &T| x < y);
+        l.map(|l| (l, self[l]))
+    }
+}
+
 #[derive(Eq, Hash, PartialEq)]
 struct Line2d(i64, i64, i64);
 impl Line2d {
