@@ -9,44 +9,20 @@ use std::mem::swap;
 use std::ops::Bound::{Excluded, Included, Unbounded};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, Sub, SubAssign};
 
-fn main() {
-    
+macro_rules! chmin {
+    ($x:expr, $($v:expr),+) => {
+        $(
+            $x = std::cmp::min($x,$v);
+        )+
+    };
 }
 
-/*************************************************************************************/
-/*************************************************************************************/
-
-macro_rules! dbg {
-    ($($xs:expr),+) => {
-        if cfg!(debug_assertions) {
-            std::dbg!($($xs),+)
-        } else {
-            ($($xs),+)
-        }
-    }
-}
-
-pub trait ChangeMinMax {
-    fn chmin(&mut self, rhs: Self) -> bool;
-    fn chmax(&mut self, rhs: Self) -> bool;
-}
-impl<T: PartialOrd + Copy> ChangeMinMax for T {
-    fn chmin(&mut self, rhs: Self) -> bool {
-        if *self > rhs {
-            *self = rhs;
-            true
-        } else {
-            false
-        }
-    }
-    fn chmax(&mut self, rhs: Self) -> bool {
-        if *self < rhs {
-            *self = rhs;
-            true
-        } else {
-            false
-        }
-    }
+macro_rules! chmax {
+    ($x:expr, $($v:expr),+) => {
+        $(
+            $x = std::cmp::max($x,$v);
+        )+
+    };
 }
 
 pub trait RepeatedSquaring {
@@ -623,6 +599,11 @@ mod modint {
             ModInt::new(x as i64)
         }
     }
+    impl PartialEq<ModInt> for ModInt {
+        fn eq(&self, other: &ModInt) -> bool {
+            self.get() == other.get()
+        }
+    }
     #[allow(clippy::from_over_into)]
     impl Into<usize> for ModInt {
         fn into(self) -> usize {
@@ -634,16 +615,22 @@ mod modint {
             write!(f, "{}", self.x)
         }
     }
+    impl fmt::Debug for ModInt {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "{}", self.x)
+        }
+    }
 }
 use modint::ModInt as mint;
 
-pub trait IntegerDecompose {
+pub trait IntegerOperation {
     fn into_primes(self) -> BTreeMap<Self, usize>
     where
         Self: Sized;
     fn into_divisors(self) -> Vec<Self>
     where
         Self: Sized;
+    fn hypot(&self, rhs : Self) -> Self;
 }
 impl<
         T: Copy
@@ -655,7 +642,7 @@ impl<
             + Mul<Output = T>
             + Div<Output = T>
             + Rem<Output = T>,
-    > IntegerDecompose for T
+    > IntegerOperation for T
 {
     fn into_primes(self) -> BTreeMap<T, usize> // O(N^0.5 x logN)
     {
@@ -711,6 +698,9 @@ impl<
         }
         ret.sort();
         ret
+    }
+    fn hypot(&self, rhs : Self) -> Self {
+        *self * *self + rhs * rhs
     }
 }
 
@@ -1058,3 +1048,10 @@ mod strongly_connected_component {
     }
 }
 use strongly_connected_component::StronglyConnectedComponent as Scc;
+
+/*************************************************************************************/
+/*************************************************************************************/
+
+fn main() {
+    
+}
