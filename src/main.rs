@@ -326,12 +326,12 @@ mod lazy_segment_tree {
             ret
         }
         pub fn new_from(
-            n: usize,
             pair_op: fn(X, X) -> X,
             update_op: fn(X, M) -> X,
             update_concat: fn(M, M) -> M,
             init_vals: &[X],
         ) -> Self {
+            let n = init_vals.len();
             let mut n2 = 1_usize;
             while n > n2 {
                 n2 *= 2;
@@ -367,7 +367,7 @@ mod lazy_segment_tree {
             }
         }
         fn build(&mut self) {
-            for k in (0..=(self.n2 - 2)).rev() {
+            for k in (0..self.n2).rev().skip(1) {
                 self.dat[k] = (self.pair_op)(self.dat[2 * k + 1], self.dat[2 * k + 2]);
             }
         }
@@ -662,7 +662,7 @@ pub trait IntegerOperation {
     fn into_divisors(self) -> Vec<Self>
     where
         Self: Sized;
-    fn squared_length(&self, rhs : Self) -> Self;
+    fn squared_length(&self, rhs: Self) -> Self;
 }
 impl<
         T: Copy
@@ -731,7 +731,7 @@ impl<
         ret.sort();
         ret
     }
-    fn squared_length(&self, rhs : Self) -> Self {
+    fn squared_length(&self, rhs: Self) -> Self {
         *self * *self + rhs * rhs
     }
 }
@@ -959,7 +959,11 @@ impl<T: Ord + Copy> BTreeSetBinarySearch<T> for BTreeSet<T> {
 
 pub trait SortVecBinarySearch<T> {
     #[allow(clippy::type_complexity)]
-    fn sort_vec_binary_search(&self, key: &T, earlier: fn(&T, &T) -> bool) -> (Option<(usize, T)>, Option<(usize, T)>);
+    fn sort_vec_binary_search(
+        &self,
+        key: &T,
+        earlier: fn(&T, &T) -> bool,
+    ) -> (Option<(usize, T)>, Option<(usize, T)>);
     fn greater_equal(&self, key: &T) -> Option<(usize, T)>;
     fn greater_than(&self, key: &T) -> Option<(usize, T)>;
     fn less_equal(&self, key: &T) -> Option<(usize, T)>;
@@ -967,7 +971,11 @@ pub trait SortVecBinarySearch<T> {
 }
 static mut VEC_IS_SORTED_ONCE: bool = false;
 impl<T: Ord + Copy> SortVecBinarySearch<T> for Vec<T> {
-    fn sort_vec_binary_search(&self, key: &T, earlier: fn(&T, &T) -> bool) -> (Option<(usize, T)>, Option<(usize, T)>) {
+    fn sort_vec_binary_search(
+        &self,
+        key: &T,
+        earlier: fn(&T, &T) -> bool,
+    ) -> (Option<(usize, T)>, Option<(usize, T)>) {
         unsafe {
             if !VEC_IS_SORTED_ONCE {
                 let mut cpy: Vec<T> = self.clone();
@@ -1142,5 +1150,5 @@ use strongly_connected_component::StronglyConnectedComponent as Scc;
 /*************************************************************************************/
 
 fn main() {
-
+    
 }
