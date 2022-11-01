@@ -958,7 +958,8 @@ impl<T: Ord + Copy> BTreeSetBinarySearch<T> for BTreeSet<T> {
 }
 
 pub trait SortVecBinarySearch<T> {
-    fn sort_vec_binary_search(&self, key: &T, earlier: fn(&T, &T) -> bool) -> (Option<usize>, Option<usize>);
+    #[allow(clippy::type_complexity)]
+    fn sort_vec_binary_search(&self, key: &T, earlier: fn(&T, &T) -> bool) -> (Option<(usize, T)>, Option<(usize, T)>);
     fn greater_equal(&self, key: &T) -> Option<(usize, T)>;
     fn greater_than(&self, key: &T) -> Option<(usize, T)>;
     fn less_equal(&self, key: &T) -> Option<(usize, T)>;
@@ -966,7 +967,7 @@ pub trait SortVecBinarySearch<T> {
 }
 static mut VEC_IS_SORTED_ONCE: bool = false;
 impl<T: Ord + Copy> SortVecBinarySearch<T> for Vec<T> {
-    fn sort_vec_binary_search(&self, key: &T, earlier: fn(&T, &T) -> bool) -> (Option<usize>, Option<usize>) {
+    fn sort_vec_binary_search(&self, key: &T, earlier: fn(&T, &T) -> bool) -> (Option<(usize, T)>, Option<(usize, T)>) {
         unsafe {
             if !VEC_IS_SORTED_ONCE {
                 let mut cpy: Vec<T> = self.clone();
@@ -982,9 +983,9 @@ impl<T: Ord + Copy> SortVecBinarySearch<T> for Vec<T> {
         }
 
         if !earlier(&self[0], key) {
-            (None, Some(0))
+            (None, Some((0, self[0])))
         } else if earlier(self.last().unwrap(), key) {
-            (Some(self.len() - 1), None)
+            (Some((self.len() - 1, self[self.len() - 1])), None)
         } else {
             let mut l = 0;
             let mut r = self.len() - 1;
@@ -996,24 +997,20 @@ impl<T: Ord + Copy> SortVecBinarySearch<T> for Vec<T> {
                     r = m;
                 }
             }
-            (Some(l), Some(r))
+            (Some((l, self[l])), Some((r, self[r])))
         }
     }
     fn greater_equal(&self, key: &T) -> Option<(usize, T)> {
-        let (_l, r) = self.sort_vec_binary_search(key, |x: &T, y: &T| x < y);
-        r.map(|r| (r, self[r]))
+        self.sort_vec_binary_search(key, |x: &T, y: &T| x < y).1
     }
     fn greater_than(&self, key: &T) -> Option<(usize, T)> {
-        let (_l, r) = self.sort_vec_binary_search(key, |x: &T, y: &T| x <= y);
-        r.map(|r| (r, self[r]))
+        self.sort_vec_binary_search(key, |x: &T, y: &T| x <= y).1
     }
     fn less_equal(&self, key: &T) -> Option<(usize, T)> {
-        let (l, _r) = self.sort_vec_binary_search(key, |x: &T, y: &T| x <= y);
-        l.map(|l| (l, self[l]))
+        self.sort_vec_binary_search(key, |x: &T, y: &T| x <= y).0
     }
     fn less_than(&self, key: &T) -> Option<(usize, T)> {
-        let (l, _r) = self.sort_vec_binary_search(key, |x: &T, y: &T| x < y);
-        l.map(|l| (l, self[l]))
+        self.sort_vec_binary_search(key, |x: &T, y: &T| x < y).0
     }
 }
 
@@ -1145,5 +1142,5 @@ use strongly_connected_component::StronglyConnectedComponent as Scc;
 /*************************************************************************************/
 
 fn main() {
-    
+
 }
