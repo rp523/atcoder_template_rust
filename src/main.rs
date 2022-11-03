@@ -58,12 +58,12 @@ macro_rules! max {
 }
 
 pub trait RepeatedSquaring {
-    fn power(self, p: i64) -> Self;
+    fn power(self, p: usize) -> Self;
 }
 impl<T: MulAssign + Div<Output = T> + Copy> RepeatedSquaring for T {
-    fn power(self, mut p: i64) -> Self {
+    fn power(self, mut p: usize) -> Self {
         #[allow(clippy::eq_op)]
-        let one = self / self;
+        let one = (self / self) as Self;
         let mut ret: Self = one;
         let mut mul: Self = self;
         while p > 0 {
