@@ -1022,6 +1022,117 @@ impl<T: Ord + Copy> SortVecBinarySearch<T> for Vec<T> {
     }
 }
 
+
+#[derive(Clone, Debug)]
+struct BTreeMultiSet<T>{
+    mp: BTreeMap<T, usize>,
+    cnt_sum: usize
+}
+impl<T: Copy + Ord> BTreeMultiSet<T> {
+    fn new() -> Self {
+        BTreeMultiSet {
+            mp: BTreeMap::<T, usize>::new(),
+            cnt_sum: 0,
+        }
+    }
+    fn is_empty(&self) -> bool {
+        self.mp.is_empty()
+    }
+    fn len(&self) -> usize {
+        self.cnt_sum
+    }
+    fn insert(&mut self, key: T) {
+        let cnt = self.mp.entry(key).or_insert(0);
+        *cnt += 1;
+        self.cnt_sum += 1;
+    }
+    fn remove(&mut self, key: &T) -> bool {
+        if let Some(cnt) = self.mp.get_mut(key) { 
+            *cnt -= 1;
+            if *cnt == 0 {
+                self.mp.remove(key);
+            }
+            self.cnt_sum -= 1;
+            true
+        } else {
+            false
+        }
+    }
+    fn contains(&self, key: &T) -> bool{
+        self.mp.contains_key(key)
+    }
+    fn remove_all(&mut self, key: &T) -> bool {
+        if let Some(cnt) = self.mp.remove(key) {
+            self.cnt_sum -= cnt;
+            true
+        } else {
+            false
+        }
+    }
+    fn first(&self) -> Option<&T> {
+        if let Some((key, _cnt)) = self.mp.iter().next() {
+            Some(key)
+        } else {
+            None
+        }
+    }
+    fn pop_first(&mut self) -> Option<T> {
+        if let Some(&key) = self.first() {
+            self.remove(&key);
+            Some(key)
+        } else {
+            None
+        }
+    }
+    fn last(&self) -> Option<&T> {
+        if let Some((key, _cnt)) = self.mp.iter().next_back() {
+            Some(key)
+        } else {
+            None
+        }
+    }
+    fn pop_last(&mut self) -> Option<T> {
+        if let Some(&key) = self.last() {
+            self.remove(&key);
+            Some(key)
+        } else {
+            None
+        }
+    }
+    fn clear(&mut self) {
+        self.mp.clear();
+        self.cnt_sum = 0;
+    }
+    fn greater_equal(&self, key: &T) -> Option<T> {
+        if let Some((key, _cnt)) = self.mp.greater_equal(key) {
+            Some(key)
+        } else {
+            None
+        }
+    }
+    fn greater_than(&self, key: &T) -> Option<T> {
+        if let Some((key, _cnt)) = self.mp.greater_than(key) {
+            Some(key)
+        } else {
+            None
+        }
+    }
+    fn less_equal(&self, key: &T) -> Option<T> {
+        if let Some((key, _cnt)) = self.mp.less_equal(key) {
+            Some(key)
+        } else {
+            None
+        }
+    }
+    fn less_than(&self, key: &T) -> Option<T> {
+        if let Some((key, _cnt)) = self.mp.less_than(key) {
+            Some(key)
+        } else {
+            None
+        }
+    }
+}
+
 #[derive(Eq, Hash, PartialEq)]
 struct Line2d(i64, i64, i64);
 impl Line2d {
@@ -1146,9 +1257,14 @@ mod strongly_connected_component {
 }
 use strongly_connected_component::StronglyConnectedComponent as Scc;
 
+fn exit_by<T: std::fmt::Display>(msg: T) {
+    println!("{}", msg);
+    std::process::exit(0);
+}
+
 /*************************************************************************************/
 /*************************************************************************************/
 
 fn main() {
-    
+
 }
