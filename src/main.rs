@@ -1,5 +1,6 @@
 #![allow(unused_macros, unused_imports, dead_code)]
 use num::integer::gcd;
+use perm::Permutation;
 use proconio::input;
 use proconio::marker::{Chars, Usize1};
 use std::any::TypeId;
@@ -1022,11 +1023,10 @@ impl<T: Ord + Copy> SortVecBinarySearch<T> for Vec<T> {
     }
 }
 
-
 #[derive(Clone, Debug)]
-struct BTreeMultiSet<T>{
+struct BTreeMultiSet<T> {
     mp: BTreeMap<T, usize>,
-    cnt_sum: usize
+    cnt_sum: usize,
 }
 impl<T: Copy + Ord> BTreeMultiSet<T> {
     fn new() -> Self {
@@ -1047,7 +1047,7 @@ impl<T: Copy + Ord> BTreeMultiSet<T> {
         self.cnt_sum += 1;
     }
     fn remove(&mut self, key: &T) -> bool {
-        if let Some(cnt) = self.mp.get_mut(key) { 
+        if let Some(cnt) = self.mp.get_mut(key) {
             *cnt -= 1;
             if *cnt == 0 {
                 self.mp.remove(key);
@@ -1058,7 +1058,7 @@ impl<T: Copy + Ord> BTreeMultiSet<T> {
             false
         }
     }
-    fn contains(&self, key: &T) -> bool{
+    fn contains(&self, key: &T) -> bool {
         self.mp.contains_key(key)
     }
     fn remove_all(&mut self, key: &T) -> bool {
@@ -1256,6 +1256,80 @@ mod strongly_connected_component {
     }
 }
 use strongly_connected_component::StronglyConnectedComponent as Scc;
+
+mod perm {
+    // ref. https://blog.tiqwab.com/2021/08/01/permutation-iterator-rust.html
+    pub struct PermutationIterator<T: Ord + Clone> {
+        li: Vec<T>,
+        is_finished: bool,
+    }
+
+    impl<T: Ord + Clone> PermutationIterator<T> {
+        pub fn new(mut li: Vec<T>) -> PermutationIterator<T> {
+            let is_finished = li.is_empty();
+            li.sort();
+            PermutationIterator { li, is_finished }
+        }
+    }
+
+    impl<T: Ord + Clone> Iterator for PermutationIterator<T> {
+        type Item = Vec<T>;
+
+        // ref. next_permutation in C++
+        // https://cpprefjp.github.io/reference/algorithm/next_permutation.html
+        fn next(&mut self) -> Option<Self::Item> {
+            if self.is_finished {
+                return None;
+            }
+
+            if self.li.len() == 1 {
+                self.is_finished = true;
+                return Some(self.li.clone());
+            }
+
+            let mut i = self.li.len() - 1;
+            let res = self.li.clone();
+
+            loop {
+                let ii = i;
+                i -= 1;
+                if self.li[i] < self.li[ii] {
+                    let mut j = self.li.len() - 1;
+                    while self.li[i] >= self.li[j] {
+                        j -= 1;
+                    }
+
+                    self.li.swap(i, j);
+                    self.li[ii..].reverse();
+                    return Some(res);
+                }
+                if i == 0 {
+                    self.li.reverse();
+                    self.is_finished = true;
+                    return Some(res);
+                }
+            }
+        }
+    }
+
+    pub trait Permutation<T: Ord + Clone> {
+        fn permutation(self) -> PermutationIterator<T>;
+    }
+
+    // Vec<T> に対してのみの実装する
+    // impl <T: Ord + Clone> Permutation<T> for Vec<T> {
+    //     fn permutation(self) -> PermutationIterator<T> {
+    //         PermutationIterator::new(self)
+    //     }
+    // }
+
+    // IntoIterator を実装するものに対して Permutation を実装する
+    impl<T: Ord + Clone, I: IntoIterator<Item = T>> Permutation<T> for I {
+        fn permutation(self) -> PermutationIterator<T> {
+            PermutationIterator::new(self.into_iter().collect())
+        }
+    }
+}
 
 fn exit_by<T: std::fmt::Display>(msg: T) {
     println!("{}", msg);
