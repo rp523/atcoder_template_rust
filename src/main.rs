@@ -156,7 +156,7 @@ fn permutation<
 }
 
 mod union_find {
-    #[derive(Clone)]
+    #[derive(Debug, Clone)]
     pub struct UnionFind {
         pub graph: Vec<Vec<usize>>,
         parents: Vec<usize>,
@@ -209,7 +209,7 @@ use union_find::UnionFind;
 
 mod segment_tree {
     use std::ops::Add;
-    #[derive(Clone)]
+    #[derive(Debug, Clone)]
     pub struct SegmentTree<T> {
         n2: usize,   // implemented leaf num (2^n)
         neff: usize, // effective vector length
@@ -269,6 +269,15 @@ mod segment_tree {
         // get query value of [a, b]
         pub fn query(&self, a: usize, b: usize) -> T {
             self.query_sub(a, b + 1, 0, 0, self.n2)
+        }
+        pub fn query_whole(&self) -> T {
+            self.query_sub(0, (self.neff - 1) + 1, 0, 0, self.n2)
+        }
+        pub fn query_geq(&self, a: usize) -> T {
+            self.query_sub(a, (self.neff - 1) + 1, 0, 0, self.n2)
+        }
+        pub fn query_leq(&self, b: usize) -> T {
+            self.query_sub(0, b + 1, 0, 0, self.n2)
         }
         // get query value of [a, b)
         fn query_sub(&self, a: usize, b: usize, node: usize, node_l: usize, node_r: usize) -> T {
@@ -486,7 +495,8 @@ mod modint {
         fn get_prime() -> i64 {
             unsafe { MOD }
         }
-        pub fn new(sig: i64) -> Self {
+        pub fn new<T: Into<i64>>(sig: T) -> Self {
+            let sig: i64 = sig.into();
             if sig < 0 {
                 Self {
                     x: sig % Self::get_prime() + Self::get_prime(),
@@ -1027,7 +1037,7 @@ impl<T: Ord + Copy> SortVecBinarySearch<T> for Vec<T> {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 struct BTreeMultiSet<T> {
     mp: BTreeMap<T, usize>,
     cnt_sum: usize,
@@ -1137,7 +1147,7 @@ impl<T: Copy + Ord> BTreeMultiSet<T> {
     }
 }
 
-#[derive(Eq, Hash, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, Hash, PartialEq)]
 struct Line2d(i64, i64, i64);
 impl Line2d {
     // identify line from 2 differemt point
@@ -1335,6 +1345,63 @@ mod perm {
     }
 }
 
+mod pair {
+    use std::ops::{Add, AddAssign, Sub, SubAssign};
+    #[derive(Debug, Clone, Copy)]
+    pub struct Pair<X, Y> {
+        pub x: X,
+        pub y: Y,
+    }
+    impl<X: AddAssign, Y: AddAssign> AddAssign for Pair<X, Y> {
+        fn add_assign(&mut self, rhs: Self) {
+            self.x += rhs.x;
+            self.y += rhs.y;
+        }
+    }
+    impl<X: Add<Output = X>, Y: Add<Output = Y>> Add for Pair<X, Y> {
+        type Output = Self;
+        fn add(self, rhs: Self) -> Self::Output {
+            Self {
+                x: self.x + rhs.x,
+                y: self.y + rhs.y,
+            }
+        }
+    }
+    impl<X: SubAssign, Y: SubAssign> SubAssign for Pair<X, Y> {
+        fn sub_assign(&mut self, rhs: Self) {
+            self.x -= rhs.x;
+            self.y -= rhs.y;
+        }
+    }
+    impl<X: Sub<Output = X>, Y: Sub<Output = Y>> Sub for Pair<X, Y> {
+        type Output = Self;
+        fn sub(self, rhs: Self) -> Self::Output {
+            Self {
+                x: self.x - rhs.x,
+                y: self.y - rhs.y,
+            }
+        }
+    }
+}
+use pair::Pair;
+
+pub trait MoveTo<D, T> {
+    fn move_to(self, delta: D, lim_lo: T, lim_hi: T) -> Option<T>;
+}
+impl<D: Copy + Into<i64>, T: Copy + Into<i64> + From<i64>> MoveTo<D, T> for T {
+    fn move_to(self, delta: D, lim_lo: T, lim_hi: T) -> Option<T> {
+        let delta: i64 = delta.into();
+        let added: i64 = self.into() + delta;
+        let lim_lo: i64 = lim_lo.into();
+        let lim_hi: i64 = lim_hi.into();
+        if (lim_lo <= added) && (added <= lim_hi) {
+            Some(added.into())
+        } else {
+            None
+        }
+    }
+}
+
 fn exit_by<T: std::fmt::Display>(msg: T) {
     println!("{}", msg);
     std::process::exit(0);
@@ -1342,7 +1409,6 @@ fn exit_by<T: std::fmt::Display>(msg: T) {
 
 /*************************************************************************************/
 /*************************************************************************************/
-
 fn main() {
-    
+
 }
