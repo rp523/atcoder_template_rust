@@ -208,6 +208,7 @@ mod union_find {
 use union_find::UnionFind;
 
 mod segment_tree {
+    use std::ops::Add;
     #[derive(Clone)]
     pub struct SegmentTree<T> {
         n2: usize,   // implemented leaf num (2^n)
@@ -215,7 +216,7 @@ mod segment_tree {
         dat: Vec<T>,
         pair_op: fn(T, T) -> T,
     }
-    impl<T: Copy> SegmentTree<T> {
+    impl<T: Copy + Add<Output = T>> SegmentTree<T> {
         pub fn new(n: usize, pair_op: fn(T, T) -> T, ini_val: T) -> Self {
             let mut n2 = 1_usize;
             while n > n2 {
@@ -261,6 +262,9 @@ mod segment_tree {
         }
         pub fn get(&self, pos: usize) -> T {
             self.dat[pos + self.n2 - 1]
+        }
+        pub fn add(&mut self, pos: usize, add_val: T) {
+            self.set(pos, self.get(pos) + add_val);
         }
         // get query value of [a, b]
         pub fn query(&self, a: usize, b: usize) -> T {
@@ -1340,5 +1344,5 @@ fn exit_by<T: std::fmt::Display>(msg: T) {
 /*************************************************************************************/
 
 fn main() {
-
+    
 }
