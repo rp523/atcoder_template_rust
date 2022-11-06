@@ -1,6 +1,5 @@
 #![allow(unused_macros, unused_imports, dead_code)]
 use num::integer::gcd;
-use perm::Permutation;
 use proconio::input;
 use proconio::marker::{Chars, Usize1};
 use std::any::TypeId;
@@ -1271,80 +1270,6 @@ mod strongly_connected_component {
 }
 use strongly_connected_component::StronglyConnectedComponent as Scc;
 
-mod perm {
-    // ref. https://blog.tiqwab.com/2021/08/01/permutation-iterator-rust.html
-    pub struct PermutationIterator<T: Ord + Clone> {
-        li: Vec<T>,
-        is_finished: bool,
-    }
-
-    impl<T: Ord + Clone> PermutationIterator<T> {
-        pub fn new(mut li: Vec<T>) -> PermutationIterator<T> {
-            let is_finished = li.is_empty();
-            li.sort();
-            PermutationIterator { li, is_finished }
-        }
-    }
-
-    impl<T: Ord + Clone> Iterator for PermutationIterator<T> {
-        type Item = Vec<T>;
-
-        // ref. next_permutation in C++
-        // https://cpprefjp.github.io/reference/algorithm/next_permutation.html
-        fn next(&mut self) -> Option<Self::Item> {
-            if self.is_finished {
-                return None;
-            }
-
-            if self.li.len() == 1 {
-                self.is_finished = true;
-                return Some(self.li.clone());
-            }
-
-            let mut i = self.li.len() - 1;
-            let res = self.li.clone();
-
-            loop {
-                let ii = i;
-                i -= 1;
-                if self.li[i] < self.li[ii] {
-                    let mut j = self.li.len() - 1;
-                    while self.li[i] >= self.li[j] {
-                        j -= 1;
-                    }
-
-                    self.li.swap(i, j);
-                    self.li[ii..].reverse();
-                    return Some(res);
-                }
-                if i == 0 {
-                    self.li.reverse();
-                    self.is_finished = true;
-                    return Some(res);
-                }
-            }
-        }
-    }
-
-    pub trait Permutation<T: Ord + Clone> {
-        fn permutation(self) -> PermutationIterator<T>;
-    }
-
-    // Vec<T> に対してのみの実装する
-    // impl <T: Ord + Clone> Permutation<T> for Vec<T> {
-    //     fn permutation(self) -> PermutationIterator<T> {
-    //         PermutationIterator::new(self)
-    //     }
-    // }
-
-    // IntoIterator を実装するものに対して Permutation を実装する
-    impl<T: Ord + Clone, I: IntoIterator<Item = T>> Permutation<T> for I {
-        fn permutation(self) -> PermutationIterator<T> {
-            PermutationIterator::new(self.into_iter().collect())
-        }
-    }
-}
-
 mod pair {
     use std::ops::{Add, AddAssign, Sub, SubAssign};
     #[derive(Debug, Clone, Copy)]
@@ -1385,17 +1310,17 @@ mod pair {
 }
 use pair::Pair;
 
-pub trait MoveTo<D, T> {
-    fn move_to(self, delta: D, lim_lo: T, lim_hi: T) -> Option<T>;
+pub trait MoveTo<T> {
+    fn move_to(self, delta: T, lim_lo: usize, lim_hi: usize) -> Option<usize>;
 }
-impl<D: Copy + Into<i64>, T: Copy + Into<i64> + From<i64>> MoveTo<D, T> for T {
-    fn move_to(self, delta: D, lim_lo: T, lim_hi: T) -> Option<T> {
+impl<T: Copy + Into<i64>> MoveTo<T> for usize {
+    fn move_to(self, delta: T, lim_lo: usize, lim_hi: usize) -> Option<usize> {
         let delta: i64 = delta.into();
-        let added: i64 = self.into() + delta;
-        let lim_lo: i64 = lim_lo.into();
-        let lim_hi: i64 = lim_hi.into();
+        let added: i64 = self as i64 + delta;
+        let lim_lo: i64 = lim_lo as i64;
+        let lim_hi: i64 = lim_hi as i64;
         if (lim_lo <= added) && (added <= lim_hi) {
-            Some(added.into())
+            Some(added as usize)
         } else {
             None
         }
@@ -1407,8 +1332,108 @@ fn exit_by<T: std::fmt::Display>(msg: T) {
     std::process::exit(0);
 }
 
-/*************************************************************************************/
-/*************************************************************************************/
-fn main() {
+pub trait Permutation<T> {
+    fn next_permutation(&self) -> Option<Vec<T>>;
+    fn prev_permutation(&self) -> Option<Vec<T>>;
+}
+impl<T: Copy + Ord> Permutation<T> for Vec<T> {
+    fn next_permutation(&self) -> Option<Vec<T>> {
+        let n = self.len();
+        if n == 0 {
+            return None;
+        }
+        let mut seen = BTreeMultiSet::<T>::new();
+        seen.insert(*self.last().unwrap());
+        for i in (0..n).into_iter().rev().skip(1) {
+            seen.insert(self[i]);
+            if self[i] < self[i + 1] {
+                let mut p = vec![];
+                for &lv in self.iter().take(i) {
+                    p.push(lv);
+                }
+                let rv = seen.greater_than(&self[i]).unwrap();
+                p.push(rv);
+                seen.remove(&rv);
+                while let Some(rv) = seen.pop_first() {
+                    p.push(rv);
+                }
+                return Some(p);
+            }
+        }
+        None
+    }
+    fn prev_permutation(&self) -> Option<Vec<T>> {
+        let n = self.len();
+        if n == 0 {
+            return None;
+        }
+        let mut seen = BTreeMultiSet::<T>::new();
+        seen.insert(*self.last().unwrap());
+        for i in (0..n).into_iter().rev().skip(1) {
+            seen.insert(self[i]);
+            if self[i] > self[i + 1] {
+                let mut p = vec![];
+                for &lv in self.iter().take(i) {
+                    p.push(lv);
+                }
+                let rv = seen.less_than(&self[i]).unwrap();
+                p.push(rv);
+                seen.remove(&rv);
+                while let Some(rv) = seen.pop_last() {
+                    p.push(rv);
+                }
+                return Some(p);
+            }
+        }
+        None
+    }
+}
+pub struct PermutationIterator<T: Copy + Ord + Clone> {
+    v: Vec<T>,
+    is_finished: bool,
+}
+impl<T: Copy + Ord + Clone> PermutationIterator<T> {
+    pub fn new(mut v: Vec<T>) -> PermutationIterator<T> {
+        v.sort();
+        PermutationIterator {
+            v,
+            is_finished: false,
+        }
+    }
+}
+impl<T: Copy + Ord + Clone> Iterator for PermutationIterator<T> {
+    type Item = Vec<T>;
 
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.is_finished {
+            // next perm doesn't exist.
+            None
+        } else if let Some(nxt) = self.v.next_permutation() {
+            // return self state, and update self for future use.
+            let ret = Some(self.v.clone());
+            self.v = nxt;
+            ret
+        } else {
+            // this time is the last.
+            self.is_finished = true;
+            Some(self.v.clone())
+        }
+    }
+}
+
+pub trait IntoPermutationIter<T: Copy + Ord + Clone> {
+    fn into_permutation_iter(self) -> PermutationIterator<T>;
+}
+// implement for ones that has IntoIterator.
+impl<T: Copy + Ord + Clone, I: IntoIterator<Item = T>> IntoPermutationIter<T> for I {
+    fn into_permutation_iter(self) -> PermutationIterator<T> {
+        PermutationIterator::new(self.into_iter().collect())
+    }
+}
+
+/*************************************************************************************/
+/*************************************************************************************/
+
+fn main() {
+    
 }
