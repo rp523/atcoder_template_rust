@@ -270,13 +270,17 @@ mod segment_tree {
             self.query_sub(a, b + 1, 0, 0, self.n2)
         }
         pub fn query_whole(&self) -> T {
-            self.query_sub(0, (self.neff - 1) + 1, 0, 0, self.n2)
+            let a = 0;
+            let b = self.neff;
+            self.query_sub(a, b + 1, 0, 0, self.n2)
         }
         pub fn query_geq(&self, a: usize) -> T {
-            self.query_sub(a, (self.neff - 1) + 1, 0, 0, self.n2)
+            let b = self.neff;
+            self.query_sub(a, b + 1, 0, 0, self.n2)
         }
         pub fn query_leq(&self, b: usize) -> T {
-            self.query_sub(0, b + 1, 0, 0, self.n2)
+            let a = 0;
+            self.query_sub(a, b + 1, 0, 0, self.n2)
         }
         // get query value of [a, b)
         fn query_sub(&self, a: usize, b: usize, node: usize, node_l: usize, node_r: usize) -> T {
@@ -1388,7 +1392,7 @@ impl<T: Copy + Ord> Permutation<T> for Vec<T> {
         None
     }
 }
-pub struct PermutationIterator<T: Copy + Ord + Clone> {
+pub struct PermutationIterator<T> {
     v: Vec<T>,
     is_finished: bool,
 }
@@ -1421,12 +1425,12 @@ impl<T: Copy + Ord + Clone> Iterator for PermutationIterator<T> {
     }
 }
 
-pub trait IntoPermutationIter<T: Copy + Ord + Clone> {
-    fn into_permutation_iter(self) -> PermutationIterator<T>;
+pub trait IntoPermutations<T: Copy + Ord + Clone> {
+    fn into_permutations(self) -> PermutationIterator<T>;
 }
 // implement for ones that has IntoIterator.
-impl<T: Copy + Ord + Clone, I: IntoIterator<Item = T>> IntoPermutationIter<T> for I {
-    fn into_permutation_iter(self) -> PermutationIterator<T> {
+impl<T: Copy + Ord + Clone, I: IntoIterator<Item = T>> IntoPermutations<T> for I {
+    fn into_permutations(self) -> PermutationIterator<T> {
         PermutationIterator::new(self.into_iter().collect())
     }
 }
