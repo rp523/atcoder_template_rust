@@ -901,52 +901,44 @@ mod rooted_tree {
 use rooted_tree::RootedTree;
 
 pub trait BTreeMapBinarySearch<K, V> {
-    fn greater_equal(&self, key: &K) -> Option<(K, &V)>;
-    fn greater_than(&self, key: &K) -> Option<(K, &V)>;
-    fn less_equal(&self, key: &K) -> Option<(K, &V)>;
-    fn less_than(&self, key: &K) -> Option<(K, &V)>;
+    fn greater_equal(&self, key: &K) -> Option<(&K, &V)>;
+    fn greater_than(&self, key: &K) -> Option<(&K, &V)>;
+    fn less_equal(&self, key: &K) -> Option<(&K, &V)>;
+    fn less_than(&self, key: &K) -> Option<(&K, &V)>;
 }
 impl<K: Ord + Copy, V> BTreeMapBinarySearch<K, V> for BTreeMap<K, V> {
-    fn greater_equal(&self, key: &K) -> Option<(K, &V)> {
-        self.range((Included(key), Unbounded))
-            .next()
-            .map(|(k, v)| (*k, v))
+    fn greater_equal(&self, key: &K) -> Option<(&K, &V)> {
+        self.range((Included(key), Unbounded)).next()
     }
-    fn greater_than(&self, key: &K) -> Option<(K, &V)> {
-        self.range((Excluded(key), Unbounded))
-            .next()
-            .map(|(k, v)| (*k, v))
+    fn greater_than(&self, key: &K) -> Option<(&K, &V)> {
+        self.range((Excluded(key), Unbounded)).next()
     }
-    fn less_equal(&self, key: &K) -> Option<(K, &V)> {
-        self.range((Unbounded, Included(key)))
-            .next_back()
-            .map(|(k, v)| (*k, v))
+    fn less_equal(&self, key: &K) -> Option<(&K, &V)> {
+        self.range((Unbounded, Included(key))).next_back()
     }
-    fn less_than(&self, key: &K) -> Option<(K, &V)> {
-        self.range((Unbounded, Excluded(key)))
-            .next_back()
-            .map(|(k, v)| (*k, v))
+    fn less_than(&self, key: &K) -> Option<(&K, &V)> {
+        self.range((Unbounded, Excluded(key))).next_back()
     }
 }
 
 pub trait BTreeSetBinarySearch<T> {
-    fn greater_equal(&self, key: &T) -> Option<T>;
-    fn greater_than(&self, key: &T) -> Option<T>;
-    fn less_equal(&self, key: &T) -> Option<T>;
-    fn less_than(&self, key: &T) -> Option<T>;
+    fn greater_equal(&self, key: &T) -> Option<&T>;
+    fn greater_than(&self, key: &T) -> Option<&T>;
+    fn less_equal(&self, key: &T) -> Option<&T>;
+    fn less_than(&self, key: &T) -> Option<&T>;
 }
 impl<T: Ord + Copy> BTreeSetBinarySearch<T> for BTreeSet<T> {
-    fn greater_equal(&self, key: &T) -> Option<T> {
-        self.range((Included(key), Unbounded)).next().copied()
+    fn greater_equal(&self, key: &T) -> Option<&T> {
+        self.range((Included(key), Unbounded)).next()
     }
-    fn greater_than(&self, key: &T) -> Option<T> {
-        self.range((Excluded(key), Unbounded)).next().copied()
+    fn greater_than(&self, key: &T) -> Option<&T> {
+        self.range((Excluded(key), Unbounded)).next()
     }
-    fn less_equal(&self, key: &T) -> Option<T> {
-        self.range((Unbounded, Included(key))).next_back().copied()
+    fn less_equal(&self, key: &T) -> Option<&T> {
+        self.range((Unbounded, Included(key))).next_back()
     }
-    fn less_than(&self, key: &T) -> Option<T> {
-        self.range((Unbounded, Excluded(key))).next_back().copied()
+    fn less_than(&self, key: &T) -> Option<&T> {
+        self.range((Unbounded, Excluded(key))).next_back()
     }
 }
 
@@ -956,11 +948,11 @@ pub trait SortVecBinarySearch<T> {
         &self,
         key: &T,
         earlier: fn(&T, &T) -> bool,
-    ) -> (Option<(usize, T)>, Option<(usize, T)>);
-    fn greater_equal(&self, key: &T) -> Option<(usize, T)>;
-    fn greater_than(&self, key: &T) -> Option<(usize, T)>;
-    fn less_equal(&self, key: &T) -> Option<(usize, T)>;
-    fn less_than(&self, key: &T) -> Option<(usize, T)>;
+    ) -> (Option<(usize, &T)>, Option<(usize, &T)>);
+    fn greater_equal(&self, key: &T) -> Option<(usize, &T)>;
+    fn greater_than(&self, key: &T) -> Option<(usize, &T)>;
+    fn less_equal(&self, key: &T) -> Option<(usize, &T)>;
+    fn less_than(&self, key: &T) -> Option<(usize, &T)>;
 }
 static mut VEC_IS_SORTED_ONCE: bool = false;
 impl<T: Ord + Copy> SortVecBinarySearch<T> for Vec<T> {
@@ -968,7 +960,7 @@ impl<T: Ord + Copy> SortVecBinarySearch<T> for Vec<T> {
         &self,
         key: &T,
         earlier: fn(&T, &T) -> bool,
-    ) -> (Option<(usize, T)>, Option<(usize, T)>) {
+    ) -> (Option<(usize, &T)>, Option<(usize, &T)>) {
         unsafe {
             if !VEC_IS_SORTED_ONCE {
                 let mut cpy: Vec<T> = self.clone();
@@ -984,9 +976,9 @@ impl<T: Ord + Copy> SortVecBinarySearch<T> for Vec<T> {
         }
 
         if !earlier(&self[0], key) {
-            (None, Some((0, self[0])))
+            (None, Some((0, &self[0])))
         } else if earlier(self.last().unwrap(), key) {
-            (Some((self.len() - 1, self[self.len() - 1])), None)
+            (Some((self.len() - 1, &self[self.len() - 1])), None)
         } else {
             let mut l = 0;
             let mut r = self.len() - 1;
@@ -998,19 +990,19 @@ impl<T: Ord + Copy> SortVecBinarySearch<T> for Vec<T> {
                     r = m;
                 }
             }
-            (Some((l, self[l])), Some((r, self[r])))
+            (Some((l, &self[l])), Some((r, &self[r])))
         }
     }
-    fn greater_equal(&self, key: &T) -> Option<(usize, T)> {
+    fn greater_equal(&self, key: &T) -> Option<(usize, &T)> {
         self.sort_vec_binary_search(key, |x: &T, y: &T| x < y).1
     }
-    fn greater_than(&self, key: &T) -> Option<(usize, T)> {
+    fn greater_than(&self, key: &T) -> Option<(usize, &T)> {
         self.sort_vec_binary_search(key, |x: &T, y: &T| x <= y).1
     }
-    fn less_equal(&self, key: &T) -> Option<(usize, T)> {
+    fn less_equal(&self, key: &T) -> Option<(usize, &T)> {
         self.sort_vec_binary_search(key, |x: &T, y: &T| x <= y).0
     }
-    fn less_than(&self, key: &T) -> Option<(usize, T)> {
+    fn less_than(&self, key: &T) -> Option<(usize, &T)> {
         self.sort_vec_binary_search(key, |x: &T, y: &T| x < y).0
     }
 }
@@ -1095,28 +1087,28 @@ impl<T: Copy + Ord> BTreeMultiSet<T> {
         self.mp.clear();
         self.cnt_sum = 0;
     }
-    fn greater_equal(&self, key: &T) -> Option<T> {
+    fn greater_equal(&self, key: &T) -> Option<&T> {
         if let Some((key, _cnt)) = self.mp.greater_equal(key) {
             Some(key)
         } else {
             None
         }
     }
-    fn greater_than(&self, key: &T) -> Option<T> {
+    fn greater_than(&self, key: &T) -> Option<&T> {
         if let Some((key, _cnt)) = self.mp.greater_than(key) {
             Some(key)
         } else {
             None
         }
     }
-    fn less_equal(&self, key: &T) -> Option<T> {
+    fn less_equal(&self, key: &T) -> Option<&T> {
         if let Some((key, _cnt)) = self.mp.less_equal(key) {
             Some(key)
         } else {
             None
         }
     }
-    fn less_than(&self, key: &T) -> Option<T> {
+    fn less_than(&self, key: &T) -> Option<&T> {
         if let Some((key, _cnt)) = self.mp.less_than(key) {
             Some(key)
         } else {
@@ -1330,7 +1322,7 @@ impl<T: Copy + Ord> Permutation<T> for Vec<T> {
                 for &lv in self.iter().take(i) {
                     p.push(lv);
                 }
-                let rv = seen.greater_than(&self[i]).unwrap();
+                let &rv = seen.greater_than(&self[i]).unwrap();
                 p.push(rv);
                 seen.remove(&rv);
                 while let Some(rv) = seen.pop_first() {
@@ -1355,7 +1347,7 @@ impl<T: Copy + Ord> Permutation<T> for Vec<T> {
                 for &lv in self.iter().take(i) {
                     p.push(lv);
                 }
-                let rv = seen.less_than(&self[i]).unwrap();
+                let &rv = seen.less_than(&self[i]).unwrap();
                 p.push(rv);
                 seen.remove(&rv);
                 while let Some(rv) = seen.pop_last() {
