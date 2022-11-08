@@ -906,7 +906,7 @@ pub trait BTreeMapBinarySearch<K, V> {
     fn less_equal(&self, key: &K) -> Option<(&K, &V)>;
     fn less_than(&self, key: &K) -> Option<(&K, &V)>;
 }
-impl<K: Ord + Copy, V> BTreeMapBinarySearch<K, V> for BTreeMap<K, V> {
+impl<K: Ord, V> BTreeMapBinarySearch<K, V> for BTreeMap<K, V> {
     fn greater_equal(&self, key: &K) -> Option<(&K, &V)> {
         self.range((Included(key), Unbounded)).next()
     }
@@ -927,7 +927,7 @@ pub trait BTreeSetBinarySearch<T> {
     fn less_equal(&self, key: &T) -> Option<&T>;
     fn less_than(&self, key: &T) -> Option<&T>;
 }
-impl<T: Ord + Copy> BTreeSetBinarySearch<T> for BTreeSet<T> {
+impl<T: Ord> BTreeSetBinarySearch<T> for BTreeSet<T> {
     fn greater_equal(&self, key: &T) -> Option<&T> {
         self.range((Included(key), Unbounded)).next()
     }
@@ -955,7 +955,7 @@ pub trait SortVecBinarySearch<T> {
     fn less_than(&self, key: &T) -> Option<(usize, &T)>;
 }
 static mut VEC_IS_SORTED_ONCE: bool = false;
-impl<T: Ord + Copy> SortVecBinarySearch<T> for Vec<T> {
+impl<T: Ord> SortVecBinarySearch<T> for Vec<T> {
     fn sort_vec_binary_search(
         &self,
         key: &T,
@@ -963,10 +963,8 @@ impl<T: Ord + Copy> SortVecBinarySearch<T> for Vec<T> {
     ) -> (Option<(usize, &T)>, Option<(usize, &T)>) {
         unsafe {
             if !VEC_IS_SORTED_ONCE {
-                let mut cpy: Vec<T> = self.clone();
-                cpy.sort();
-                for i in 0..self.len() {
-                    assert!(self[i] == cpy[i]);
+                for i in 1..self.len() {
+                    assert!(self[i - 1] <= self[i]);
                 }
                 VEC_IS_SORTED_ONCE = true;
             }
@@ -1406,5 +1404,5 @@ impl<T: Copy + Ord + Clone, I: IntoIterator<Item = T>> IntoPermutations<T> for I
 /*************************************************************************************/
 
 fn main() {
-    
+
 }
