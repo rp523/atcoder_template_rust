@@ -1,7 +1,4 @@
 #![allow(unused_macros, unused_imports, dead_code)]
-use num::integer::gcd;
-use proconio::input;
-use proconio::marker::{Chars, Usize1};
 use std::any::TypeId;
 use std::cmp::{max, min, Reverse};
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, VecDeque};
@@ -29,6 +26,14 @@ impl<T: PartialOrd + Copy> ChangeMinMax for T {
         } else {
             false
         }
+    }
+}
+
+fn gcd(a: i64, b: i64) -> i64 {
+    if b == 0 {
+        a
+    } else {
+        gcd(b, a % b)
     }
 }
 
@@ -1400,9 +1405,60 @@ impl<T: Copy + Ord + Clone, I: IntoIterator<Item = T>> IntoPermutations<T> for I
     }
 }
 
+mod procon_reader {
+    use std::collections::VecDeque;
+    use std::fmt::Debug;
+    use std::str::FromStr;
+    pub struct ProConReader {
+        que: VecDeque<String>,
+        stdin: std::io::Stdin,
+    }
+    impl ProConReader {
+        pub fn new() -> Self {
+            Self {
+                que: VecDeque::<String>::new(),
+                stdin: std::io::stdin(),
+            }
+        }
+        pub fn read<T: FromStr>(&mut self) -> T
+        where
+            <T as FromStr>::Err: Debug,
+        {
+            if self.que.is_empty() {
+                self.enqueue_blocks();
+            }
+            self.que.pop_front().unwrap().parse().unwrap()
+        }
+        pub fn read_vec<T: FromStr>(&mut self, n: usize) -> Vec<T>
+        where
+            <T as FromStr>::Err: Debug,
+        {
+            let mut ret_vec: Vec<T> = vec![];
+            while ret_vec.len() < n {
+                if self.que.is_empty() {
+                    self.enqueue_blocks();
+                }
+                ret_vec.push(self.que.pop_front().unwrap().parse().unwrap());
+            }
+            ret_vec
+        }
+        fn enqueue_blocks(&mut self) {
+            let mut buf = String::new();
+            let _ = self.stdin.read_line(&mut buf);
+            for read_val in buf.split_whitespace() {
+                self.que.push_back(read_val.to_string());
+            }
+        }
+    }
+}
+use procon_reader::ProConReader;
+
 /*************************************************************************************/
 /*************************************************************************************/
 
 fn main() {
+    #[allow(unused_mut, unused_variables)]
+    let mut rdr = ProConReader::new();
 
+    
 }
