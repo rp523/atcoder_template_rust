@@ -797,7 +797,7 @@ mod rooted_tree {
     }
     impl RootedTree {
         pub fn new(n: usize, root: usize) -> RootedTree {
-            let mut doubling_bit_width = 0;
+            let mut doubling_bit_width = 1;
             while (1 << doubling_bit_width) < n {
                 doubling_bit_width += 1;
             }
