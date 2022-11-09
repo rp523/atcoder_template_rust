@@ -5,7 +5,6 @@ use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, VecDequ
 use std::mem::swap;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, Sub, SubAssign};
 
-
 macro_rules! debug_impl {
     ($x:ident) => {
         eprint!("{}={}", stringify!($x), &$x);
