@@ -7,11 +7,35 @@ use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, Sub, SubAssi
 
 macro_rules! __debug_impl {
     ($x:ident) => {
-        eprint!("{}={}", stringify!($x), &$x);
+        eprint!("{}={}  ", stringify!($x), &$x);
     };
     ($x:expr) => {
-        eprint!("{}={}", stringify!($x), &$x);
+        eprint!("{}={}  ", stringify!($x), &$x);
     };
+    ($x:ident, $($y:ident),*) => (
+        if cfg!(debug_assertions) {
+            __debug_impl!($x);
+            __debug_impl!($($y),+);
+        }
+    );
+    ($x:ident, $($y:expr),*) => (
+        if cfg!(debug_assertions) {
+            __debug_impl!($x);
+            __debug_impl!($($y),+);
+        }
+    );
+    ($x:expr, $($y:ident),*) => (
+        if cfg!(debug_assertions) {
+            __debug_impl!($x);
+            __debug_impl!($($y),+);
+        }
+    );
+    ($x:expr, $($y:expr),*) => (
+        if cfg!(debug_assertions) {
+            __debug_impl!($x);
+            __debug_impl!($($y),+);
+        }
+    );
 }
 macro_rules! __debug_line {
     () => {
@@ -42,28 +66,32 @@ macro_rules! debug {
         if cfg!(debug_assertions) {
             __debug_line!();
             __debug_impl!($x);
-            debug!($($y),+);
+            __debug_impl!($($y),+);
+            eprintln!();
         }
     );
     ($x:ident, $($y:expr),*) => (
         if cfg!(debug_assertions) {
             __debug_line!();
             __debug_impl!($x);
-            debug!($($y),+);
+            __debug_impl!($($y),+);
+            eprintln!();
         }
     );
     ($x:expr, $($y:ident),*) => (
         if cfg!(debug_assertions) {
             __debug_line!();
             __debug_impl!($x);
-            debug!($($y),+);
+            __debug_impl!($($y),+);
+            eprintln!();
         }
     );
     ($x:expr, $($y:expr),*) => (
         if cfg!(debug_assertions) {
             __debug_line!();
             __debug_impl!($x);
-            debug!($($y),+);
+            __debug_impl!($($y),+);
+            eprintln!();
         }
     );
 }
