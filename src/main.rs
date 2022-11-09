@@ -3,8 +3,13 @@ use std::any::TypeId;
 use std::cmp::{max, min, Reverse};
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, VecDeque};
 use std::mem::swap;
-use std::ops::Bound::{Excluded, Included, Unbounded};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, Sub, SubAssign};
+
+fn main() {
+    let mut rdr = ProConReader::new();
+
+    
+}
 
 pub trait ChangeMinMax {
     fn chmin(&mut self, rhs: Self) -> bool;
@@ -734,19 +739,23 @@ impl<
     }
 }
 
-pub trait CoordinateCompress {
+pub trait CoordinateCompress<T> {
+    fn comp_dictionary(&self) -> BTreeMap<T, usize>;
     fn compress(self) -> Vec<usize>;
 }
-impl<T: Copy + Ord> CoordinateCompress for Vec<T> {
-    fn compress(self) -> Vec<usize> {
-        let mut keys = BTreeSet::<T>::new();
-        for x in self.iter() {
-            keys.insert(*x);
-        }
+impl<T: Copy + Ord> CoordinateCompress<T> for Vec<T> {
+    fn comp_dictionary(&self) -> BTreeMap<T, usize> {
         let mut dict = BTreeMap::<T, usize>::new();
-        for (i, key) in keys.into_iter().enumerate() {
-            dict.insert(key, i);
+        for x in self.iter() {
+            let _ = dict.entry(*x).or_insert(0); //keys.insert(*x);
         }
+        for (i, kv) in dict.iter_mut().enumerate() {
+            *kv.1 = i;
+        }
+        dict
+    }
+    fn compress(self) -> Vec<usize> {
+        let dict = self.comp_dictionary();
         self.into_iter().map(|x| dict[&x]).collect::<Vec<usize>>()
     }
 }
@@ -905,220 +914,234 @@ mod rooted_tree {
 }
 use rooted_tree::RootedTree;
 
-pub trait BTreeMapBinarySearch<K, V> {
-    fn greater_equal(&self, key: &K) -> Option<(&K, &V)>;
-    fn greater_than(&self, key: &K) -> Option<(&K, &V)>;
-    fn less_equal(&self, key: &K) -> Option<(&K, &V)>;
-    fn less_than(&self, key: &K) -> Option<(&K, &V)>;
+mod btree_map_binary_search {
+    use std::collections::BTreeMap;
+    use std::ops::Bound::{Excluded, Included, Unbounded};
+    pub trait BTreeMapBinarySearch<K, V> {
+        fn greater_equal(&self, key: &K) -> Option<(&K, &V)>;
+        fn greater_than(&self, key: &K) -> Option<(&K, &V)>;
+        fn less_equal(&self, key: &K) -> Option<(&K, &V)>;
+        fn less_than(&self, key: &K) -> Option<(&K, &V)>;
+    }
+    impl<K: Ord, V> BTreeMapBinarySearch<K, V> for BTreeMap<K, V> {
+        fn greater_equal(&self, key: &K) -> Option<(&K, &V)> {
+            self.range((Included(key), Unbounded)).next()
+        }
+        fn greater_than(&self, key: &K) -> Option<(&K, &V)> {
+            self.range((Excluded(key), Unbounded)).next()
+        }
+        fn less_equal(&self, key: &K) -> Option<(&K, &V)> {
+            self.range((Unbounded, Included(key))).next_back()
+        }
+        fn less_than(&self, key: &K) -> Option<(&K, &V)> {
+            self.range((Unbounded, Excluded(key))).next_back()
+        }
+    }
 }
-impl<K: Ord, V> BTreeMapBinarySearch<K, V> for BTreeMap<K, V> {
-    fn greater_equal(&self, key: &K) -> Option<(&K, &V)> {
-        self.range((Included(key), Unbounded)).next()
-    }
-    fn greater_than(&self, key: &K) -> Option<(&K, &V)> {
-        self.range((Excluded(key), Unbounded)).next()
-    }
-    fn less_equal(&self, key: &K) -> Option<(&K, &V)> {
-        self.range((Unbounded, Included(key))).next_back()
-    }
-    fn less_than(&self, key: &K) -> Option<(&K, &V)> {
-        self.range((Unbounded, Excluded(key))).next_back()
-    }
-}
+use btree_map_binary_search::BTreeMapBinarySearch;
 
-pub trait BTreeSetBinarySearch<T> {
-    fn greater_equal(&self, key: &T) -> Option<&T>;
-    fn greater_than(&self, key: &T) -> Option<&T>;
-    fn less_equal(&self, key: &T) -> Option<&T>;
-    fn less_than(&self, key: &T) -> Option<&T>;
+mod btree_set_binary_search {
+    use std::collections::BTreeSet;
+    use std::ops::Bound::{Excluded, Included, Unbounded};
+    pub trait BTreeSetBinarySearch<T> {
+        fn greater_equal(&self, key: &T) -> Option<&T>;
+        fn greater_than(&self, key: &T) -> Option<&T>;
+        fn less_equal(&self, key: &T) -> Option<&T>;
+        fn less_than(&self, key: &T) -> Option<&T>;
+    }
+    impl<T: Ord> BTreeSetBinarySearch<T> for BTreeSet<T> {
+        fn greater_equal(&self, key: &T) -> Option<&T> {
+            self.range((Included(key), Unbounded)).next()
+        }
+        fn greater_than(&self, key: &T) -> Option<&T> {
+            self.range((Excluded(key), Unbounded)).next()
+        }
+        fn less_equal(&self, key: &T) -> Option<&T> {
+            self.range((Unbounded, Included(key))).next_back()
+        }
+        fn less_than(&self, key: &T) -> Option<&T> {
+            self.range((Unbounded, Excluded(key))).next_back()
+        }
+    }
 }
-impl<T: Ord> BTreeSetBinarySearch<T> for BTreeSet<T> {
-    fn greater_equal(&self, key: &T) -> Option<&T> {
-        self.range((Included(key), Unbounded)).next()
-    }
-    fn greater_than(&self, key: &T) -> Option<&T> {
-        self.range((Excluded(key), Unbounded)).next()
-    }
-    fn less_equal(&self, key: &T) -> Option<&T> {
-        self.range((Unbounded, Included(key))).next_back()
-    }
-    fn less_than(&self, key: &T) -> Option<&T> {
-        self.range((Unbounded, Excluded(key))).next_back()
-    }
-}
+use btree_set_binary_search::BTreeSetBinarySearch;
 
-pub trait SortVecBinarySearch<T> {
+mod sort_vec_binary_search {
+    static mut VEC_IS_SORTED_ONCE: bool = false;
     #[allow(clippy::type_complexity)]
-    fn sort_vec_binary_search(
-        &self,
-        key: &T,
+    fn sorted_binary_search<'a, 'b, T: PartialOrd>(
+        vec: &'a Vec<T>,
+        key: &'b T,
         earlier: fn(&T, &T) -> bool,
-    ) -> (Option<(usize, &T)>, Option<(usize, &T)>);
-    fn greater_equal(&self, key: &T) -> Option<(usize, &T)>;
-    fn greater_than(&self, key: &T) -> Option<(usize, &T)>;
-    fn less_equal(&self, key: &T) -> Option<(usize, &T)>;
-    fn less_than(&self, key: &T) -> Option<(usize, &T)>;
-}
-static mut VEC_IS_SORTED_ONCE: bool = false;
-impl<T: Ord> SortVecBinarySearch<T> for Vec<T> {
-    fn sort_vec_binary_search(
-        &self,
-        key: &T,
-        earlier: fn(&T, &T) -> bool,
-    ) -> (Option<(usize, &T)>, Option<(usize, &T)>) {
+    ) -> (Option<(usize, &'a T)>, Option<(usize, &'a T)>) {
         unsafe {
             if !VEC_IS_SORTED_ONCE {
-                for i in 1..self.len() {
-                    assert!(self[i - 1] <= self[i]);
+                for i in 1..vec.len() {
+                    assert!(vec[i - 1] <= vec[i]);
                 }
                 VEC_IS_SORTED_ONCE = true;
             }
         }
-        if self.is_empty() {
+        if vec.is_empty() {
             return (None, None);
         }
 
-        if !earlier(&self[0], key) {
-            (None, Some((0, &self[0])))
-        } else if earlier(self.last().unwrap(), key) {
-            (Some((self.len() - 1, &self[self.len() - 1])), None)
+        if !earlier(&vec[0], key) {
+            (None, Some((0, &vec[0])))
+        } else if earlier(vec.last().unwrap(), key) {
+            (Some((vec.len() - 1, &vec[vec.len() - 1])), None)
         } else {
             let mut l = 0;
-            let mut r = self.len() - 1;
+            let mut r = vec.len() - 1;
             while r - l > 1 {
                 let m = (l + r) / 2;
-                if earlier(&self[m], key) {
+                if earlier(&vec[m], key) {
                     l = m;
                 } else {
                     r = m;
                 }
             }
-            (Some((l, &self[l])), Some((r, &self[r])))
+            (Some((l, &vec[l])), Some((r, &vec[r])))
         }
     }
-    fn greater_equal(&self, key: &T) -> Option<(usize, &T)> {
-        self.sort_vec_binary_search(key, |x: &T, y: &T| x < y).1
+    pub trait SortVecBinarySearch<T> {
+        #[allow(clippy::type_complexity)]
+        fn greater_equal(&self, key: &T) -> Option<(usize, &T)>;
+        fn greater_than(&self, key: &T) -> Option<(usize, &T)>;
+        fn less_equal(&self, key: &T) -> Option<(usize, &T)>;
+        fn less_than(&self, key: &T) -> Option<(usize, &T)>;
     }
-    fn greater_than(&self, key: &T) -> Option<(usize, &T)> {
-        self.sort_vec_binary_search(key, |x: &T, y: &T| x <= y).1
-    }
-    fn less_equal(&self, key: &T) -> Option<(usize, &T)> {
-        self.sort_vec_binary_search(key, |x: &T, y: &T| x <= y).0
-    }
-    fn less_than(&self, key: &T) -> Option<(usize, &T)> {
-        self.sort_vec_binary_search(key, |x: &T, y: &T| x < y).0
+    impl<T: Ord> SortVecBinarySearch<T> for Vec<T> {
+        fn greater_equal<'a>(&self, key: &'a T) -> Option<(usize, &T)> {
+            sorted_binary_search(self, key, |x: &T, y: &T| x < y).1
+        }
+        fn greater_than<'a>(&self, key: &'a T) -> Option<(usize, &T)> {
+            sorted_binary_search(self, key, |x: &T, y: &T| x <= y).1
+        }
+        fn less_equal<'a>(&self, key: &'a T) -> Option<(usize, &T)> {
+            sorted_binary_search(self, key, |x: &T, y: &T| x <= y).0
+        }
+        fn less_than<'a>(&self, key: &'a T) -> Option<(usize, &T)> {
+            sorted_binary_search(self, key, |x: &T, y: &T| x < y).0
+        }
     }
 }
+use sort_vec_binary_search::SortVecBinarySearch;
 
-#[derive(Debug, Clone)]
-struct BTreeMultiSet<T> {
-    mp: BTreeMap<T, usize>,
-    cnt_sum: usize,
-}
-impl<T: Copy + Ord> BTreeMultiSet<T> {
-    fn new() -> Self {
-        BTreeMultiSet {
-            mp: BTreeMap::<T, usize>::new(),
-            cnt_sum: 0,
-        }
+mod btree_multi_set {
+    use crate::btree_map_binary_search::BTreeMapBinarySearch;
+    use std::collections::BTreeMap;
+    #[derive(Debug, Clone)]
+    pub struct BTreeMultiSet<T> {
+        mp: BTreeMap<T, usize>,
+        cnt_sum: usize,
     }
-    fn is_empty(&self) -> bool {
-        self.mp.is_empty()
-    }
-    fn len(&self) -> usize {
-        self.cnt_sum
-    }
-    fn insert(&mut self, key: T) {
-        let cnt = self.mp.entry(key).or_insert(0);
-        *cnt += 1;
-        self.cnt_sum += 1;
-    }
-    fn remove(&mut self, key: &T) -> bool {
-        if let Some(cnt) = self.mp.get_mut(key) {
-            *cnt -= 1;
-            if *cnt == 0 {
-                self.mp.remove(key);
+    impl<T: Copy + Ord> BTreeMultiSet<T> {
+        pub fn new() -> Self {
+            BTreeMultiSet {
+                mp: BTreeMap::<T, usize>::new(),
+                cnt_sum: 0,
             }
-            self.cnt_sum -= 1;
-            true
-        } else {
-            false
         }
-    }
-    fn contains(&self, key: &T) -> bool {
-        self.mp.contains_key(key)
-    }
-    fn remove_all(&mut self, key: &T) -> bool {
-        if let Some(cnt) = self.mp.remove(key) {
-            self.cnt_sum -= cnt;
-            true
-        } else {
-            false
+        pub fn is_empty(&self) -> bool {
+            self.mp.is_empty()
         }
-    }
-    fn first(&self) -> Option<&T> {
-        if let Some((key, _cnt)) = self.mp.iter().next() {
-            Some(key)
-        } else {
-            None
+        pub fn len(&self) -> usize {
+            self.cnt_sum
         }
-    }
-    fn pop_first(&mut self) -> Option<T> {
-        if let Some(&key) = self.first() {
-            self.remove(&key);
-            Some(key)
-        } else {
-            None
+        pub fn insert(&mut self, key: T) {
+            let cnt = self.mp.entry(key).or_insert(0);
+            *cnt += 1;
+            self.cnt_sum += 1;
         }
-    }
-    fn last(&self) -> Option<&T> {
-        if let Some((key, _cnt)) = self.mp.iter().next_back() {
-            Some(key)
-        } else {
-            None
+        pub fn remove(&mut self, key: &T) -> bool {
+            if let Some(cnt) = self.mp.get_mut(key) {
+                *cnt -= 1;
+                if *cnt == 0 {
+                    self.mp.remove(key);
+                }
+                self.cnt_sum -= 1;
+                true
+            } else {
+                false
+            }
         }
-    }
-    fn pop_last(&mut self) -> Option<T> {
-        if let Some(&key) = self.last() {
-            self.remove(&key);
-            Some(key)
-        } else {
-            None
+        pub fn contains(&self, key: &T) -> bool {
+            self.mp.contains_key(key)
         }
-    }
-    fn clear(&mut self) {
-        self.mp.clear();
-        self.cnt_sum = 0;
-    }
-    fn greater_equal(&self, key: &T) -> Option<&T> {
-        if let Some((key, _cnt)) = self.mp.greater_equal(key) {
-            Some(key)
-        } else {
-            None
+        pub fn remove_all(&mut self, key: &T) -> bool {
+            if let Some(cnt) = self.mp.remove(key) {
+                self.cnt_sum -= cnt;
+                true
+            } else {
+                false
+            }
         }
-    }
-    fn greater_than(&self, key: &T) -> Option<&T> {
-        if let Some((key, _cnt)) = self.mp.greater_than(key) {
-            Some(key)
-        } else {
-            None
+        pub fn first(&self) -> Option<&T> {
+            if let Some((key, _cnt)) = self.mp.iter().next() {
+                Some(key)
+            } else {
+                None
+            }
         }
-    }
-    fn less_equal(&self, key: &T) -> Option<&T> {
-        if let Some((key, _cnt)) = self.mp.less_equal(key) {
-            Some(key)
-        } else {
-            None
+        pub fn pop_first(&mut self) -> Option<T> {
+            if let Some(&key) = self.first() {
+                self.remove(&key);
+                Some(key)
+            } else {
+                None
+            }
         }
-    }
-    fn less_than(&self, key: &T) -> Option<&T> {
-        if let Some((key, _cnt)) = self.mp.less_than(key) {
-            Some(key)
-        } else {
-            None
+        pub fn last(&self) -> Option<&T> {
+            if let Some((key, _cnt)) = self.mp.iter().next_back() {
+                Some(key)
+            } else {
+                None
+            }
+        }
+        pub fn pop_last(&mut self) -> Option<T> {
+            if let Some(&key) = self.last() {
+                self.remove(&key);
+                Some(key)
+            } else {
+                None
+            }
+        }
+        pub fn clear(&mut self) {
+            self.mp.clear();
+            self.cnt_sum = 0;
+        }
+        pub fn greater_equal(&self, key: &T) -> Option<&T> {
+            if let Some((key, _cnt)) = self.mp.greater_equal(key) {
+                Some(key)
+            } else {
+                None
+            }
+        }
+        pub fn greater_than(&self, key: &T) -> Option<&T> {
+            if let Some((key, _cnt)) = self.mp.greater_than(key) {
+                Some(key)
+            } else {
+                None
+            }
+        }
+        pub fn less_equal(&self, key: &T) -> Option<&T> {
+            if let Some((key, _cnt)) = self.mp.less_equal(key) {
+                Some(key)
+            } else {
+                None
+            }
+        }
+        pub fn less_than(&self, key: &T) -> Option<&T> {
+            if let Some((key, _cnt)) = self.mp.less_than(key) {
+                Some(key)
+            } else {
+                None
+            }
         }
     }
 }
+use btree_multi_set::BTreeMultiSet;
 
 #[derive(Debug, Clone, Copy, Eq, Hash, PartialEq)]
 struct Line2d(i64, i64, i64);
@@ -1284,22 +1307,25 @@ mod pair {
 }
 use pair::Pair;
 
-pub trait MoveTo<T> {
-    fn move_to(self, delta: T, lim_lo: usize, lim_hi: usize) -> Option<usize>;
-}
-impl<T: Copy + Into<i64>> MoveTo<T> for usize {
-    fn move_to(self, delta: T, lim_lo: usize, lim_hi: usize) -> Option<usize> {
-        let delta: i64 = delta.into();
-        let added: i64 = self as i64 + delta;
-        let lim_lo: i64 = lim_lo as i64;
-        let lim_hi: i64 = lim_hi as i64;
-        if (lim_lo <= added) && (added <= lim_hi) {
-            Some(added as usize)
-        } else {
-            None
+mod usize_move_to {
+    pub trait MoveTo<T> {
+        fn move_to(self, delta: T, lim_lo: usize, lim_hi: usize) -> Option<usize>;
+    }
+    impl<T: Copy + Into<i64>> MoveTo<T> for usize {
+        fn move_to(self, delta: T, lim_lo: usize, lim_hi: usize) -> Option<usize> {
+            let delta: i64 = delta.into();
+            let added: i64 = self as i64 + delta;
+            let lim_lo: i64 = lim_lo as i64;
+            let lim_hi: i64 = lim_hi as i64;
+            if (lim_lo <= added) && (added <= lim_hi) {
+                Some(added as usize)
+            } else {
+                None
+            }
         }
     }
 }
+use usize_move_to::MoveTo;
 
 fn exit_by<T: std::fmt::Display>(msg: T) {
     println!("{}", msg);
@@ -1452,13 +1478,3 @@ mod procon_reader {
     }
 }
 use procon_reader::ProConReader;
-
-/*************************************************************************************/
-/*************************************************************************************/
-
-fn main() {
-    #[allow(unused_mut, unused_variables)]
-    let mut rdr = ProConReader::new();
-
-    
-}
