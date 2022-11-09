@@ -5,7 +5,7 @@ use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, VecDequ
 use std::mem::swap;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, Sub, SubAssign};
 
-macro_rules! debug_impl {
+macro_rules! __debug_impl {
     ($x:ident) => {
         eprint!("{}={}", stringify!($x), &$x);
     };
@@ -13,7 +13,7 @@ macro_rules! debug_impl {
         eprint!("{}={}", stringify!($x), &$x);
     };
 }
-macro_rules! debug_line {
+macro_rules! __debug_line {
     () => {
         eprint!("L{}  ", line!());
     };
@@ -26,43 +26,43 @@ macro_rules! debug {
     };
     ($x:expr) => {
         if cfg!(debug_assertions) {
-            debug_line!();
-            debug_impl!($x);
+            __debug_line!();
+            __debug_impl!($x);
             eprintln!();
         }
     };
     ($x:ident) => {
         if cfg!(debug_assertions) {
-            debug_line!();
-            debug_impl!($x);
+            __debug_line!();
+            __debug_impl!($x);
             eprintln!();
         }
     };
     ($x:ident, $($y:ident),*) => (
         if cfg!(debug_assertions) {
-            debug_line!();
-            debug_impl!($x);
+            __debug_line!();
+            __debug_impl!($x);
             debug!($($y),+);
         }
     );
     ($x:ident, $($y:expr),*) => (
         if cfg!(debug_assertions) {
-            debug_line!();
-            debug_impl!($x);
+            __debug_line!();
+            __debug_impl!($x);
             debug!($($y),+);
         }
     );
     ($x:expr, $($y:ident),*) => (
         if cfg!(debug_assertions) {
-            debug_line!();
-            debug_impl!($x);
+            __debug_line!();
+            __debug_impl!($x);
             debug!($($y),+);
         }
     );
     ($x:expr, $($y:expr),*) => (
         if cfg!(debug_assertions) {
-            debug_line!();
-            debug_impl!($x);
+            __debug_line!();
+            __debug_impl!($x);
             debug!($($y),+);
         }
     );
