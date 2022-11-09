@@ -43,7 +43,7 @@ macro_rules! __debug_line {
     };
 }
 macro_rules! debug {
-        () => {
+    () => {
         if cfg!(debug_assertions) {
             eprintln!();
         }
