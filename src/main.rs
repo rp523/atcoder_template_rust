@@ -5,10 +5,68 @@ use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, VecDequ
 use std::mem::swap;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, Sub, SubAssign};
 
-fn main() {
-    let mut rdr = ProConReader::new();
 
-    
+macro_rules! debug_impl {
+    ($x:ident) => {
+        eprint!("{}={}", stringify!($x), &$x);
+    };
+    ($x:expr) => {
+        eprint!("{}={}", stringify!($x), &$x);
+    };
+}
+macro_rules! debug_line {
+    () => {
+        eprint!("L{}  ", line!());
+    };
+}
+macro_rules! debug {
+        () => {
+        if cfg!(debug_assertions) {
+            eprintln!();
+        }
+    };
+    ($x:expr) => {
+        if cfg!(debug_assertions) {
+            debug_line!();
+            debug_impl!($x);
+            eprintln!();
+        }
+    };
+    ($x:ident) => {
+        if cfg!(debug_assertions) {
+            debug_line!();
+            debug_impl!($x);
+            eprintln!();
+        }
+    };
+    ($x:ident, $($y:ident),*) => (
+        if cfg!(debug_assertions) {
+            debug_line!();
+            debug_impl!($x);
+            debug!($($y),+);
+        }
+    );
+    ($x:ident, $($y:expr),*) => (
+        if cfg!(debug_assertions) {
+            debug_line!();
+            debug_impl!($x);
+            debug!($($y),+);
+        }
+    );
+    ($x:expr, $($y:ident),*) => (
+        if cfg!(debug_assertions) {
+            debug_line!();
+            debug_impl!($x);
+            debug!($($y),+);
+        }
+    );
+    ($x:expr, $($y:expr),*) => (
+        if cfg!(debug_assertions) {
+            debug_line!();
+            debug_impl!($x);
+            debug!($($y),+);
+        }
+    );
 }
 
 pub trait ChangeMinMax {
@@ -1483,7 +1541,10 @@ mod add_header {
     pub trait AddHeader<T> {
         fn add_header(&mut self, add_val: T);
     }
-    impl<T> AddHeader<T> for Vec<T> where Vec<T>: Clone{
+    impl<T> AddHeader<T> for Vec<T>
+    where
+        Vec<T>: Clone,
+    {
         fn add_header(&mut self, add_val: T) {
             let cpy = self.clone();
             self.clear();
@@ -1495,3 +1556,12 @@ mod add_header {
     }
 }
 use add_header::AddHeader;
+
+/*************************************************************************************
+*************************************************************************************/
+
+fn main() {
+    let mut rdr = ProConReader::new();
+
+    
+}
