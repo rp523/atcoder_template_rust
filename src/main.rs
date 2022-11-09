@@ -1478,3 +1478,20 @@ mod procon_reader {
     }
 }
 use procon_reader::ProConReader;
+
+mod add_header {
+    pub trait AddHeader<T> {
+        fn add_header(&mut self, add_val: T);
+    }
+    impl<T> AddHeader<T> for Vec<T> where Vec<T>: Clone{
+        fn add_header(&mut self, add_val: T) {
+            let cpy = self.clone();
+            self.clear();
+            self.push(add_val);
+            for cpy_val in cpy {
+                self.push(cpy_val);
+            }
+        }
+    }
+}
+use add_header::AddHeader;
