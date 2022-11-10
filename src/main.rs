@@ -12,29 +12,21 @@ macro_rules! __debug_impl {
     ($x:expr) => {
         eprint!("{}={}  ", stringify!($x), &$x);
     };
-    ($x:ident, $($y:ident),*) => (
-        if cfg!(debug_assertions) {
-            __debug_impl!($x);
-            __debug_impl!($($y),+);
-        }
+    ($x:ident, $($y:ident),+) => (
+        __debug_impl!($x);
+        __debug_impl!($($y),+);
     );
-    ($x:ident, $($y:expr),*) => (
-        if cfg!(debug_assertions) {
-            __debug_impl!($x);
-            __debug_impl!($($y),+);
-        }
+    ($x:ident, $($y:expr),+) => (
+        __debug_impl!($x);
+        __debug_impl!($($y),+);
     );
-    ($x:expr, $($y:ident),*) => (
-        if cfg!(debug_assertions) {
-            __debug_impl!($x);
-            __debug_impl!($($y),+);
-        }
+    ($x:expr, $($y:ident),+) => (
+        __debug_impl!($x);
+        __debug_impl!($($y),+);
     );
-    ($x:expr, $($y:expr),*) => (
-        if cfg!(debug_assertions) {
-            __debug_impl!($x);
-            __debug_impl!($($y),+);
-        }
+    ($x:expr, $($y:expr),+) => (
+        __debug_impl!($x);
+        __debug_impl!($($y),+);
     );
 }
 macro_rules! __debug_line {
@@ -42,58 +34,56 @@ macro_rules! __debug_line {
         eprint!("L{}  ", line!());
     };
 }
+macro_rules! __debug_select {
+    () => {
+        eprintln!();
+    };
+    ($x:expr) => {
+        __debug_line!();
+        __debug_impl!($x);
+        eprintln!();
+    };
+    ($x:ident) => {
+        __debug_line!();
+        __debug_impl!($x);
+        eprintln!();
+    };
+    ($x:ident, $($y:ident),+) => (
+        __debug_line!();
+        __debug_impl!($x);
+        __debug_impl!($($y),+);
+        eprintln!();
+    );
+    ($x:ident, $($y:expr),+) => (
+        __debug_line!();
+        __debug_impl!($x);
+        __debug_impl!($($y),+);
+        eprintln!();
+    );
+    ($x:expr, $($y:ident),+) => (
+        __debug_line!();
+        __debug_impl!($x);
+        __debug_impl!($($y),+);
+        eprintln!();
+    );
+    ($x:expr, $($y:expr),+) => (
+        __debug_line!();
+        __debug_impl!($x);
+        __debug_impl!($($y),+);
+        eprintln!();
+    );
+}
 macro_rules! debug {
     () => {
         if cfg!(debug_assertions) {
-            eprintln!();
+            __debug_select!();
         }
     };
-    ($x:expr) => {
+    ($($xs:expr),+) => {
         if cfg!(debug_assertions) {
-            __debug_line!();
-            __debug_impl!($x);
-            eprintln!();
+            __debug_select!($($xs),+);
         }
     };
-    ($x:ident) => {
-        if cfg!(debug_assertions) {
-            __debug_line!();
-            __debug_impl!($x);
-            eprintln!();
-        }
-    };
-    ($x:ident, $($y:ident),*) => (
-        if cfg!(debug_assertions) {
-            __debug_line!();
-            __debug_impl!($x);
-            __debug_impl!($($y),+);
-            eprintln!();
-        }
-    );
-    ($x:ident, $($y:expr),*) => (
-        if cfg!(debug_assertions) {
-            __debug_line!();
-            __debug_impl!($x);
-            __debug_impl!($($y),+);
-            eprintln!();
-        }
-    );
-    ($x:expr, $($y:ident),*) => (
-        if cfg!(debug_assertions) {
-            __debug_line!();
-            __debug_impl!($x);
-            __debug_impl!($($y),+);
-            eprintln!();
-        }
-    );
-    ($x:expr, $($y:expr),*) => (
-        if cfg!(debug_assertions) {
-            __debug_line!();
-            __debug_impl!($x);
-            __debug_impl!($($y),+);
-            eprintln!();
-        }
-    );
 }
 
 pub trait ChangeMinMax {
