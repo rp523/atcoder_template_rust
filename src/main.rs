@@ -6,24 +6,9 @@ use std::mem::swap;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, Sub, SubAssign};
 
 macro_rules! __debug_impl {
-    ($x:ident) => {
-        eprint!("{}={}  ", stringify!($x), &$x);
-    };
     ($x:expr) => {
         eprint!("{}={}  ", stringify!($x), &$x);
     };
-    ($x:ident, $($y:ident),+) => (
-        __debug_impl!($x);
-        __debug_impl!($($y),+);
-    );
-    ($x:ident, $($y:expr),+) => (
-        __debug_impl!($x);
-        __debug_impl!($($y),+);
-    );
-    ($x:expr, $($y:ident),+) => (
-        __debug_impl!($x);
-        __debug_impl!($($y),+);
-    );
     ($x:expr, $($y:expr),+) => (
         __debug_impl!($x);
         __debug_impl!($($y),+);
@@ -43,29 +28,6 @@ macro_rules! __debug_select {
         __debug_impl!($x);
         eprintln!();
     };
-    ($x:ident) => {
-        __debug_line!();
-        __debug_impl!($x);
-        eprintln!();
-    };
-    ($x:ident, $($y:ident),+) => (
-        __debug_line!();
-        __debug_impl!($x);
-        __debug_impl!($($y),+);
-        eprintln!();
-    );
-    ($x:ident, $($y:expr),+) => (
-        __debug_line!();
-        __debug_impl!($x);
-        __debug_impl!($($y),+);
-        eprintln!();
-    );
-    ($x:expr, $($y:ident),+) => (
-        __debug_line!();
-        __debug_impl!($x);
-        __debug_impl!($($y),+);
-        eprintln!();
-    );
     ($x:expr, $($y:expr),+) => (
         __debug_line!();
         __debug_impl!($x);
@@ -1534,14 +1496,7 @@ mod procon_reader {
         where
             <T as FromStr>::Err: Debug,
         {
-            let mut ret_vec: Vec<T> = vec![];
-            while ret_vec.len() < n {
-                if self.que.is_empty() {
-                    self.enqueue_blocks();
-                }
-                ret_vec.push(self.que.pop_front().unwrap().parse().unwrap());
-            }
-            ret_vec
+            (0..n).into_iter().map(|_| self.read::<T>()).collect::<Vec<T>>()
         }
         fn enqueue_blocks(&mut self) {
             let mut buf = String::new();
