@@ -814,15 +814,18 @@ mod xor_shift_64 {
         pub fn new() -> Self {
             XorShift64(88172645463325252_u64)
         }
+        pub fn next_f64(&mut self) -> f64 {
+            self.0 = self.0 ^ (self.0 << 7);
+            self.0 = self.0 ^ (self.0 >> 9);
+            self.0 as f64 * 5.421_010_862_427_522e-20
+        }
         pub fn next_u64(&mut self) -> u64 {
             self.0 = self.0 ^ (self.0 << 7);
             self.0 = self.0 ^ (self.0 >> 9);
             self.0
         }
-        pub fn next_f64(&mut self) -> f64 {
-            self.0 = self.0 ^ (self.0 << 7);
-            self.0 = self.0 ^ (self.0 >> 9);
-            self.0 as f64 * 5.421_010_862_427_522e-20
+        pub fn next_usize(&mut self) -> usize {
+            self.next_u64() as usize
         }
     }
 }
