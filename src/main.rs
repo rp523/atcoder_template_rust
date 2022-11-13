@@ -229,7 +229,7 @@ mod union_find {
 use union_find::UnionFind;
 
 mod segment_tree {
-    use std::ops::Add;
+    use std::ops::{Add, Sub};
     #[derive(Debug, Clone)]
     pub struct SegmentTree<T> {
         n2: usize,   // implemented leaf num (2^n)
@@ -237,7 +237,7 @@ mod segment_tree {
         dat: Vec<T>,
         pair_op: fn(T, T) -> T,
     }
-    impl<T: Copy + Add<Output = T>> SegmentTree<T> {
+    impl<T: Copy + Add<Output = T> + Sub<Output = T>> SegmentTree<T> {
         pub fn new(n: usize, pair_op: fn(T, T) -> T, ini_val: T) -> Self {
             let mut n2 = 1_usize;
             while n > n2 {
@@ -286,6 +286,9 @@ mod segment_tree {
         }
         pub fn add(&mut self, pos: usize, add_val: T) {
             self.set(pos, self.get(pos) + add_val);
+        }
+        pub fn sub(&mut self, pos: usize, sub_val: T) {
+            self.set(pos, self.get(pos) - sub_val);
         }
         // get query value of [a, b]
         pub fn query(&self, a: usize, b: usize) -> T {
@@ -1504,7 +1507,10 @@ mod procon_reader {
         where
             <T as FromStr>::Err: Debug,
         {
-            (0..n).into_iter().map(|_| self.read::<T>()).collect::<Vec<T>>()
+            (0..n)
+                .into_iter()
+                .map(|_| self.read::<T>())
+                .collect::<Vec<T>>()
         }
         fn enqueue_blocks(&mut self) {
             let mut buf = String::new();
@@ -1537,11 +1543,65 @@ mod add_header {
 }
 use add_header::AddHeader;
 
+mod auto_sort_vec {
+    use crate::segment_tree::SegmentTree;
+    pub struct AutoSortVec {
+        max_val: usize,
+        st: SegmentTree<usize>,
+    }
+    impl AutoSortVec {
+        pub fn new(max_val: usize) -> AutoSortVec {
+            AutoSortVec {
+                max_val,
+                st: SegmentTree::<usize>::new(max_val as usize + 1, |x, y| x + y, 0),
+            }
+        }
+        pub fn len(&self) -> usize {
+            self.st.query(0, self.max_val as usize)
+        }
+        pub fn push(&mut self, val: usize) {
+            self.st.add(val, 1);
+        }
+        pub fn remove_value(&mut self, val: usize) {
+            self.st.sub(val, 1);
+        }
+        pub fn value_to_index(&self, val: usize) -> usize {
+            if val == 0 {
+                0
+            } else {
+                self.st.query(0, val as usize - 1)
+            }
+        }
+        pub fn at(&self, idx: usize) -> usize {
+            let idx1 = idx + 1;
+            if self.st.get(0) >= idx1 {
+                0
+            } else if self.st.query(0, self.max_val as usize - 1) < idx1 {
+                self.max_val
+            } else {
+                let mut l = 0;
+                let mut r = self.max_val;
+                while r - l > 1 {
+                    let m = (r + l) / 2;
+                    let sm = self.st.query(0, m as usize);
+                    if sm < idx1 {
+                        l = m;
+                    } else {
+                        r = m;
+                    }
+                }
+                r
+            }
+        }
+    }
+}
+use auto_sort_vec::AutoSortVec;
+
 /*************************************************************************************
 *************************************************************************************/
 
 fn main() {
     let mut rdr = ProConReader::new();
 
-    
+
 }
