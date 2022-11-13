@@ -777,11 +777,12 @@ impl<
 }
 
 pub trait CoordinateCompress<T> {
-    fn comp_dictionary(&self) -> BTreeMap<T, usize>;
+    fn compress_encoder(&self) -> BTreeMap<T, usize>;
+    fn compress_decoder(&self) -> Vec<T>;
     fn compress(self) -> Vec<usize>;
 }
 impl<T: Copy + Ord> CoordinateCompress<T> for Vec<T> {
-    fn comp_dictionary(&self) -> BTreeMap<T, usize> {
+    fn compress_encoder(&self) -> BTreeMap<T, usize> {
         let mut dict = BTreeMap::<T, usize>::new();
         for x in self.iter() {
             let _ = dict.entry(*x).or_insert(0); //keys.insert(*x);
@@ -791,8 +792,15 @@ impl<T: Copy + Ord> CoordinateCompress<T> for Vec<T> {
         }
         dict
     }
+    fn compress_decoder(&self) -> Vec<T> {
+        let mut keys = BTreeSet::<T>::new();
+        for &x in self.iter() {
+            keys.insert(x);
+        }
+        keys.into_iter().collect::<Vec<T>>()
+    }
     fn compress(self) -> Vec<usize> {
-        let dict = self.comp_dictionary();
+        let dict = self.compress_encoder();
         self.into_iter().map(|x| dict[&x]).collect::<Vec<usize>>()
     }
 }
