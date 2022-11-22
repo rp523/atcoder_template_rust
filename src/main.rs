@@ -1194,6 +1194,30 @@ mod btree_multi_set {
 }
 use btree_multi_set::BTreeMultiSet;
 
+mod btree_map_counter {
+    use std::cmp::Ord;
+    use std::collections::BTreeMap;
+    pub trait BTreeMapCounter<T> {
+        fn incr(&mut self, key: &T);
+        fn decr(&mut self, key: &T);
+    }
+    impl<T: Ord + Copy> BTreeMapCounter<T> for BTreeMap<T, usize> {
+        fn incr(&mut self, key: &T) {
+            let v = self.entry(*key).or_insert(0);
+            *v += 1;
+        }
+        fn decr(&mut self, key: &T) {
+            let v = self.entry(*key).or_insert(0);
+            debug_assert!(*v > 0);
+            *v -= 1;
+            if *v == 0 {
+                self.remove(key);
+            }
+        }
+    }
+}
+use btree_map_counter::BTreeMapCounter;
+
 #[derive(Debug, Clone, Copy, Eq, Hash, PartialEq)]
 struct Line2d(i64, i64, i64);
 impl Line2d {
