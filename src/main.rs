@@ -1624,11 +1624,13 @@ mod auto_sort_vec {
 }
 use auto_sort_vec::AutoSortVec;
 
+fn main() {
+    let mut reader = ProConReader::new();
+    answer(&mut reader);
+}
 /*************************************************************************************
 *************************************************************************************/
 
-fn main() {
-    let mut rdr = ProConReader::new();
-
-
+fn answer(rd: &mut ProConReader) {
+    
 }
