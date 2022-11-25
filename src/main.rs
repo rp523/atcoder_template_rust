@@ -1624,6 +1624,89 @@ mod auto_sort_vec {
 }
 use auto_sort_vec::AutoSortVec;
 
+mod my_string {
+    #[derive(Clone)]
+    pub struct Str {
+        vc: Vec<char>,
+    }
+    impl Str {
+        pub fn new() -> Self {
+            Self { vc: vec![] }
+        }
+        pub fn from(s: &str) -> Self {
+            Self {
+                vc: s.to_string().chars().collect::<Vec<char>>(),
+            }
+        }
+        pub fn len(&self) -> usize {
+            self.vc.len()
+        }
+        pub fn clear(&mut self) {
+            self.vc.clear()
+        }
+        pub fn is_empty(&self) -> bool {
+            self.vc.is_empty()
+        }
+        pub fn first(&self) -> Option<&char> {
+            self.vc.first()
+        }
+        pub fn last(&self) -> Option<&char> {
+            self.vc.last()
+        }
+        pub fn push(&mut self, c: char) {
+            self.vc.push(c);
+        }
+        pub fn push_str(&mut self, s: &str) {
+            for c in s.to_string().chars().collect::<Vec<char>>().into_iter() {
+                self.push(c);
+            }
+        }
+        pub fn pop(&mut self) -> Option<char> {
+            self.vc.pop()
+        }
+        pub fn into_iter(self) -> std::vec::IntoIter<char> {
+            self.vc.into_iter()
+        }
+        pub fn iter(&self) -> std::slice::Iter<char> {
+            self.vc.iter()
+        }
+        pub fn iter_mut(&mut self) -> std::slice::IterMut<char> {
+            self.vc.iter_mut()
+        }
+        pub fn swap(&mut self, a: usize, b: usize) {
+            self.vc.swap(a, b);
+        }
+    }
+    impl std::str::FromStr for Str {
+        type Err = ();
+        fn from_str(s: &str) -> Result<Self, Self::Err> {
+            Ok(Str {
+                vc: s.to_string().chars().collect::<Vec<char>>(),
+            })
+        }
+    }
+    impl<Idx> std::ops::Index<Idx> for Str
+    where
+        Idx: std::slice::SliceIndex<[char]>,
+    {
+        type Output = Idx::Output;
+        fn index(&self, i: Idx) -> &Self::Output {
+            &self.vc[i]
+        }
+    }
+    impl std::fmt::Display for Str {
+        fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            write!(f, "{}", self.vc.iter().collect::<String>())
+        }
+    }
+    impl std::fmt::Debug for Str {
+        fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            write!(f, "{}", self.vc.iter().collect::<String>())
+        }
+    }
+}
+use my_string::Str;
+
 fn main() {
     let mut reader = ProConReader::new();
     answer(&mut reader);
@@ -1632,5 +1715,5 @@ fn main() {
 *************************************************************************************/
 
 fn answer(rd: &mut ProConReader) {
-    
+
 }
