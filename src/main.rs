@@ -1201,13 +1201,13 @@ mod btree_map_counter {
         fn incr(&mut self, key: &T);
         fn decr(&mut self, key: &T);
     }
-    impl<T: Ord + Copy> BTreeMapCounter<T> for BTreeMap<T, usize> {
+    impl<T: Ord + Clone> BTreeMapCounter<T> for BTreeMap<T, usize> {
         fn incr(&mut self, key: &T) {
-            let v = self.entry(*key).or_insert(0);
+            let v = self.entry(key.clone()).or_insert(0);
             *v += 1;
         }
         fn decr(&mut self, key: &T) {
-            let v = self.entry(*key).or_insert(0);
+            let v = self.entry(key.clone()).or_insert(0);
             debug_assert!(*v > 0);
             *v -= 1;
             if *v == 0 {
@@ -1625,7 +1625,7 @@ mod auto_sort_vec {
 use auto_sort_vec::AutoSortVec;
 
 mod my_string {
-    #[derive(Clone)]
+    #[derive(Clone, PartialEq, PartialOrd, Eq, Ord)]
     pub struct Str {
         vc: Vec<char>,
     }
