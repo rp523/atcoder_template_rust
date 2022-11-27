@@ -1198,18 +1198,26 @@ mod btree_map_counter {
     use std::cmp::Ord;
     use std::collections::BTreeMap;
     pub trait BTreeMapCounter<T> {
-        fn incr(&mut self, key: &T);
+        fn incr(&mut self, key: T);
+        fn incr_by(&mut self, key: T, delta: usize);
         fn decr(&mut self, key: &T);
+        fn decr_by(&mut self, key: &T, delta: usize);
     }
     impl<T: Ord + Clone> BTreeMapCounter<T> for BTreeMap<T, usize> {
-        fn incr(&mut self, key: &T) {
-            let v = self.entry(key.clone()).or_insert(0);
-            *v += 1;
+        fn incr(&mut self, key: T) {
+            self.incr_by(key, 1);
+        }
+        fn incr_by(&mut self, key: T, delta: usize) {
+            let v = self.entry(key).or_insert(0);
+            *v += delta;
         }
         fn decr(&mut self, key: &T) {
+            self.decr_by(key, 1);
+        }
+        fn decr_by(&mut self, key: &T, delta: usize) {
             let v = self.entry(key.clone()).or_insert(0);
-            debug_assert!(*v > 0);
-            *v -= 1;
+            debug_assert!(*v >= delta);
+            *v -= delta;
             if *v == 0 {
                 self.remove(key);
             }
@@ -1539,6 +1547,15 @@ mod procon_reader {
                 .map(|_| self.read::<T>())
                 .collect::<Vec<T>>()
         }
+        pub fn read_mat<T: FromStr>(&mut self, h: usize, w: usize) -> Vec<Vec<T>>
+        where
+            <T as FromStr>::Err: Debug,
+        {
+            (0..h)
+                .into_iter()
+                .map(|_| self.read_vec::<T>(w))
+                .collect::<Vec<Vec<T>>>()
+        }
         fn enqueue_blocks(&mut self) {
             let mut buf = String::new();
             let _ = self.stdin.read_line(&mut buf);
@@ -1676,6 +1693,16 @@ mod my_string {
         pub fn swap(&mut self, a: usize, b: usize) {
             self.vc.swap(a, b);
         }
+        pub fn find(&self, p: &Str) -> Option<usize> {
+            let s: String = self.vc.iter().collect::<String>();
+            let p: String = p.vc.iter().collect::<String>();
+            s.find(&p)
+        }
+        pub fn rfind(&self, p: &Str) -> Option<usize> {
+            let s: String = self.vc.iter().collect::<String>();
+            let p: String = p.vc.iter().collect::<String>();
+            s.rfind(&p)
+        }
     }
     impl std::str::FromStr for Str {
         type Err = ();
@@ -1715,5 +1742,5 @@ fn main() {
 *************************************************************************************/
 
 fn answer(rd: &mut ProConReader) {
-
+    
 }
