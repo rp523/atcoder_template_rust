@@ -48,28 +48,59 @@ macro_rules! debug {
     };
 }
 
-pub trait ChangeMinMax {
-    fn chmin(&mut self, rhs: Self) -> bool;
-    fn chmax(&mut self, rhs: Self) -> bool;
-}
-impl<T: PartialOrd + Copy> ChangeMinMax for T {
-    fn chmin(&mut self, rhs: Self) -> bool {
-        if *self > rhs {
-            *self = rhs;
-            true
-        } else {
-            false
+mod change_min_max {
+    pub trait ChangeMinMax<T> {
+        fn chmin(&mut self, rhs: T) -> bool;
+        fn chmax(&mut self, rhs: T) -> bool;
+    }
+    impl<T: PartialOrd + Copy> ChangeMinMax<T> for T {
+        fn chmin(&mut self, rhs: T) -> bool {
+            if *self > rhs {
+                *self = rhs;
+                true
+            } else {
+                false
+            }
+        }
+        fn chmax(&mut self, rhs: T) -> bool {
+            if *self < rhs {
+                *self = rhs;
+                true
+            } else {
+                false
+            }
         }
     }
-    fn chmax(&mut self, rhs: Self) -> bool {
-        if *self < rhs {
-            *self = rhs;
-            true
-        } else {
-            false
+    impl<T: PartialOrd + Copy> ChangeMinMax<T> for Option<T> {
+        fn chmin(&mut self, rhs: T) -> bool {
+            if let Some(val) = *self {
+                if val > rhs {
+                    *self = Some(rhs);
+                    true
+                } else {
+                    false
+                }
+            } else {
+                *self = Some(rhs);
+                true
+            }
+        }
+        fn chmax(&mut self, rhs: T) -> bool {
+            if let Some(val) = *self {
+                if val < rhs {
+                    *self = Some(rhs);
+                    true
+                } else {
+                    false
+                }
+            } else {
+                *self = Some(rhs);
+                true
+            }
         }
     }
 }
+use change_min_max::ChangeMinMax;
 
 fn gcd(a: i64, b: i64) -> i64 {
     if b == 0 {
