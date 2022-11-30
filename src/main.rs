@@ -1225,16 +1225,37 @@ mod btree_multi_set {
 }
 use btree_multi_set::BTreeMultiSet;
 
-mod btree_map_counter {
+mod map_counter {
     use std::cmp::Ord;
-    use std::collections::BTreeMap;
-    pub trait BTreeMapCounter<T> {
+    use std::collections::{BTreeMap, HashMap};
+    use std::hash::Hash;
+    pub trait MapCounter<T> {
         fn incr(&mut self, key: T);
         fn incr_by(&mut self, key: T, delta: usize);
         fn decr(&mut self, key: &T);
         fn decr_by(&mut self, key: &T, delta: usize);
     }
-    impl<T: Ord + Clone> BTreeMapCounter<T> for BTreeMap<T, usize> {
+    impl<T: Ord + Clone> MapCounter<T> for BTreeMap<T, usize> {
+        fn incr(&mut self, key: T) {
+            self.incr_by(key, 1);
+        }
+        fn incr_by(&mut self, key: T, delta: usize) {
+            let v = self.entry(key).or_insert(0);
+            *v += delta;
+        }
+        fn decr(&mut self, key: &T) {
+            self.decr_by(key, 1);
+        }
+        fn decr_by(&mut self, key: &T, delta: usize) {
+            let v = self.entry(key.clone()).or_insert(0);
+            debug_assert!(*v >= delta);
+            *v -= delta;
+            if *v == 0 {
+                self.remove(key);
+            }
+        }
+    }
+    impl<T: Ord + Clone + Hash> MapCounter<T> for HashMap<T, usize> {
         fn incr(&mut self, key: T) {
             self.incr_by(key, 1);
         }
@@ -1255,7 +1276,7 @@ mod btree_map_counter {
         }
     }
 }
-use btree_map_counter::BTreeMapCounter;
+use map_counter::MapCounter;
 
 #[derive(Debug, Clone, Copy, Eq, Hash, PartialEq)]
 struct Line2d(i64, i64, i64);
@@ -1673,7 +1694,7 @@ mod auto_sort_vec {
 use auto_sort_vec::AutoSortVec;
 
 mod my_string {
-    #[derive(Clone, PartialEq, PartialOrd, Eq, Ord)]
+    #[derive(Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
     pub struct Str {
         vc: Vec<char>,
     }
