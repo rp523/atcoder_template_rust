@@ -1734,6 +1734,9 @@ mod my_string {
             let p: String = p.vc.iter().collect::<String>();
             s.rfind(&p)
         }
+        pub fn into_values(self, base: char) -> Vec<usize> {
+            self.vc.into_iter().map(|c| (c as u8 - base as u8) as usize).collect::<Vec<usize>>()
+        }
     }
     impl std::str::FromStr for Str {
         type Err = ();
