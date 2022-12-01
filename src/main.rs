@@ -1756,7 +1756,10 @@ mod my_string {
             s.rfind(&p)
         }
         pub fn into_values(self, base: char) -> Vec<usize> {
-            self.vc.into_iter().map(|c| (c as u8 - base as u8) as usize).collect::<Vec<usize>>()
+            self.vc
+                .into_iter()
+                .map(|c| (c as u8 - base as u8) as usize)
+                .collect::<Vec<usize>>()
         }
     }
     impl std::str::FromStr for Str {
@@ -1774,6 +1777,36 @@ mod my_string {
         type Output = Idx::Output;
         fn index(&self, i: Idx) -> &Self::Output {
             &self.vc[i]
+        }
+    }
+    impl std::ops::Add<Str> for Str {
+        type Output = Str;
+        fn add(self, rhs: Self) -> Self::Output {
+            let mut ret = self.clone();
+            for c in rhs.into_iter() {
+                ret.vc.push(c);
+            }
+            ret
+        }
+    }
+    impl std::ops::AddAssign<Str> for Str {
+        fn add_assign(&mut self, rhs: Self) {
+            for c in rhs.into_iter() {
+                self.vc.push(c);
+            }
+        }
+    }
+    impl std::ops::Add<char> for Str {
+        type Output = Str;
+        fn add(self, rhs: char) -> Self::Output {
+            let mut ret = self.clone();
+            ret.vc.push(rhs);
+            ret
+        }
+    }
+    impl std::ops::AddAssign<char> for Str {
+        fn add_assign(&mut self, rhs: char) {
+            self.vc.push(rhs);
         }
     }
     impl std::fmt::Display for Str {
