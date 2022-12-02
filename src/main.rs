@@ -1817,6 +1817,19 @@ mod my_string {
 }
 use my_string::Str;
 
+mod count_ones {
+    pub trait CountOnes {
+        fn count_ones(&self) -> Self;
+    }
+    impl CountOnes for usize {
+        fn count_ones(&self) -> Self {
+            debug_assert!(*self <= std::u32::MAX as usize);
+            (*self as u32).count_ones() as Self // temporarily cast u32, because count_ones() for u64 is slow.
+        }
+    }
+}
+use count_ones::CountOnes;
+
 fn main() {
     let mut reader = ProConReader::new();
     answer(&mut reader);
