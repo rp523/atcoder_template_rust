@@ -766,16 +766,14 @@ impl<
             let mut i = two;
             while i * i <= n {
                 while n % i == zero {
-                    let v = ans.entry(i).or_insert(0_usize);
-                    *v += 1_usize;
+                    *ans.entry(i).or_insert(0_usize) += 1_usize;
                     n /= i;
                 }
                 i += one;
             }
         }
         if n != one {
-            let v = ans.entry(n).or_insert(0);
-            *v += 1_usize;
+            *ans.entry(n).or_insert(0) += 1_usize;
         }
         ans
     }
@@ -1132,8 +1130,7 @@ mod btree_multi_set {
             self.cnt_sum
         }
         pub fn insert(&mut self, key: T) {
-            let cnt = self.mp.entry(key).or_insert(0);
-            *cnt += 1;
+            *self.mp.entry(key).or_insert(0) += 1;
             self.cnt_sum += 1;
         }
         pub fn remove(&mut self, key: &T) -> bool {
@@ -1240,8 +1237,7 @@ mod map_counter {
             self.incr_by(key, 1);
         }
         fn incr_by(&mut self, key: T, delta: usize) {
-            let v = self.entry(key).or_insert(0);
-            *v += delta;
+            *self.entry(key).or_insert(0) += delta;
         }
         fn decr(&mut self, key: &T) {
             self.decr_by(key, 1);
@@ -1260,8 +1256,7 @@ mod map_counter {
             self.incr_by(key, 1);
         }
         fn incr_by(&mut self, key: T, delta: usize) {
-            let v = self.entry(key).or_insert(0);
-            *v += delta;
+            *self.entry(key).or_insert(0) += delta;
         }
         fn decr(&mut self, key: &T) {
             self.decr_by(key, 1);
@@ -1782,7 +1777,7 @@ mod my_string {
     impl std::ops::Add<Str> for Str {
         type Output = Str;
         fn add(self, rhs: Self) -> Self::Output {
-            let mut ret = self.clone();
+            let mut ret = self;
             for c in rhs.into_iter() {
                 ret.vc.push(c);
             }
@@ -1799,7 +1794,7 @@ mod my_string {
     impl std::ops::Add<char> for Str {
         type Output = Str;
         fn add(self, rhs: char) -> Self::Output {
-            let mut ret = self.clone();
+            let mut ret = self;
             ret.vc.push(rhs);
             ret
         }
