@@ -102,7 +102,7 @@ mod change_min_max {
 }
 use change_min_max::ChangeMinMax;
 
-fn gcd(a: i64, b: i64) -> i64 {
+fn gcd(a: usize, b: usize) -> usize {
     if b == 0 {
         a
     } else {
@@ -1281,7 +1281,10 @@ impl Line2d {
         let mut b = y1 - y0;
         let mut a = x1 - x0;
         let mut c = x1 * y0 - x0 * y1;
-        let r = gcd(a.abs(), gcd(b.abs(), c.abs()));
+        let r = gcd(
+            a.unsigned_abs() as usize,
+            gcd(b.unsigned_abs() as usize, c.unsigned_abs() as usize),
+        ) as i64;
         a /= r;
         b /= r;
         c /= r;
