@@ -1282,8 +1282,8 @@ impl Line2d {
         let mut a = x1 - x0;
         let mut c = x1 * y0 - x0 * y1;
         let r = gcd(
-            a.unsigned_abs() as usize,
-            gcd(b.unsigned_abs() as usize, c.unsigned_abs() as usize),
+            a.abs() as usize,
+            gcd(b.abs() as usize, c.abs() as usize),
         ) as i64;
         a /= r;
         b /= r;
