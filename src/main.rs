@@ -1743,6 +1743,9 @@ mod my_string {
         pub fn swap(&mut self, a: usize, b: usize) {
             self.vc.swap(a, b);
         }
+        pub fn reverse(&mut self) {
+            self.vc.reverse();
+        }
         pub fn find(&self, p: &Str) -> Option<usize> {
             let s: String = self.vc.iter().collect::<String>();
             let p: String = p.vc.iter().collect::<String>();
