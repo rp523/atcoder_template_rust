@@ -286,7 +286,7 @@ mod segment_tree {
             }
             s
         }
-        pub fn new_from(pair_op: fn(T, T) -> T, ini_values: &Vec<T>) -> Self {
+        pub fn from(pair_op: fn(T, T) -> T, ini_values: &Vec<T>) -> Self {
             let n = ini_values.len();
             let mut n2 = 1_usize;
             while n > n2 {
@@ -1281,10 +1281,7 @@ impl Line2d {
         let mut b = y1 - y0;
         let mut a = x1 - x0;
         let mut c = x1 * y0 - x0 * y1;
-        let r = gcd(
-            a.abs() as usize,
-            gcd(b.abs() as usize, c.abs() as usize),
-        ) as i64;
+        let r = gcd(a.abs() as usize, gcd(b.abs() as usize, c.abs() as usize)) as i64;
         a /= r;
         b /= r;
         c /= r;
@@ -1564,59 +1561,6 @@ impl<T: Copy + Ord + Clone, I: IntoIterator<Item = T>> IntoPermutations<T> for I
     }
 }
 
-mod procon_reader {
-    use std::collections::VecDeque;
-    use std::fmt::Debug;
-    use std::str::FromStr;
-    pub struct ProConReader {
-        que: VecDeque<String>,
-        stdin: std::io::Stdin,
-    }
-    impl ProConReader {
-        pub fn new() -> Self {
-            Self {
-                que: VecDeque::<String>::new(),
-                stdin: std::io::stdin(),
-            }
-        }
-        pub fn read<T: FromStr>(&mut self) -> T
-        where
-            <T as FromStr>::Err: Debug,
-        {
-            if self.que.is_empty() {
-                self.enqueue_blocks();
-            }
-            self.que.pop_front().unwrap().parse().unwrap()
-        }
-        pub fn read_vec<T: FromStr>(&mut self, n: usize) -> Vec<T>
-        where
-            <T as FromStr>::Err: Debug,
-        {
-            (0..n)
-                .into_iter()
-                .map(|_| self.read::<T>())
-                .collect::<Vec<T>>()
-        }
-        pub fn read_mat<T: FromStr>(&mut self, h: usize, w: usize) -> Vec<Vec<T>>
-        where
-            <T as FromStr>::Err: Debug,
-        {
-            (0..h)
-                .into_iter()
-                .map(|_| self.read_vec::<T>(w))
-                .collect::<Vec<Vec<T>>>()
-        }
-        fn enqueue_blocks(&mut self) {
-            let mut buf = String::new();
-            let _ = self.stdin.read_line(&mut buf);
-            for read_val in buf.split_whitespace() {
-                self.que.push_back(read_val.to_string());
-            }
-        }
-    }
-}
-use procon_reader::ProConReader;
-
 mod add_header {
     pub trait AddHeader<T> {
         fn add_header(&mut self, add_val: T);
@@ -1836,13 +1780,54 @@ mod count_ones {
 }
 use count_ones::CountOnes;
 
-fn main() {
-    let mut reader = ProConReader::new();
-    answer(&mut reader);
+mod procon_reader {
+    use std::fmt::Debug;
+    use std::io::Read;
+    use std::str::FromStr;
+    pub fn read<T: FromStr>() -> T
+    where
+        <T as FromStr>::Err: Debug,
+    {
+        let stdin = std::io::stdin();
+        let mut stdin_lock = stdin.lock();
+        let mut u8b: [u8; 1] = [0];
+        loop {
+            let mut buf: Vec<u8> = Vec::with_capacity(16);
+            loop {
+                let res = stdin_lock.read(&mut u8b);
+                if res.unwrap_or(0) == 0 || u8b[0] <= b' ' {
+                    break;
+                } else {
+                    buf.push(u8b[0]);
+                }
+            }
+            if !buf.is_empty() {
+                let ret = String::from_utf8(buf).unwrap();
+                return ret.parse().unwrap();
+            }
+        }
+    }
+
+    pub fn read_vec<T: std::str::FromStr>(n: usize) -> Vec<T>
+    where
+        <T as FromStr>::Err: Debug,
+    {
+        (0..n).into_iter().map(|_| read::<T>()).collect::<Vec<T>>()
+    }
+    pub fn read_mat<T: std::str::FromStr>(h: usize, w: usize) -> Vec<Vec<T>>
+    where
+        <T as FromStr>::Err: Debug,
+    {
+        (0..h)
+            .into_iter()
+            .map(|_| read_vec::<T>(w))
+            .collect::<Vec<Vec<T>>>()
+    }
 }
+use procon_reader::*;
 /*************************************************************************************
 *************************************************************************************/
 
-fn answer(rd: &mut ProConReader) {
+fn main() {
     
 }
