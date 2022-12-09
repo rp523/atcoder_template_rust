@@ -595,6 +595,11 @@ mod modint {
             *self = ModInt::new(self.x + rhs);
         }
     }
+    impl AddAssign<usize> for ModInt {
+        fn add_assign(&mut self, rhs: usize) {
+            *self = ModInt::new(self.x + rhs as i64);
+        }
+    }
     impl Add<ModInt> for ModInt {
         type Output = ModInt;
         fn add(self, rhs: Self) -> Self::Output {
@@ -607,10 +612,22 @@ mod modint {
             ModInt::new(self.x + rhs)
         }
     }
+    impl Add<usize> for ModInt {
+        type Output = ModInt;
+        fn add(self, rhs: usize) -> Self::Output {
+            ModInt::new(self.x + rhs as i64)
+        }
+    }
     impl Add<ModInt> for i64 {
         type Output = ModInt;
         fn add(self, rhs: ModInt) -> Self::Output {
             ModInt::new(self + rhs.get())
+        }
+    }
+    impl Add<ModInt> for usize {
+        type Output = ModInt;
+        fn add(self, rhs: ModInt) -> Self::Output {
+            ModInt::new(self as i64 + rhs.get())
         }
     }
     impl SubAssign<Self> for ModInt {
@@ -621,6 +638,11 @@ mod modint {
     impl SubAssign<i64> for ModInt {
         fn sub_assign(&mut self, rhs: i64) {
             *self = ModInt::new(self.x - rhs);
+        }
+    }
+    impl SubAssign<usize> for ModInt {
+        fn sub_assign(&mut self, rhs: usize) {
+            *self = ModInt::new(self.x - rhs as i64);
         }
     }
     impl Sub<ModInt> for ModInt {
@@ -635,10 +657,22 @@ mod modint {
             ModInt::new(self.x - rhs)
         }
     }
+    impl Sub<usize> for ModInt {
+        type Output = ModInt;
+        fn sub(self, rhs: usize) -> Self::Output {
+            ModInt::new(self.x - rhs as i64)
+        }
+    }
     impl Sub<ModInt> for i64 {
         type Output = ModInt;
         fn sub(self, rhs: ModInt) -> Self::Output {
             ModInt::new(self - rhs.get())
+        }
+    }
+    impl Sub<ModInt> for usize {
+        type Output = ModInt;
+        fn sub(self, rhs: ModInt) -> Self::Output {
+            ModInt::new(self as i64 - rhs.get())
         }
     }
     impl MulAssign<Self> for ModInt {
@@ -649,6 +683,11 @@ mod modint {
     impl MulAssign<i64> for ModInt {
         fn mul_assign(&mut self, rhs: i64) {
             *self = ModInt::new(self.x * rhs);
+        }
+    }
+    impl MulAssign<usize> for ModInt {
+        fn mul_assign(&mut self, rhs: usize) {
+            *self = ModInt::new(self.x * rhs as i64);
         }
     }
     impl Mul<ModInt> for ModInt {
@@ -663,10 +702,22 @@ mod modint {
             ModInt::new(self.x * rhs)
         }
     }
+    impl Mul<usize> for ModInt {
+        type Output = ModInt;
+        fn mul(self, rhs: usize) -> Self::Output {
+            ModInt::new(self.x * rhs as i64)
+        }
+    }
     impl Mul<ModInt> for i64 {
         type Output = ModInt;
         fn mul(self, rhs: ModInt) -> Self::Output {
             ModInt::new(self * rhs.get())
+        }
+    }
+    impl Mul<ModInt> for usize {
+        type Output = ModInt;
+        fn mul(self, rhs: ModInt) -> Self::Output {
+            ModInt::new(self as i64 * rhs.get())
         }
     }
     impl DivAssign<Self> for ModInt {
@@ -677,6 +728,11 @@ mod modint {
     impl DivAssign<i64> for ModInt {
         fn div_assign(&mut self, rhs: i64) {
             *self = *self / ModInt::new(rhs);
+        }
+    }
+    impl DivAssign<usize> for ModInt {
+        fn div_assign(&mut self, rhs: usize) {
+            *self = *self / ModInt::new(rhs as i64);
         }
     }
     impl Div<ModInt> for ModInt {
@@ -693,6 +749,13 @@ mod modint {
             ModInt::new(self.x * ModInt::new(rhs).inverse().get())
         }
     }
+    impl Div<usize> for ModInt {
+        type Output = ModInt;
+        fn div(self, rhs: usize) -> Self::Output {
+            #[allow(clippy::suspicious_arithmetic_impl)]
+            ModInt::new(self.x * ModInt::new(rhs as i64).inverse().get())
+        }
+    }
     impl Div<ModInt> for i64 {
         type Output = ModInt;
         fn div(self, rhs: ModInt) -> Self::Output {
@@ -700,9 +763,25 @@ mod modint {
             ModInt::new(self * rhs.inverse().get())
         }
     }
+    impl Div<ModInt> for usize {
+        type Output = ModInt;
+        fn div(self, rhs: ModInt) -> Self::Output {
+            #[allow(clippy::suspicious_arithmetic_impl)]
+            ModInt::new(self as i64 * rhs.inverse().get())
+        }
+    }
     impl From<usize> for ModInt {
         fn from(x: usize) -> Self {
             ModInt::new(x as i64)
+        }
+    }
+    impl std::iter::Sum for ModInt {
+        fn sum<I: Iterator<Item = ModInt>>(iter: I) -> Self {
+            let mut ret = ModInt::new(0);
+            for v in iter {
+                ret += v;
+            }
+            ret
         }
     }
     impl PartialEq<ModInt> for ModInt {
@@ -1807,12 +1886,17 @@ mod procon_reader {
             }
         }
     }
-
     pub fn read_vec<T: std::str::FromStr>(n: usize) -> Vec<T>
     where
         <T as FromStr>::Err: Debug,
     {
         (0..n).into_iter().map(|_| read::<T>()).collect::<Vec<T>>()
+    }
+    pub fn read_vec_sub1(n: usize) -> Vec<usize> {
+        (0..n)
+            .into_iter()
+            .map(|_| read::<usize>() - 1)
+            .collect::<Vec<usize>>()
     }
     pub fn read_mat<T: std::str::FromStr>(h: usize, w: usize) -> Vec<Vec<T>>
     where
