@@ -1516,12 +1516,12 @@ mod pair {
 }
 use pair::Pair;
 
-mod usize_move_to {
-    pub trait MoveTo<T> {
-        fn move_to(self, delta: T, lim_lo: usize, lim_hi: usize) -> Option<usize>;
+mod usize_move_delta {
+    pub trait MoveDelta<T> {
+        fn move_delta(self, delta: T, lim_lo: usize, lim_hi: usize) -> Option<usize>;
     }
-    impl<T: Copy + Into<i64>> MoveTo<T> for usize {
-        fn move_to(self, delta: T, lim_lo: usize, lim_hi: usize) -> Option<usize> {
+    impl<T: Copy + Into<i64>> MoveDelta<T> for usize {
+        fn move_delta(self, delta: T, lim_lo: usize, lim_hi: usize) -> Option<usize> {
             let delta: i64 = delta.into();
             let added: i64 = self as i64 + delta;
             let lim_lo: i64 = lim_lo as i64;
@@ -1534,7 +1534,7 @@ mod usize_move_to {
         }
     }
 }
-use usize_move_to::MoveTo;
+use usize_move_delta::MoveDelta;
 
 fn exit_by<T: std::fmt::Display>(msg: T) {
     println!("{}", msg);
