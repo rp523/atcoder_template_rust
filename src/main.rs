@@ -102,13 +102,16 @@ mod change_min_max {
 }
 use change_min_max::ChangeMinMax;
 
-fn gcd(a: usize, b: usize) -> usize {
-    if b == 0 {
-        a
-    } else {
-        gcd(b, a % b)
+mod gcd {
+    pub fn gcd(a: usize, b: usize) -> usize {
+        if b == 0 {
+            a
+        } else {
+            gcd(b, a % b)
+        }
     }
 }
+use gcd::*;
 
 pub trait RepeatedSquaring {
     fn power(self, p: usize) -> Self;
@@ -286,7 +289,7 @@ mod segment_tree {
             }
             s
         }
-        pub fn from(pair_op: fn(T, T) -> T, ini_values: &Vec<T>) -> Self {
+        pub fn from(pair_op: fn(T, T) -> T, ini_values: Vec<T>) -> Self {
             let n = ini_values.len();
             let mut n2 = 1_usize;
             while n > n2 {
@@ -1858,6 +1861,155 @@ mod count_ones {
     }
 }
 use count_ones::CountOnes;
+
+mod rational {
+    fn gcd(a: i64, b: i64) -> i64 {
+        if b == 0 {
+            a
+        } else {
+            gcd(b, a % b)
+        }
+    }
+    use std::cmp::Ordering;
+    use std::fmt;
+    use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+    #[derive(Clone, Copy)]
+    pub struct Rational {
+        num: i64,
+        denom: i64,
+    }
+    impl Rational {
+        pub fn new(mut num: i64, mut denom: i64) -> Self {
+            if num == 0 {
+                if denom == 0 {
+                    panic!("0/0 is indefinite.")
+                } else {
+                    Self { num: 0, denom: 1 }
+                }
+            } else if denom == 0 {
+                if num > 0 {
+                    Self { num: 1, denom: 0 }
+                } else {
+                    Self { num: -1, denom: 0 }
+                }
+            } else {
+                if num * denom < 0 {
+                    num = -num.abs();
+                    denom = denom.abs();
+                }
+                let g = gcd(num.abs(), denom.abs());
+                Self {
+                    num: num / g,
+                    denom: denom / g,
+                }
+            }
+        }
+    }
+    impl AddAssign<Self> for Rational {
+        fn add_assign(&mut self, rhs: Self) {
+            let d0 = self.denom.abs();
+            let d1 = rhs.denom.abs();
+            let denom = d0 * (d1 / gcd(d0, d1));
+            let n0 = self.num * (denom / d0);
+            let n1 = rhs.num * (denom / d1);
+            *self = Self::new(n0 + n1, denom);
+        }
+    }
+    impl Add<Self> for Rational {
+        type Output = Self;
+        fn add(self, rhs: Self) -> Self::Output {
+            let mut ret = self;
+            ret += rhs;
+            ret
+        }
+    }
+    impl SubAssign<Self> for Rational {
+        fn sub_assign(&mut self, rhs: Self) {
+            *self += Self::new(-rhs.num, rhs.denom);
+        }
+    }
+    impl Sub<Self> for Rational {
+        type Output = Self;
+        fn sub(self, rhs: Self) -> Self::Output {
+            let mut ret = self;
+            ret -= rhs;
+            ret
+        }
+    }
+    impl MulAssign<Self> for Rational {
+        fn mul_assign(&mut self, rhs: Self) {
+            *self = Self::new(self.num * rhs.num, self.denom * rhs.denom);
+        }
+    }
+    impl Mul<Self> for Rational {
+        type Output = Self;
+        fn mul(self, rhs: Self) -> Self::Output {
+            let mut ret = self;
+            ret *= rhs;
+            ret
+        }
+    }
+    impl DivAssign<Self> for Rational {
+        fn div_assign(&mut self, rhs: Self) {
+            *self = Self::new(self.num * rhs.denom, self.denom * rhs.num);
+        }
+    }
+    impl Div<Self> for Rational {
+        type Output = Self;
+        fn div(self, rhs: Self) -> Self::Output {
+            let mut ret = self;
+            ret /= rhs;
+            ret
+        }
+    }
+    impl Neg for Rational {
+        type Output = Self;
+        fn neg(self) -> Self::Output {
+            Self::new(-self.num, self.denom)
+        }
+    }
+    impl PartialEq for Rational {
+        fn eq(&self, other: &Self) -> bool {
+            (self.num == other.num) && (self.denom == other.denom)
+        }
+    }
+    impl Eq for Rational {}
+    impl PartialOrd for Rational {
+        fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+            if self.denom == 0 {
+                if other.denom == 0 {
+                    // both is infinite.
+                    i64::partial_cmp(&self.num, &other.num)
+                } else {
+                    // self is infinite, other is finite.
+                    i64::partial_cmp(&self.num, &0)
+                }
+            } else if other.denom == 0 {
+                // self is finite, other is infinite.
+                i64::partial_cmp(&0, &other.num)
+            } else {
+                // both is finite.
+                i64::partial_cmp(&(self.num * other.denom), &(self.denom * other.num))
+            }
+        }
+    }
+    impl Ord for Rational {
+        fn cmp(&self, other: &Self) -> Ordering {
+            Self::partial_cmp(self, other).unwrap()
+        }
+    }
+    impl fmt::Display for Rational {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "{}", self.num as f64 / self.denom as f64)
+        }
+    }
+    impl fmt::Debug for Rational {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "{}", self.num as f64 / self.denom as f64)
+        }
+    }
+}
+use rational::Rational;
 
 mod procon_reader {
     use std::fmt::Debug;
