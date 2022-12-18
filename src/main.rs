@@ -113,26 +113,6 @@ mod gcd {
 }
 use gcd::*;
 
-pub trait RepeatedSquaring {
-    fn power(self, p: usize) -> Self;
-}
-impl<T: MulAssign + Div<Output = T> + Copy> RepeatedSquaring for T {
-    fn power(self, mut p: usize) -> Self {
-        #[allow(clippy::eq_op)]
-        let one = (self / self) as Self;
-        let mut ret: Self = one;
-        let mut mul: Self = self;
-        while p > 0 {
-            if p & 1 != 0 {
-                ret *= mul;
-            }
-            p >>= 1;
-            mul *= mul;
-        }
-        ret
-    }
-}
-
 fn factorial_impl<
     T: Clone + Copy + From<usize> + Into<usize> + Mul<Output = T> + Div<Output = T>,
 >(
@@ -576,7 +556,7 @@ mod modint {
             // [Fermat's little theorem]
             // if p is prime, for any integer a, a^(p-1) = 1.
             let mut ret = Self { x: 1 };
-            let mut mul: Self = Self { x: self.get() };
+            let mut mul: Self = *self;
             let mut p = Self::get_prime() - 2;
             while p > 0 {
                 if p & 1 != 0 {
@@ -584,6 +564,20 @@ mod modint {
                 }
                 p >>= 1;
                 mul *= mul;
+            }
+            ret
+        }
+        pub fn power(self, mut p: usize) -> Self {
+            #[allow(clippy::eq_op)]
+            let one = Self { x: 1 };
+            let mut ret: Self = one;
+            let mut mul: Self = self;
+            while p > 0 {
+                if p & 1 != 0 {
+                    ret = ret * mul;
+                }
+                p >>= 1;
+                mul = mul * mul;
             }
             ret
         }
@@ -819,6 +813,7 @@ pub trait IntegerOperation {
     where
         Self: Sized;
     fn squared_length(&self, rhs: Self) -> Self;
+    fn power(self, p: usize) -> Self;
 }
 impl<
         T: Copy
@@ -832,6 +827,20 @@ impl<
             + Rem<Output = T>,
     > IntegerOperation for T
 {
+    fn power(self, mut p: usize) -> Self {
+        #[allow(clippy::eq_op)]
+        let one = (self / self) as Self;
+        let mut ret: Self = one;
+        let mut mul: Self = self;
+        while p > 0 {
+            if p & 1 != 0 {
+                ret = ret * mul;
+            }
+            p >>= 1;
+            mul = mul * mul;
+        }
+        ret
+    }
     fn into_primes(self) -> BTreeMap<T, usize> // O(N^0.5 x logN)
     {
         #[allow(clippy::eq_op)]
