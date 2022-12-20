@@ -48,6 +48,50 @@ macro_rules! debug {
     };
 }
 
+pub trait Identity {
+    fn identity() -> Self;
+}
+impl Identity for i32 {
+    fn identity() -> Self {
+        1_i32
+    }
+}
+impl Identity for u32 {
+    fn identity() -> Self {
+        1_u32
+    }
+}
+impl Identity for i64 {
+    fn identity() -> Self {
+        1_i64
+    }
+}
+impl Identity for u64 {
+    fn identity() -> Self {
+        1_u64
+    }
+}
+impl Identity for i128 {
+    fn identity() -> Self {
+        1_i128
+    }
+}
+impl Identity for u128 {
+    fn identity() -> Self {
+        1_u128
+    }
+}
+impl Identity for f64 {
+    fn identity() -> Self {
+        1_f64
+    }
+}
+impl Identity for usize {
+    fn identity() -> Self {
+        1_usize
+    }
+}
+
 mod change_min_max {
     pub trait ChangeMinMax<T> {
         fn chmin(&mut self, rhs: T) -> bool;
@@ -539,6 +583,7 @@ use lazy_segment_tree::LazySegmentTree;
 
 mod modint {
     use crate::power_with_identity::power_with_identity;
+    use crate::Identity;
     use std::fmt;
     use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, Sub, SubAssign};
     static mut MOD: i64 = 2;
@@ -588,6 +633,11 @@ mod modint {
         }
         pub fn power(self, p: usize) -> Self {
             power_with_identity(Self { x: 1 }, self, p)
+        }
+    }
+    impl Identity for ModInt {
+        fn identity() -> Self {
+            Self { x: 1 }
         }
     }
     impl AddAssign<Self> for ModInt {
@@ -836,6 +886,7 @@ impl<
     > IntegerOperation for T
 {
     fn power(self, p: usize) -> Self {
+        #[allow(clippy::eq_op)]
         power_with_identity(self / self, self, p)
     }
     fn into_primes(self) -> BTreeMap<T, usize> // O(N^0.5 x logN)
@@ -2075,8 +2126,9 @@ use procon_reader::*;
 *************************************************************************************/
 
 mod matrix {
+    use crate::{power_with_identity, Identity};
     use std::iter::Sum;
-    use std::ops::{Index, IndexMut, Mul, MulAssign};
+    use std::ops::{Index, IndexMut, Mul, MulAssign, Sub};
     use std::slice::SliceIndex;
     #[derive(Clone)]
     pub struct Matrix<T> {
@@ -2084,7 +2136,7 @@ mod matrix {
         w: usize,
         vals: Vec<Vec<Option<T>>>,
     }
-    impl<T: Clone + Copy> Matrix<T> {
+    impl<T: Clone + Copy + Identity + Sub<Output = T>> Matrix<T> {
         pub fn new(h: usize, w: usize) -> Self {
             Self {
                 h,
@@ -2092,18 +2144,19 @@ mod matrix {
                 vals: vec![vec![None; w]; h],
             }
         }
-        /*
         pub fn identity(h: usize, w: usize) -> Self {
             debug_assert!(h == w);
+            let v1 = T::identity();
+            #[allow(clippy::eq_op)]
+            let v0 = v1 - v1;
             let mut vals = vec![vec![None; w]; h];
-            for y in 0..h {
-                for x in 0..w {
-                    vals[y][x] = Some(if y==x {1}else{0})
+            for (y, line) in vals.iter_mut().enumerate() {
+                for (x, val) in line.iter_mut().enumerate() {
+                    *val = Some(if y == x { v1 } else { v0 });
                 }
             }
-            Self { h, w, vals}
+            Self { h, w, vals }
         }
-        */
         pub fn set(&mut self, y: usize, x: usize, val: T) {
             self[y][x] = Some(val);
         }
@@ -2122,11 +2175,13 @@ mod matrix {
             &mut self.vals[index]
         }
     }
-    impl<T: Clone + Copy + Mul + Sum<<T as Mul>::Output>> Mul<Matrix<T>> for Matrix<T> {
+    impl<T: Clone + Copy + Identity + Sub<Output = T> + Mul + Sum<<T as Mul>::Output>>
+        Mul<Matrix<T>> for Matrix<T>
+    {
         type Output = Matrix<T>;
         fn mul(self, rhs: Matrix<T>) -> Self::Output {
             debug_assert!(self.w == rhs.h);
-            let mut ret = Matrix::<T>::new(self.h, rhs.w);
+            let mut ret = Self::new(self.h, rhs.w);
             for y in 0..ret.h {
                 for x in 0..ret.w {
                     ret[y][x] = Some(
@@ -2139,12 +2194,14 @@ mod matrix {
             ret
         }
     }
-    impl<T: Clone + Copy + Mul + Sum<<T as Mul>::Output>> MulAssign<Matrix<T>> for Matrix<T> {
+    impl<T: Clone + Copy + Identity + Sub<Output = T> + Mul + Sum<<T as Mul>::Output>>
+        MulAssign<Matrix<T>> for Matrix<T>
+    {
         fn mul_assign(&mut self, rhs: Matrix<T>) {
             *self = self.clone() * rhs;
         }
     }
 }
 fn main() {
-    
+
 }
