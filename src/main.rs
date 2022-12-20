@@ -113,6 +113,24 @@ mod gcd {
 }
 use gcd::*;
 
+mod power_with_identity {
+    use std::ops::Mul;
+    pub fn power_with_identity<T: Copy + Mul<Output = T>>(identity: T, base: T, mut p: usize) -> T {
+        #[allow(clippy::eq_op)]
+        let mut ret = identity;
+        let mut mul = base;
+        while p > 0 {
+            if p & 1 != 0 {
+                ret = ret * mul;
+            }
+            p >>= 1;
+            mul = mul * mul;
+        }
+        ret
+    }
+}
+use power_with_identity::power_with_identity;
+
 fn factorial_impl<
     T: Clone + Copy + From<usize> + Into<usize> + Mul<Output = T> + Div<Output = T>,
 >(
@@ -520,6 +538,7 @@ mod lazy_segment_tree {
 use lazy_segment_tree::LazySegmentTree;
 
 mod modint {
+    use crate::power_with_identity::power_with_identity;
     use std::fmt;
     use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, Sub, SubAssign};
     static mut MOD: i64 = 2;
@@ -567,19 +586,8 @@ mod modint {
             }
             ret
         }
-        pub fn power(self, mut p: usize) -> Self {
-            #[allow(clippy::eq_op)]
-            let one = Self { x: 1 };
-            let mut ret: Self = one;
-            let mut mul: Self = self;
-            while p > 0 {
-                if p & 1 != 0 {
-                    ret = ret * mul;
-                }
-                p >>= 1;
-                mul = mul * mul;
-            }
-            ret
+        pub fn power(self, p: usize) -> Self {
+            power_with_identity(Self { x: 1 }, self, p)
         }
     }
     impl AddAssign<Self> for ModInt {
@@ -827,19 +835,8 @@ impl<
             + Rem<Output = T>,
     > IntegerOperation for T
 {
-    fn power(self, mut p: usize) -> Self {
-        #[allow(clippy::eq_op)]
-        let one = (self / self) as Self;
-        let mut ret: Self = one;
-        let mut mul: Self = self;
-        while p > 0 {
-            if p & 1 != 0 {
-                ret = ret * mul;
-            }
-            p >>= 1;
-            mul = mul * mul;
-        }
-        ret
+    fn power(self, p: usize) -> Self {
+        power_with_identity(self / self, self, p)
     }
     fn into_primes(self) -> BTreeMap<T, usize> // O(N^0.5 x logN)
     {
@@ -1682,11 +1679,11 @@ mod auto_sort_vec {
         pub fn new(max_val: usize) -> AutoSortVec {
             AutoSortVec {
                 max_val,
-                st: SegmentTree::<usize>::new(max_val as usize + 1, |x, y| x + y, 0),
+                st: SegmentTree::<usize>::new(max_val + 1, |x, y| x + y, 0),
             }
         }
         pub fn len(&self) -> usize {
-            self.st.query(0, self.max_val as usize)
+            self.st.query(0, self.max_val)
         }
         pub fn push(&mut self, val: usize) {
             self.st.add(val, 1);
@@ -1698,21 +1695,21 @@ mod auto_sort_vec {
             if val == 0 {
                 0
             } else {
-                self.st.query(0, val as usize - 1)
+                self.st.query(0, val - 1)
             }
         }
         pub fn at(&self, idx: usize) -> usize {
             let idx1 = idx + 1;
             if self.st.get(0) >= idx1 {
                 0
-            } else if self.st.query(0, self.max_val as usize - 1) < idx1 {
+            } else if self.st.query(0, self.max_val - 1) < idx1 {
                 self.max_val
             } else {
                 let mut l = 0;
                 let mut r = self.max_val;
                 while r - l > 1 {
                     let m = (r + l) / 2;
-                    let sm = self.st.query(0, m as usize);
+                    let sm = self.st.query(0, m);
                     if sm < idx1 {
                         l = m;
                     } else {
@@ -1727,6 +1724,8 @@ mod auto_sort_vec {
 use auto_sort_vec::AutoSortVec;
 
 mod my_string {
+    use std::ops::{Index, IndexMut};
+    use std::slice::SliceIndex;
     #[derive(Clone, PartialEq, PartialOrd, Eq, Ord, Hash)]
     pub struct Str {
         vc: Vec<char>,
@@ -1806,13 +1805,15 @@ mod my_string {
             })
         }
     }
-    impl<Idx> std::ops::Index<Idx> for Str
-    where
-        Idx: std::slice::SliceIndex<[char]>,
-    {
+    impl<Idx: SliceIndex<[char]>> Index<Idx> for Str {
         type Output = Idx::Output;
         fn index(&self, i: Idx) -> &Self::Output {
             &self.vc[i]
+        }
+    }
+    impl<Idx: SliceIndex<[char]>> IndexMut<Idx> for Str {
+        fn index_mut(&mut self, index: Idx) -> &mut Self::Output {
+            &mut self.vc[index]
         }
     }
     impl std::ops::Add<Str> for Str {
@@ -2073,6 +2074,77 @@ use procon_reader::*;
 /*************************************************************************************
 *************************************************************************************/
 
+mod matrix {
+    use std::iter::Sum;
+    use std::ops::{Index, IndexMut, Mul, MulAssign};
+    use std::slice::SliceIndex;
+    #[derive(Clone)]
+    pub struct Matrix<T> {
+        h: usize,
+        w: usize,
+        vals: Vec<Vec<Option<T>>>,
+    }
+    impl<T: Clone + Copy> Matrix<T> {
+        pub fn new(h: usize, w: usize) -> Self {
+            Self {
+                h,
+                w,
+                vals: vec![vec![None; w]; h],
+            }
+        }
+        /*
+        pub fn identity(h: usize, w: usize) -> Self {
+            debug_assert!(h == w);
+            let mut vals = vec![vec![None; w]; h];
+            for y in 0..h {
+                for x in 0..w {
+                    vals[y][x] = Some(if y==x {1}else{0})
+                }
+            }
+            Self { h, w, vals}
+        }
+        */
+        pub fn set(&mut self, y: usize, x: usize, val: T) {
+            self[y][x] = Some(val);
+        }
+        pub fn get(&self, y: usize, x: usize) -> T {
+            self[y][x].unwrap()
+        }
+    }
+    impl<T, Idx: SliceIndex<[Vec<Option<T>>]>> Index<Idx> for Matrix<T> {
+        type Output = Idx::Output;
+        fn index(&self, i: Idx) -> &Self::Output {
+            &self.vals[i]
+        }
+    }
+    impl<T, Idx: SliceIndex<[Vec<Option<T>>]>> IndexMut<Idx> for Matrix<T> {
+        fn index_mut(&mut self, index: Idx) -> &mut Self::Output {
+            &mut self.vals[index]
+        }
+    }
+    impl<T: Clone + Copy + Mul + Sum<<T as Mul>::Output>> Mul<Matrix<T>> for Matrix<T> {
+        type Output = Matrix<T>;
+        fn mul(self, rhs: Matrix<T>) -> Self::Output {
+            debug_assert!(self.w == rhs.h);
+            let mut ret = Matrix::<T>::new(self.h, rhs.w);
+            for y in 0..ret.h {
+                for x in 0..ret.w {
+                    ret[y][x] = Some(
+                        (0..self.w)
+                            .map(|i| self[y][i].unwrap() * rhs[i][x].unwrap())
+                            .sum::<T>(),
+                    )
+                }
+            }
+            ret
+        }
+    }
+    impl<T: Clone + Copy + Mul + Sum<<T as Mul>::Output>> MulAssign<Matrix<T>> for Matrix<T> {
+        fn mul_assign(&mut self, rhs: Matrix<T>) {
+            *self = self.clone() * rhs;
+        }
+    }
+}
 fn main() {
     
 }
