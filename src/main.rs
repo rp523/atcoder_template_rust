@@ -1934,10 +1934,10 @@ mod rational {
     use std::cmp::Ordering;
     use std::fmt;
     use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
-    #[derive(Clone, Copy)]
+    #[derive(Clone, Copy, Hash)]
     pub struct Rational {
-        num: i64,
-        denom: i64,
+        pub num: i64,
+        pub denom: i64,
     }
     impl Rational {
         pub fn new(mut num: i64, mut denom: i64) -> Self {
@@ -1957,8 +1957,12 @@ mod rational {
                 if num * denom < 0 {
                     num = -num.abs();
                     denom = denom.abs();
+                } else {
+                    num = num.abs();
+                    denom = denom.abs();
                 }
                 let g = gcd(num.abs(), denom.abs());
+                debug_assert!(denom >= 0);
                 Self {
                     num: num / g,
                     denom: denom / g,
@@ -2012,7 +2016,7 @@ mod rational {
     }
     impl DivAssign<Self> for Rational {
         fn div_assign(&mut self, rhs: Self) {
-            *self = Self::new(self.num * rhs.denom, self.denom * rhs.num);
+            *self = Self::new(self.num * rhs.denom, rhs.num * self.denom);
         }
     }
     impl Div<Self> for Rational {
@@ -2203,5 +2207,5 @@ mod matrix {
     }
 }
 fn main() {
-
+    
 }
