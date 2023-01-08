@@ -173,6 +173,7 @@ mod power_with_identity {
         ret
     }
 }
+use num::rational::Ratio;
 use power_with_identity::power_with_identity;
 
 fn factorial_impl<
@@ -2110,13 +2111,13 @@ mod rational {
     use std::cmp::Ordering;
     use std::fmt;
     use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
-    #[derive(Clone, Copy, Hash)]
+    #[derive(Clone, Copy, PartialEq, Eq, Hash)]
     pub struct Rational {
         pub num: i64,
         pub denom: i64,
     }
     impl Rational {
-        pub fn new(mut num: i64, mut denom: i64) -> Self {
+        pub fn new(num: i64, denom: i64) -> Self {
             if num == 0 {
                 if denom == 0 {
                     panic!("0/0 is indefinite.")
@@ -2124,19 +2125,15 @@ mod rational {
                     Self { num: 0, denom: 1 }
                 }
             } else if denom == 0 {
-                if num > 0 {
-                    Self { num: 1, denom: 0 }
-                } else {
-                    Self { num: -1, denom: 0 }
-                }
+                Self { num: 1, denom: 0 }
             } else {
-                if num * denom < 0 {
-                    num = -num.abs();
-                    denom = denom.abs();
-                } else {
-                    num = num.abs();
-                    denom = denom.abs();
-                }
+                let (num, denom) = {
+                    if denom < 0 {
+                        (-num, -denom)
+                    } else {
+                        (num, denom)
+                    }
+                };
                 let g = gcd(num.abs(), denom.abs());
                 debug_assert!(denom >= 0);
                 Self {
@@ -2209,29 +2206,9 @@ mod rational {
             Self::new(-self.num, self.denom)
         }
     }
-    impl PartialEq for Rational {
-        fn eq(&self, other: &Self) -> bool {
-            (self.num == other.num) && (self.denom == other.denom)
-        }
-    }
-    impl Eq for Rational {}
     impl PartialOrd for Rational {
         fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-            if self.denom == 0 {
-                if other.denom == 0 {
-                    // both is infinite.
-                    i64::partial_cmp(&self.num, &other.num)
-                } else {
-                    // self is infinite, other is finite.
-                    i64::partial_cmp(&self.num, &0)
-                }
-            } else if other.denom == 0 {
-                // self is finite, other is infinite.
-                i64::partial_cmp(&0, &other.num)
-            } else {
-                // both is finite.
-                i64::partial_cmp(&(self.num * other.denom), &(self.denom * other.num))
-            }
+            i64::partial_cmp(&(self.num * other.denom), &(self.denom * other.num))
         }
     }
     impl Ord for Rational {
