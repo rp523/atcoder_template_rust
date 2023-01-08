@@ -2294,6 +2294,34 @@ mod matrix {
     }
 }
 
+mod rolling_hash {
+    const MOD: usize = 1000000007;
+    pub struct RollingHash {
+        cum_hashes: Vec<usize>,
+        base: usize,
+        base_powers: Vec<usize>,
+        base_powers_inv: Vec<usize>,
+    }
+    pub struct RollingHashValue<'a> {
+        org: &'a RollingHash,
+        i0: usize,
+        i1: usize,
+    }
+    impl RollingHash {
+        fn new(values: &Vec<usize>, base: usize)// -> RollingHash {
+            {
+            let n = values.len();
+
+            let mut base_powers = vec![1; n];
+            for p in 1..n {
+                base_powers[p] = (base_powers[p - 1] * base) % MOD;
+            }
+
+            let mut cum_hashes = vec![0; n];
+
+        }
+    }
+}
 fn main() {
     
 }
