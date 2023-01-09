@@ -2270,6 +2270,87 @@ fn z_algo(s: &Str) -> Vec<usize> {
     ret
 }
 
+mod matrix {
+    use crate::{power_with_identity, Identity};
+    use std::iter::Sum;
+    use std::ops::{Index, IndexMut, Mul, MulAssign, Sub};
+    use std::slice::SliceIndex;
+    #[derive(Clone)]
+    pub struct Matrix<T> {
+        h: usize,
+        w: usize,
+        vals: Vec<Vec<Option<T>>>,
+    }
+    impl<T: Clone + Copy + Identity + Sub<Output = T>> Matrix<T> {
+        pub fn new(h: usize, w: usize) -> Self {
+            Self {
+                h,
+                w,
+                vals: vec![vec![None; w]; h],
+            }
+        }
+        pub fn identity(h: usize, w: usize) -> Self {
+            debug_assert!(h == w);
+            let v1 = T::identity();
+            #[allow(clippy::eq_op)]
+            let v0 = v1 - v1;
+            let mut vals = vec![vec![None; w]; h];
+            for (y, line) in vals.iter_mut().enumerate() {
+                for (x, val) in line.iter_mut().enumerate() {
+                    *val = Some(if y == x { v1 } else { v0 });
+                }
+            }
+            Self { h, w, vals }
+        }
+        pub fn set(&mut self, y: usize, x: usize, val: T) {
+            self[y][x] = Some(val);
+        }
+        pub fn get(&self, y: usize, x: usize) -> T {
+            self[y][x].unwrap()
+        }
+        pub fn power(&self, _p: usize) -> Self {
+            todo!();
+        }
+    }
+    impl<T, Idx: SliceIndex<[Vec<Option<T>>]>> Index<Idx> for Matrix<T> {
+        type Output = Idx::Output;
+        fn index(&self, i: Idx) -> &Self::Output {
+            &self.vals[i]
+        }
+    }
+    impl<T, Idx: SliceIndex<[Vec<Option<T>>]>> IndexMut<Idx> for Matrix<T> {
+        fn index_mut(&mut self, index: Idx) -> &mut Self::Output {
+            &mut self.vals[index]
+        }
+    }
+    impl<T: Clone + Copy + Identity + Sub<Output = T> + Mul + Sum<<T as Mul>::Output>>
+        Mul<Matrix<T>> for Matrix<T>
+    {
+        type Output = Matrix<T>;
+        fn mul(self, rhs: Matrix<T>) -> Self::Output {
+            debug_assert!(self.w == rhs.h);
+            let mut ret = Self::new(self.h, rhs.w);
+            for y in 0..ret.h {
+                for x in 0..ret.w {
+                    ret[y][x] = Some(
+                        (0..self.w)
+                            .map(|i| self[y][i].unwrap() * rhs[i][x].unwrap())
+                            .sum::<T>(),
+                    )
+                }
+            }
+            ret
+        }
+    }
+    impl<T: Clone + Copy + Identity + Sub<Output = T> + Mul + Sum<<T as Mul>::Output>>
+        MulAssign<Matrix<T>> for Matrix<T>
+    {
+        fn mul_assign(&mut self, rhs: Matrix<T>) {
+            *self = self.clone() * rhs;
+        }
+    }
+}
+
 mod procon_reader {
     use std::fmt::Debug;
     use std::io::Read;
@@ -2322,84 +2403,6 @@ mod procon_reader {
 use procon_reader::*;
 /*************************************************************************************
 *************************************************************************************/
-
-mod matrix {
-    use crate::{power_with_identity, Identity};
-    use std::iter::Sum;
-    use std::ops::{Index, IndexMut, Mul, MulAssign, Sub};
-    use std::slice::SliceIndex;
-    #[derive(Clone)]
-    pub struct Matrix<T> {
-        h: usize,
-        w: usize,
-        vals: Vec<Vec<Option<T>>>,
-    }
-    impl<T: Clone + Copy + Identity + Sub<Output = T>> Matrix<T> {
-        pub fn new(h: usize, w: usize) -> Self {
-            Self {
-                h,
-                w,
-                vals: vec![vec![None; w]; h],
-            }
-        }
-        pub fn identity(h: usize, w: usize) -> Self {
-            debug_assert!(h == w);
-            let v1 = T::identity();
-            #[allow(clippy::eq_op)]
-            let v0 = v1 - v1;
-            let mut vals = vec![vec![None; w]; h];
-            for (y, line) in vals.iter_mut().enumerate() {
-                for (x, val) in line.iter_mut().enumerate() {
-                    *val = Some(if y == x { v1 } else { v0 });
-                }
-            }
-            Self { h, w, vals }
-        }
-        pub fn set(&mut self, y: usize, x: usize, val: T) {
-            self[y][x] = Some(val);
-        }
-        pub fn get(&self, y: usize, x: usize) -> T {
-            self[y][x].unwrap()
-        }
-    }
-    impl<T, Idx: SliceIndex<[Vec<Option<T>>]>> Index<Idx> for Matrix<T> {
-        type Output = Idx::Output;
-        fn index(&self, i: Idx) -> &Self::Output {
-            &self.vals[i]
-        }
-    }
-    impl<T, Idx: SliceIndex<[Vec<Option<T>>]>> IndexMut<Idx> for Matrix<T> {
-        fn index_mut(&mut self, index: Idx) -> &mut Self::Output {
-            &mut self.vals[index]
-        }
-    }
-    impl<T: Clone + Copy + Identity + Sub<Output = T> + Mul + Sum<<T as Mul>::Output>>
-        Mul<Matrix<T>> for Matrix<T>
-    {
-        type Output = Matrix<T>;
-        fn mul(self, rhs: Matrix<T>) -> Self::Output {
-            debug_assert!(self.w == rhs.h);
-            let mut ret = Self::new(self.h, rhs.w);
-            for y in 0..ret.h {
-                for x in 0..ret.w {
-                    ret[y][x] = Some(
-                        (0..self.w)
-                            .map(|i| self[y][i].unwrap() * rhs[i][x].unwrap())
-                            .sum::<T>(),
-                    )
-                }
-            }
-            ret
-        }
-    }
-    impl<T: Clone + Copy + Identity + Sub<Output = T> + Mul + Sum<<T as Mul>::Output>>
-        MulAssign<Matrix<T>> for Matrix<T>
-    {
-        fn mul_assign(&mut self, rhs: Matrix<T>) {
-            *self = self.clone() * rhs;
-        }
-    }
-}
 
 fn main() {
     
