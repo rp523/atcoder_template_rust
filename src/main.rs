@@ -173,7 +173,6 @@ mod power_with_identity {
         ret
     }
 }
-use num::rational::Ratio;
 use power_with_identity::power_with_identity;
 
 fn factorial_impl<
@@ -2361,5 +2360,5 @@ mod matrix {
 }
 
 fn main() {
-    
+
 }
