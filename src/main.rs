@@ -147,15 +147,19 @@ mod change_min_max {
 use change_min_max::ChangeMinMax;
 
 mod gcd {
-    pub fn gcd(a: usize, b: usize) -> usize {
-        if b == 0 {
+    use std::cmp::PartialEq;
+    use std::ops::{Rem, Sub};
+    pub fn gcd<T: Copy + Sub<Output = T> + Rem<Output = T> + PartialEq>(a: T, b: T) -> T {
+        #[allow(clippy::eq_op)]
+        let zero = a - a;
+        if b == zero {
             a
         } else {
             gcd(b, a % b)
         }
     }
 }
-use gcd::*;
+use gcd::gcd;
 
 mod power_with_identity {
     use std::ops::Mul;
@@ -1507,7 +1511,7 @@ impl Line2d {
         let mut b = y1 - y0;
         let mut a = x1 - x0;
         let mut c = x1 * y0 - x0 * y1;
-        let r = gcd(a.abs() as usize, gcd(b.abs() as usize, c.abs() as usize)) as i64;
+        let r = gcd(a.abs(), gcd(b.abs(), c.abs()));
         a /= r;
         b /= r;
         c /= r;
@@ -1934,6 +1938,9 @@ mod my_string {
                 .map(|c| (c as u8 - base as u8) as usize)
                 .collect::<Vec<usize>>()
         }
+        pub fn sort(&mut self) {
+            self.vc.sort();
+        }
     }
     impl std::str::FromStr for Str {
         type Err = ();
@@ -2100,13 +2107,7 @@ mod rolling_hash {
 use rolling_hash::*;
 
 mod rational {
-    fn gcd(a: i64, b: i64) -> i64 {
-        if b == 0 {
-            a
-        } else {
-            gcd(b, a % b)
-        }
-    }
+    use crate::gcd::gcd;
     use std::cmp::Ordering;
     use std::fmt;
     use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
