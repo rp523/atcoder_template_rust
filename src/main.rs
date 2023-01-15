@@ -413,6 +413,7 @@ mod segment_tree {
 use segment_tree::SegmentTree;
 
 mod lazy_segment_tree {
+    #[derive(Clone)]
     pub struct LazySegmentTree<X, M> {
         // https://algo-logic.info/segment-tree/#toc_id_3
         n2: usize,                    // num of node(integer power of 2)
@@ -592,7 +593,7 @@ mod modint {
     use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, Sub, SubAssign};
     static mut MOD: i64 = 2;
 
-    #[derive(Clone, Copy)]
+    #[derive(Clone, Copy, Eq, Hash, PartialEq)]
     pub struct ModInt {
         x: i64,
     }
@@ -606,15 +607,14 @@ mod modint {
             unsafe { MOD }
         }
         pub fn new<T: Into<i64>>(sig: T) -> Self {
-            let sig: i64 = sig.into();
+            let mut sig: i64 = sig.into();
             if sig < 0 {
-                Self {
-                    x: sig % Self::get_prime() + Self::get_prime(),
-                }
-            } else {
-                Self {
-                    x: sig % Self::get_prime(),
-                }
+                let ab = (-sig + Self::get_prime() - 1) / Self::get_prime();
+                sig += ab * Self::get_prime();
+                debug_assert!(sig >= 0);
+            }
+            Self {
+                x: sig % Self::get_prime(),
             }
         }
         pub fn get(&self) -> i64 {
@@ -911,11 +911,6 @@ mod modint {
                 ret += v;
             }
             ret
-        }
-    }
-    impl PartialEq<ModInt> for ModInt {
-        fn eq(&self, other: &ModInt) -> bool {
-            self.get() == other.get()
         }
     }
     #[allow(clippy::from_over_into)]
@@ -1481,7 +1476,7 @@ mod map_counter {
             }
         }
     }
-    impl<T: Ord + Clone + Hash> MapCounter<T> for HashMap<T, usize> {
+    impl<T: Clone + Hash + Eq> MapCounter<T> for HashMap<T, usize> {
         fn incr(&mut self, key: T) {
             self.incr_by(key, 1);
         }
