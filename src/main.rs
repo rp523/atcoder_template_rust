@@ -148,7 +148,7 @@ use change_min_max::ChangeMinMax;
 
 mod gcd {
     use std::cmp::PartialEq;
-    use std::ops::{Rem, Sub};
+    use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Rem, Sub, SubAssign};
     pub fn gcd<T: Copy + Sub<Output = T> + Rem<Output = T> + PartialEq>(a: T, b: T) -> T {
         #[allow(clippy::eq_op)]
         let zero = a - a;
@@ -158,8 +158,69 @@ mod gcd {
             gcd(b, a % b)
         }
     }
+    // returns (p, q) s. t. ap + bq = gcd(a, b)
+    pub fn ext_gcd<
+        T: Eq
+            + Copy
+            + Sub<Output = T>
+            + SubAssign
+            + Mul<Output = T>
+            + Div<Output = T>
+            + Rem<Output = T>,
+    >(
+        a: T,
+        b: T,
+    ) -> (T, T) {
+        #[allow(clippy::eq_op)]
+        let zero = a - a;
+        #[allow(clippy::eq_op)]
+        let one = a / a;
+        if b == zero {
+            return (one, zero);
+        }
+        let (mut q, p) = ext_gcd(b, a % b);
+        q -= a / b * p;
+        (p, q)
+    }
+    // Chinese Remainder Theorem
+    // when exists, returns (r, m) s. t. x ≡ r (mod  m)
+    // otherwise returns (0, -1).
+    fn chinese_rem<
+        T: Eq
+            + Copy
+            + Neg<Output = T>
+            + Add<Output = T>
+            + AddAssign
+            + Sub<Output = T>
+            + SubAssign
+            + Mul<Output = T>
+            + MulAssign
+            + Div<Output = T>
+            + Rem<Output = T>,
+    >(
+        rems: &[T],
+        mods: &[T],
+    ) -> (T, T) {
+        #[allow(clippy::eq_op)]
+        let zero = mods[0] - mods[0];
+        #[allow(clippy::eq_op)]
+        let one = mods[0] / mods[0];
+        let mut r = zero;
+        let mut lcm = one;
+        for (&md, &rm) in mods.iter().zip(rems.iter()) {
+            let (p, q) = ext_gcd(lcm, md); // p is inv of M/d (mod. m[i]/d)
+            let d = gcd::<T>(p, q);
+            if (rm - r) % d != zero {
+                return (zero, -one);
+            }
+            let tmp = (rm - r) / d * p % (md / d);
+            r += lcm * tmp;
+            lcm *= md / d;
+        }
+        ((r + lcm) % lcm, lcm)
+    }
 }
-use gcd::gcd;
+use gcd::*;
 
 mod power_with_identity {
     use std::ops::Mul;
@@ -955,10 +1016,6 @@ pub trait IntegerOperation {
         Self: Sized;
     fn squared_length(&self, rhs: Self) -> Self;
     fn power(self, p: usize) -> Self;
-    fn ext_gcd(a: Self, b: Self, p: &mut Self, q: &mut Self) -> Self;
-    fn chinese_rem(b: &[Self], m: &[Self]) -> (Self, Self)
-    where
-        Self: Sized;
 }
 impl<
         T: Copy
@@ -1034,44 +1091,6 @@ impl<
     }
     fn squared_length(&self, rhs: Self) -> Self {
         *self * *self + rhs * rhs
-    }
-    fn ext_gcd(a: Self, b: Self, p: &mut Self, q: &mut Self) -> Self {
-        #[allow(clippy::eq_op)]
-        let zero = a - a;
-        #[allow(clippy::eq_op)]
-        let one = a / a;
-        if b == zero {
-            *p = one;
-            *q = zero;
-            return a;
-        }
-        let d = Self::ext_gcd(b, a % b, q, p);
-        *q -= a / b * *p;
-        d
-    }
-
-    // 中国剰余定理
-    // リターン値を (r, m) とすると解は x ≡ r (mod. m)
-    // 解なしの場合は (0, -1) をリターン
-    fn chinese_rem(rems: &[Self], mods: &[Self]) -> (Self, Self) {
-        #[allow(clippy::eq_op)]
-        let zero = mods[0] - mods[0];
-        #[allow(clippy::eq_op)]
-        let one = mods[0] / mods[0];
-        let mut r = zero;
-        let mut m = one;
-        for i in 0..rems.len() {
-            let mut p = zero;
-            let mut q = zero;
-            let d = Self::ext_gcd(m, mods[i], &mut p, &mut q); // p is inv of M/d (mod. m[i]/d)
-            if (rems[i] - r) % d != zero {
-                return (zero, -one);
-            }
-            let tmp = (rems[i] - r) / d * p % (mods[i] / d);
-            r += m * tmp;
-            m *= mods[i] / d;
-        }
-        ((r + m) % m, m)
     }
 }
 
