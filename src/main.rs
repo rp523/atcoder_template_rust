@@ -3,7 +3,7 @@ use std::any::TypeId;
 use std::cmp::{max, min, Reverse};
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, VecDeque};
 use std::mem::swap;
-use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, Sub, SubAssign};
+use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Rem, Sub, SubAssign};
 
 macro_rules! __debug_impl {
     ($x:expr) => {
@@ -955,11 +955,18 @@ pub trait IntegerOperation {
         Self: Sized;
     fn squared_length(&self, rhs: Self) -> Self;
     fn power(self, p: usize) -> Self;
+    fn ext_gcd(a: Self, b: Self, p: &mut Self, q: &mut Self) -> Self;
+    fn chinese_rem(b: &[Self], m: &[Self]) -> (Self, Self)
+    where
+        Self: Sized;
 }
 impl<
         T: Copy
             + Ord
+            + Neg<Output = T>
             + AddAssign
+            + SubAssign
+            + MulAssign
             + DivAssign
             + Add<Output = T>
             + Sub<Output = T>
@@ -1027,6 +1034,44 @@ impl<
     }
     fn squared_length(&self, rhs: Self) -> Self {
         *self * *self + rhs * rhs
+    }
+    fn ext_gcd(a: Self, b: Self, p: &mut Self, q: &mut Self) -> Self {
+        #[allow(clippy::eq_op)]
+        let zero = a - a;
+        #[allow(clippy::eq_op)]
+        let one = a / a;
+        if b == zero {
+            *p = one;
+            *q = zero;
+            return a;
+        }
+        let d = Self::ext_gcd(b, a % b, q, p);
+        *q -= a / b * *p;
+        d
+    }
+
+    // 中国剰余定理
+    // リターン値を (r, m) とすると解は x ≡ r (mod. m)
+    // 解なしの場合は (0, -1) をリターン
+    fn chinese_rem(rems: &[Self], mods: &[Self]) -> (Self, Self) {
+        #[allow(clippy::eq_op)]
+        let zero = mods[0] - mods[0];
+        #[allow(clippy::eq_op)]
+        let one = mods[0] / mods[0];
+        let mut r = zero;
+        let mut m = one;
+        for i in 0..rems.len() {
+            let mut p = zero;
+            let mut q = zero;
+            let d = Self::ext_gcd(m, mods[i], &mut p, &mut q); // p is inv of M/d (mod. m[i]/d)
+            if (rems[i] - r) % d != zero {
+                return (zero, -one);
+            }
+            let tmp = (rems[i] - r) / d * p % (mods[i] / d);
+            r += m * tmp;
+            m *= mods[i] / d;
+        }
+        ((r + m) % m, m)
     }
 }
 
