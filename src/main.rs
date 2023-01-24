@@ -147,8 +147,8 @@ mod change_min_max {
 use change_min_max::ChangeMinMax;
 
 mod gcd {
-    use std::cmp::PartialEq;
-    use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Rem, Sub, SubAssign};
+    use std::cmp::{PartialEq, PartialOrd};
+    use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Rem, RemAssign, Sub, SubAssign};
     pub fn gcd<T: Copy + Sub<Output = T> + Rem<Output = T> + PartialEq>(a: T, b: T) -> T {
         #[allow(clippy::eq_op)]
         let zero = a - a;
@@ -183,41 +183,80 @@ mod gcd {
         (p, q)
     }
     // Chinese Remainder Theorem
-    // when exists, returns (r, m) s. t. x ≡ r (mod  m)
-    // otherwise returns (0, -1).
-    fn chinese_rem<
+    // when exists, returns (lcm(m1, m2), x) s.t. x = r1 (mod  m1) and x = r2 (mod m2)
+    fn chinese_rem_elem2<
         T: Eq
             + Copy
             + Neg<Output = T>
+            + PartialOrd
             + Add<Output = T>
             + AddAssign
             + Sub<Output = T>
             + SubAssign
             + Mul<Output = T>
-            + MulAssign
             + Div<Output = T>
-            + Rem<Output = T>,
+            + Rem<Output = T>
+            + RemAssign,
     >(
-        rems: &[T],
+        m1: T,
+        r1: T,
+        m2: T,
+        r2: T,
+    ) -> Option<(T, T)> {
+        #[allow(clippy::eq_op)]
+        let zero = m1 - m1;
+        #[allow(clippy::eq_op)]
+        let one = m1 / m1;
+        let (p, q) = ext_gcd(m1, m2);
+        let g = gcd(m1, m2);
+        if (r2 - r1) % g != zero {
+            None
+        } else {
+            let lcm = m1 * (m2 / g);
+            let mut r = r1 + m1 * ((r2 - r1) / g) * p;
+            if r < zero {
+                let dv = (-r + lcm - one) / lcm;
+                r += dv * lcm;
+            }
+            r %= lcm;
+            Some((lcm, r))
+        }
+    }
+    // Chinese Remainder Theorem
+    // when exists, returns (lcm(mods), x) s.t. x = r_i (mod  m_i) for all i.
+    pub fn chinese_rem<
+        T: Eq
+            + Copy
+            + Neg<Output = T>
+            + PartialOrd
+            + Add<Output = T>
+            + AddAssign
+            + Sub<Output = T>
+            + SubAssign
+            + Mul<Output = T>
+            + Div<Output = T>
+            + Rem<Output = T>
+            + RemAssign,
+    >(
         mods: &[T],
-    ) -> (T, T) {
+        rems: &[T],
+    ) -> Option<(T, T)> {
+        debug_assert!(mods.len() == rems.len());
         #[allow(clippy::eq_op)]
         let zero = mods[0] - mods[0];
         #[allow(clippy::eq_op)]
         let one = mods[0] / mods[0];
-        let mut r = zero;
         let mut lcm = one;
-        for (&md, &rm) in mods.iter().zip(rems.iter()) {
-            let (p, q) = ext_gcd(lcm, md); // p is inv of M/d (mod. m[i]/d)
-            let d = gcd::<T>(p, q);
-            if (rm - r) % d != zero {
-                return (zero, -one);
+        let mut rem = zero;
+        for (m, r) in mods.iter().copied().zip(rems.iter().copied()) {
+            if let Some((nlcm, nrem)) = chinese_rem_elem2(lcm, rem, m, r) {
+                lcm = nlcm;
+                rem = nrem;
+            } else {
+                return None;
             }
-            let tmp = (rm - r) / d * p % (md / d);
-            r += lcm * tmp;
-            lcm *= md / d;
         }
-        ((r + lcm) % lcm, lcm)
+        Some((lcm, rem))
     }
 }
 use gcd::*;
@@ -2487,5 +2526,5 @@ use procon_reader::*;
 *************************************************************************************/
 
 fn main() {
-    
+
 }
