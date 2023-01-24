@@ -2414,7 +2414,6 @@ fn convex_hull<
     #[allow(clippy::eq_op)]
     let zero = points[0].0 - points[0].0;
     let mut points = points.to_vec();
-    let n = points.len();
     points.sort_by(|x, y| x.partial_cmp(y).unwrap());
     let mut ret = vec![];
     for &p in points.iter() {
@@ -2427,8 +2426,7 @@ fn convex_hull<
         ret.push(p);
     }
     let t = ret.len();
-    for i in (0..(n - 1)).rev() {
-        let p = points[i];
+    for p in points.into_iter().rev().skip(1) {
         while ret.len() > t {
             if outer_product(ret[ret.len() - 1], ret[ret.len() - 2], p) < zero {
                 break;
@@ -2575,5 +2573,5 @@ use procon_reader::*;
 *************************************************************************************/
 
 fn main() {
-
+    
 }
