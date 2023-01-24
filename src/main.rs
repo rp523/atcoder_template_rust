@@ -207,7 +207,7 @@ mod gcd {
         let zero = m1 - m1;
         #[allow(clippy::eq_op)]
         let one = m1 / m1;
-        let (p, q) = ext_gcd(m1, m2);
+        let (p, _q) = ext_gcd(m1, m2);
         let g = gcd(m1, m2);
         if (r2 - r1) % g != zero {
             None
@@ -2387,6 +2387,55 @@ fn z_algo(s: &Str) -> Vec<usize> {
             }
         }
         last_match = Some((i, i + match_delta));
+    }
+    ret
+}
+
+fn convex_hull<
+    T: Copy
+        + PartialOrd<T>
+        + Add<Output = T>
+        + Sub<Output = T>
+        + Div<Output = T>
+        + Add<Output = T>
+        + Sub<Output = T>
+        + Mul<Output = T>,
+>(
+    points: &[(T, T)],
+) -> Vec<(T, T)> {
+    fn outer_product<T: Copy + Add<Output = T> + Sub<Output = T> + Mul<Output = T>>(
+        origin: (T, T),
+        end0: (T, T),
+        end1: (T, T),
+    ) -> T {
+        (end0.0 - origin.0) * (end1.1 - origin.1) - (end0.1 - origin.1) * (end1.0 - origin.0)
+    }
+
+    #[allow(clippy::eq_op)]
+    let zero = points[0].0 - points[0].0;
+    let mut points = points.to_vec();
+    let n = points.len();
+    points.sort_by(|x, y| x.partial_cmp(y).unwrap());
+    let mut ret = vec![];
+    for &p in points.iter() {
+        while ret.len() >= 2 {
+            if outer_product(ret[ret.len() - 1], ret[ret.len() - 2], p) < zero {
+                break;
+            }
+            ret.pop();
+        }
+        ret.push(p);
+    }
+    let t = ret.len();
+    for i in (0..(n - 1)).rev() {
+        let p = points[i];
+        while ret.len() > t {
+            if outer_product(ret[ret.len() - 1], ret[ret.len() - 2], p) < zero {
+                break;
+            }
+            ret.pop();
+        }
+        ret.push(p);
     }
     ret
 }
