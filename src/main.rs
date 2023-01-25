@@ -172,15 +172,19 @@ mod gcd {
         b: T,
     ) -> (T, T) {
         #[allow(clippy::eq_op)]
-        let zero = a - a;
+        let zero = b - b;
         #[allow(clippy::eq_op)]
-        let one = a / a;
-        if b == zero {
-            return (one, zero);
+        let one = b / b;
+        if a == zero {
+            return (zero, one);
         }
-        let (mut q, p) = ext_gcd(b, a % b);
-        q -= a / b * p;
-        (p, q)
+        // (b % a) * x + a * y = gcd(a, b)
+        // b % a = b - (b / a) * a
+        // ->
+        // (b - (b / a) * a) * x + a * y = gcd(a, b)
+        // a * (y - (b / a) * x) + b * x = gcd(a, b)
+        let (x, y) = ext_gcd(b % a, a);
+        (y - b / a * x, x)
     }
     // Chinese Remainder Theorem
     // when exists, returns (lcm(m1, m2), x) s.t. x = r1 (mod  m1) and x = r2 (mod m2)
@@ -691,6 +695,7 @@ mod modint {
     use crate::Identity;
     use std::fmt;
     use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, Sub, SubAssign};
+    use crate::gcd::ext_gcd;
     static mut MOD: i64 = 2;
 
     #[derive(Clone, Copy, Eq, Hash, PartialEq)]
@@ -718,19 +723,23 @@ mod modint {
             }
         }
         fn inverse(&self) -> Self {
+
+            // x * inv_x + M * _ = 1 (mod M)
+            Self::new(ext_gcd(self.x, Self::get_prime()).0)
+            
             // [Fermat's little theorem]
             // if p is prime, for any integer a, a^(p-1) = 1.
-            let mut ret = Self { x: 1 };
-            let mut mul: Self = *self;
-            let mut p = Self::get_prime() - 2;
-            while p > 0 {
-                if p & 1 != 0 {
-                    ret *= mul;
-                }
-                p >>= 1;
-                mul *= mul;
-            }
-            ret
+            //let mut ret = Self { x: 1 };
+            //let mut mul: Self = *self;
+            //let mut p = Self::get_prime() - 2;
+            //while p > 0 {
+            //    if p & 1 != 0 {
+            //        ret *= mul;
+            //    }
+            //    p >>= 1;
+            //    mul *= mul;
+            //}
+            //ret
         }
         pub fn power(self, p: usize) -> Self {
             power_with_identity(Self { x: 1 }, self, p)
@@ -2573,5 +2582,5 @@ use procon_reader::*;
 *************************************************************************************/
 
 fn main() {
-    
+
 }
