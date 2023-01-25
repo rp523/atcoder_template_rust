@@ -728,7 +728,10 @@ mod modint {
             Self::new(ext_gcd(self.x, Self::get_prime()).0)
             
             // [Fermat's little theorem]
-            // if p is prime, for any integer a, a^(p-1) = 1.
+            // if p is prime, for any integer a, a^p = a (mod p)
+            // especially when a and b is coprime, a^(p-1) = 1 (mod p).
+            // -> inverse of a is a^(p-2).
+
             //let mut ret = Self { x: 1 };
             //let mut mul: Self = *self;
             //let mut p = Self::get_prime() - 2;
