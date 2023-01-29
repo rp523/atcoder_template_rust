@@ -2151,7 +2151,7 @@ use my_string::Str;
 
 mod rolling_hash {
     use u64 as htype;
-    const MOD: htype = 1e9 as htype + 7;
+    const MOD: htype = 10000000000000061;
     pub struct RollingHash {
         cum_hashes: Vec<htype>,
         base: usize,
