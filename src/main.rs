@@ -691,11 +691,11 @@ mod lazy_segment_tree {
 use lazy_segment_tree::LazySegmentTree;
 
 mod modint {
+    use crate::gcd::ext_gcd;
     use crate::power_with_identity::power_with_identity;
     use crate::Identity;
     use std::fmt;
     use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, Sub, SubAssign};
-    use crate::gcd::ext_gcd;
     static mut MOD: i64 = 2;
 
     #[derive(Clone, Copy, Eq, Hash, PartialEq)]
@@ -723,10 +723,9 @@ mod modint {
             }
         }
         fn inverse(&self) -> Self {
-
             // x * inv_x + M * _ = 1 (mod M)
             Self::new(ext_gcd(self.x, Self::get_prime()).0)
-            
+
             // [Fermat's little theorem]
             // if p is prime, for any integer a, a^p = a (mod p)
             // especially when a and b is coprime, a^(p-1) = 1 (mod p).
@@ -2459,14 +2458,17 @@ mod matrix {
     pub struct Matrix<T> {
         h: usize,
         w: usize,
-        vals: Vec<Vec<Option<T>>>,
+        vals: Vec<Vec<T>>,
     }
-    impl<T: Clone + Copy + Identity + Sub<Output = T>> Matrix<T> {
+    impl<T: Clone + Copy + Identity + Sub<Output = T> + Mul + Sum<<T as Mul>::Output>> Matrix<T> {
         pub fn new(h: usize, w: usize) -> Self {
+            let v1 = T::identity();
+            #[allow(clippy::eq_op)]
+            let v0 = v1 - v1;
             Self {
                 h,
                 w,
-                vals: vec![vec![None; w]; h],
+                vals: vec![vec![v0; w]; h],
             }
         }
         pub fn identity(h: usize, w: usize) -> Self {
@@ -2474,31 +2476,40 @@ mod matrix {
             let v1 = T::identity();
             #[allow(clippy::eq_op)]
             let v0 = v1 - v1;
-            let mut vals = vec![vec![None; w]; h];
+            let mut vals = vec![vec![v0; w]; h];
             for (y, line) in vals.iter_mut().enumerate() {
                 for (x, val) in line.iter_mut().enumerate() {
-                    *val = Some(if y == x { v1 } else { v0 });
+                    *val = if y == x { v1 } else { v0 };
                 }
             }
             Self { h, w, vals }
         }
         pub fn set(&mut self, y: usize, x: usize, val: T) {
-            self[y][x] = Some(val);
+            self[y][x] = val;
         }
         pub fn get(&self, y: usize, x: usize) -> T {
-            self[y][x].unwrap()
+            self[y][x]
         }
-        pub fn power(&self, _p: usize) -> Self {
-            todo!();
+        pub fn power(&self, mut p: usize) -> Self {
+            let mut ret = Self::identity(self.h, self.w);
+            let mut mul = self.clone();
+            while p > 0 {
+                if p & 1 != 0 {
+                    ret = ret.clone() * mul.clone();
+                }
+                p >>= 1;
+                mul = mul.clone() * mul.clone();
+            }
+            ret
         }
     }
-    impl<T, Idx: SliceIndex<[Vec<Option<T>>]>> Index<Idx> for Matrix<T> {
+    impl<T, Idx: SliceIndex<[Vec<T>]>> Index<Idx> for Matrix<T> {
         type Output = Idx::Output;
         fn index(&self, i: Idx) -> &Self::Output {
             &self.vals[i]
         }
     }
-    impl<T, Idx: SliceIndex<[Vec<Option<T>>]>> IndexMut<Idx> for Matrix<T> {
+    impl<T, Idx: SliceIndex<[Vec<T>]>> IndexMut<Idx> for Matrix<T> {
         fn index_mut(&mut self, index: Idx) -> &mut Self::Output {
             &mut self.vals[index]
         }
@@ -2512,11 +2523,7 @@ mod matrix {
             let mut ret = Self::new(self.h, rhs.w);
             for y in 0..ret.h {
                 for x in 0..ret.w {
-                    ret[y][x] = Some(
-                        (0..self.w)
-                            .map(|i| self[y][i].unwrap() * rhs[i][x].unwrap())
-                            .sum::<T>(),
-                    )
+                    ret[y][x] = (0..self.w).map(|i| self[y][i] * rhs[i][x]).sum::<T>();
                 }
             }
             ret
@@ -2585,5 +2592,5 @@ use procon_reader::*;
 *************************************************************************************/
 
 fn main() {
-
+    
 }
