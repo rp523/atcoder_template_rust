@@ -2529,6 +2529,22 @@ mod matrix {
             ret
         }
     }
+    impl<T: Clone + Copy + Identity + Sub<Output = T> + Mul + Sum<<T as Mul>::Output>> Mul<Vec<T>>
+        for Matrix<T>
+    {
+        type Output = Vec<T>;
+        fn mul(self, rhs: Vec<T>) -> Self::Output {
+            debug_assert!(self.w == rhs.len());
+            let v1 = T::identity();
+            #[allow(clippy::eq_op)]
+            let v0 = v1 - v1;
+            let mut ret = vec![v0; self.h];
+            for y in 0..self.h {
+                ret[y] = (0..self.w).map(|x| self[y][x] * rhs[x]).sum::<T>();
+            }
+            ret
+        }
+    }
     impl<T: Clone + Copy + Identity + Sub<Output = T> + Mul + Sum<<T as Mul>::Output>>
         MulAssign<Matrix<T>> for Matrix<T>
     {
