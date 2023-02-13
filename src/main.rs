@@ -2554,6 +2554,57 @@ mod matrix {
     }
 }
 
+mod suffix_array {
+    use crate::my_string;
+    use crate::CoordinateCompress;
+    use std::cmp::{min, Ord, Ordering};
+    fn compare_sa(rank: &[i64], i: usize, j: usize, k: usize, n: usize) -> Ordering {
+        if rank[i] != rank[j] {
+            rank[i].cmp(&rank[j])
+        } else {
+            let ri = if i + k <= n { rank[i + k] } else { 0 };
+            let rj = if j + k <= n { rank[j + k] } else { 0 };
+            ri.cmp(&rj)
+        }
+    }
+    fn construct_sa(s: &[usize]) -> Vec<usize> {
+        let n = s.len();
+        let mut sa = vec![0usize; n + 1];
+        let mut rank = vec![0i64; n + 1];
+        for i in 0..=n {
+            sa[i] = i;
+            rank[i] = if i < n { s[i] as i64 } else { -1 };
+        }
+        let mut nrank = rank.clone();
+        let mut k = 1;
+        while k <= n {
+            sa.sort_by(|&i, &j| compare_sa(&rank, i, j, k, n));
+            nrank[sa[0]] = 0;
+            for i in 1..=n {
+                nrank[sa[i]] = nrank[sa[i - 1]]
+                    + if compare_sa(&rank, sa[i - 1], sa[i], k, n) == Ordering::Less {
+                        1
+                    } else {
+                        0
+                    };
+            }
+            std::mem::swap(&mut rank, &mut nrank);
+            //
+            k <<= 1;
+        }
+        sa.into_iter().skip(1).collect::<Vec<_>>()
+    }
+    pub trait IntoSuffixArray {
+        fn to_suffix_array(&self) -> Vec<usize>;
+    }
+    impl IntoSuffixArray for Vec<usize> {
+        fn to_suffix_array(&self) -> Vec<usize> {
+            construct_sa(self)
+        }
+    }
+}
+use suffix_array::IntoSuffixArray;
+
 mod procon_reader {
     use std::fmt::Debug;
     use std::io::Read;
