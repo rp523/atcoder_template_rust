@@ -2605,6 +2605,115 @@ mod suffix_array {
 }
 use suffix_array::IntoSuffixArray;
 
+mod max_flow {
+    #[derive(Clone, Copy)]
+    pub struct Edge {
+        pub to: usize,
+        pub rev_idx: usize, // index of paired edge at node "to".
+        pub capacity: i64,  // - inf <= flow <= capacity
+        pub flow: i64,      // flow can be negative.
+    }
+    pub struct MaxFlow {
+        pub g: Vec<Vec<Edge>>,
+    }
+    impl MaxFlow {
+        pub fn new(n: usize) -> Self {
+            Self { g: vec![vec![]; n] }
+        }
+        pub fn add_edge(&mut self, from: usize, to: usize, capacity: i64) {
+            let rev_idx = self.g[to].len();
+            self.g[from].push(Edge {
+                to,
+                rev_idx,
+                capacity,
+                flow: 0,
+            });
+            let rev_idx = self.g[from].len() - 1;
+            self.g[to].push(Edge {
+                to: from,
+                rev_idx,
+                capacity: 0,
+                flow: 0,
+            });
+        }
+        fn bfs(g: &[Vec<Edge>], source: usize) -> Vec<Option<usize>> {
+            let mut level = vec![None; g.len()];
+            level[source] = Some(0);
+            let mut que = std::collections::VecDeque::new();
+            que.push_back(source);
+            while let Some(v) = que.pop_front() {
+                let nxt_level = level[v].unwrap() + 1;
+                for edge in g[v].iter().copied() {
+                    if level[edge.to].is_none() && (edge.capacity > edge.flow) {
+                        level[edge.to] = Some(nxt_level);
+                        que.push_back(edge.to);
+                    }
+                }
+            }
+            level
+        }
+        fn dfs(
+            g: &mut [Vec<Edge>],
+            v: usize,
+            sink: usize,
+            flow: i64,
+            search_cnt: &mut [usize],
+            level: &[Option<usize>],
+        ) -> i64 {
+            if v == sink {
+                return flow;
+            }
+            while search_cnt[v] < g[v].len() {
+                let (to, rev_idx, remain_capacity) = {
+                    let edge = g[v][search_cnt[v]];
+                    (edge.to, edge.rev_idx, edge.capacity - edge.flow)
+                };
+                if let Some(nxt_level) = level[to] {
+                    if (level[v].unwrap() < nxt_level) && (remain_capacity > 0) {
+                        let additional_flow = Self::dfs(
+                            g,
+                            to,
+                            sink,
+                            std::cmp::min(flow, remain_capacity),
+                            search_cnt,
+                            level,
+                        );
+                        if additional_flow > 0 {
+                            g[v][search_cnt[v]].flow += additional_flow;
+                            g[to][rev_idx].flow -= additional_flow;
+                            return additional_flow;
+                        }
+                    }
+                }
+                search_cnt[v] += 1;
+            }
+            0
+        }
+        pub fn max_flow(&mut self, source: usize, sink: usize) -> i64 {
+            let inf = 1i64 << 60;
+            let mut flow = 0;
+            loop {
+                let level = Self::bfs(&self.g, source);
+                if level[sink].is_none() {
+                    break;
+                }
+                let mut search_cnt = vec![0; self.g.len()];
+                loop {
+                    let additional_flow =
+                        Self::dfs(&mut self.g, source, sink, inf, &mut search_cnt, &level);
+                    if additional_flow > 0 {
+                        flow += additional_flow;
+                    } else {
+                        break;
+                    }
+                }
+            }
+            flow
+        }
+    }
+}
+use max_flow::MaxFlow;
+
 mod procon_reader {
     use std::fmt::Debug;
     use std::io::Read;
