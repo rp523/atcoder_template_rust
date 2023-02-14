@@ -2562,6 +2562,7 @@ mod matrix {
         }
     }
 }
+use matrix::Matrix;
 
 mod suffix_array {
     use crate::my_string;
