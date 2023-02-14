@@ -711,8 +711,7 @@ mod modint {
         fn get_prime() -> i64 {
             unsafe { MOD }
         }
-        pub fn new<T: Into<i64>>(sig: T) -> Self {
-            let mut sig: i64 = sig.into();
+        fn new(mut sig: i64) -> Self {
             if sig < 0 {
                 let ab = (-sig + Self::get_prime() - 1) / Self::get_prime();
                 sig += ab * Self::get_prime();
@@ -1012,6 +1011,16 @@ mod modint {
             ModInt::new(x as i64)
         }
     }
+    impl From<i64> for ModInt {
+        fn from(x: i64) -> Self {
+            ModInt::new(x as i64)
+        }
+    }
+    impl From<i32> for ModInt {
+        fn from(x: i32) -> Self {
+            ModInt::new(x as i64)
+        }
+    }
     impl std::iter::Sum for ModInt {
         fn sum<I: Iterator<Item = ModInt>>(iter: I) -> Self {
             let mut ret = ModInt::new(0);
@@ -1041,7 +1050,7 @@ mod modint {
 use modint::ModInt as mint;
 
 fn precalc_power(base: i64, n: usize) -> Vec<mint> {
-    let mut ret = vec![mint::new(1); n + 1];
+    let mut ret = vec![mint::from(1); n + 1];
     for p in 1..=n {
         ret[p] = ret[p - 1] * base;
     }
@@ -1049,8 +1058,8 @@ fn precalc_power(base: i64, n: usize) -> Vec<mint> {
 }
 
 fn precalc_invpower(base: i64, n: usize) -> Vec<mint> {
-    let mut ret = vec![mint::new(1); n + 1];
-    let inv_base = mint::new(1) / base;
+    let mut ret = vec![mint::from(1); n + 1];
+    let inv_base = mint::from(1) / base;
     for p in 1..=n {
         ret[p] = ret[p - 1] * inv_base;
     }
