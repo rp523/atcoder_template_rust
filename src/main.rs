@@ -2583,16 +2583,16 @@ mod suffix_array {
         }
         sa.into_iter().skip(1).collect::<Vec<_>>()
     }
-    pub trait IntoSuffixArray {
+    pub trait ToSuffixArray {
         fn to_suffix_array(&self) -> Vec<usize>;
     }
-    impl IntoSuffixArray for Vec<usize> {
+    impl ToSuffixArray for Vec<usize> {
         fn to_suffix_array(&self) -> Vec<usize> {
             construct_sa(self)
         }
     }
 }
-use suffix_array::IntoSuffixArray;
+use suffix_array::ToSuffixArray;
 
 mod max_flow {
     #[derive(Clone, Copy)]
@@ -2757,5 +2757,5 @@ use procon_reader::*;
 *************************************************************************************/
 
 fn main() {
-    
+
 }
