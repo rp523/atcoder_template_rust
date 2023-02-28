@@ -265,24 +265,6 @@ mod gcd {
 }
 use gcd::*;
 
-mod power_with_identity {
-    use std::ops::Mul;
-    pub fn power_with_identity<T: Copy + Mul<Output = T>>(identity: T, base: T, mut p: usize) -> T {
-        #[allow(clippy::eq_op)]
-        let mut ret = identity;
-        let mut mul = base;
-        while p > 0 {
-            if p & 1 != 0 {
-                ret = ret * mul;
-            }
-            p >>= 1;
-            mul = mul * mul;
-        }
-        ret
-    }
-}
-use power_with_identity::power_with_identity;
-
 fn factorial_impl<
     T: Clone + Copy + From<usize> + Into<usize> + Mul<Output = T> + Div<Output = T>,
 >(
@@ -692,7 +674,6 @@ use lazy_segment_tree::LazySegmentTree;
 
 mod modint {
     use crate::gcd::ext_gcd;
-    use crate::power_with_identity::power_with_identity;
     use crate::Identity;
     use std::fmt;
     use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, Sub, SubAssign};
@@ -742,8 +723,17 @@ mod modint {
             //}
             //ret
         }
-        pub fn power(self, p: usize) -> Self {
-            power_with_identity(Self { x: 1 }, self, p)
+        pub fn pow(self, mut p: usize) -> Self {
+            let mut ret = ModInt::from(1);
+            let mut mul = self;
+            while p > 0 {
+                if p & 1 != 0 {
+                    ret *= mul;
+                }
+                p >>= 1;
+                mul *= mul;
+            }
+            ret
         }
     }
     impl Identity for ModInt {
@@ -1074,7 +1064,6 @@ pub trait IntegerOperation {
     where
         Self: Sized;
     fn squared_length(&self, rhs: Self) -> Self;
-    fn power(self, p: usize) -> Self;
 }
 impl<
         T: Copy
@@ -1091,10 +1080,6 @@ impl<
             + Rem<Output = T>,
     > IntegerOperation for T
 {
-    fn power(self, p: usize) -> Self {
-        #[allow(clippy::eq_op)]
-        power_with_identity(self / self, self, p)
-    }
     fn into_primes(self) -> BTreeMap<T, usize> // O(N^0.5 x logN)
     {
         #[allow(clippy::eq_op)]
@@ -2459,7 +2444,7 @@ fn convex_hull<
 }
 
 mod matrix {
-    use crate::{power_with_identity, Identity};
+    use crate::Identity;
     use std::iter::Sum;
     use std::ops::{Index, IndexMut, Mul, MulAssign, Sub};
     use std::slice::SliceIndex;
@@ -2778,5 +2763,5 @@ use procon_reader::*;
 *************************************************************************************/
 
 fn main() {
-    
+
 }
