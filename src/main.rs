@@ -2478,13 +2478,7 @@ mod matrix {
             }
             Self { h, w, vals }
         }
-        pub fn set(&mut self, y: usize, x: usize, val: T) {
-            self[y][x] = val;
-        }
-        pub fn get(&self, y: usize, x: usize) -> T {
-            self[y][x]
-        }
-        pub fn power(&self, mut p: usize) -> Self {
+        pub fn pow(&self, mut p: usize) -> Self {
             let mut ret = Self::identity(self.h, self.w);
             let mut mul = self.clone();
             while p > 0 {
@@ -2763,5 +2757,5 @@ use procon_reader::*;
 *************************************************************************************/
 
 fn main() {
-
+    
 }
