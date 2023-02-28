@@ -1954,6 +1954,9 @@ mod my_string {
         pub fn sort(&mut self) {
             self.vc.sort();
         }
+        pub fn remove(&mut self, index: usize) -> char {
+            self.vc.remove(index)
+        }
     }
     impl std::str::FromStr for Str {
         type Err = ();
@@ -2632,5 +2635,5 @@ use procon_reader::*;
 *************************************************************************************/
 
 fn main() {
-
+    
 }
