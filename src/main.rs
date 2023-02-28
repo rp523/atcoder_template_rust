@@ -460,19 +460,6 @@ mod segment_tree {
         pub fn query(&self, a: usize, b: usize) -> T {
             self.query_sub(a, b + 1, 0, 0, self.n2)
         }
-        pub fn query_whole(&self) -> T {
-            let a = 0;
-            let b = self.neff;
-            self.query_sub(a, b + 1, 0, 0, self.n2)
-        }
-        pub fn query_geq(&self, a: usize) -> T {
-            let b = self.neff;
-            self.query_sub(a, b + 1, 0, 0, self.n2)
-        }
-        pub fn query_leq(&self, b: usize) -> T {
-            let a = 0;
-            self.query_sub(a, b + 1, 0, 0, self.n2)
-        }
         // get query value of [a, b)
         fn query_sub(&self, a: usize, b: usize, node: usize, node_l: usize, node_r: usize) -> T {
             if (node_r <= a) || (b <= node_l) {
@@ -534,7 +521,7 @@ mod lazy_segment_tree {
             ret.init_all(ini_val);
             ret
         }
-        pub fn new_from(
+        pub fn from(
             pair_op: fn(X, X) -> X,
             update_op: fn(X, M) -> X,
             update_concat: fn(M, M) -> M,
@@ -1476,120 +1463,6 @@ mod sort_vec_binary_search {
 }
 use sort_vec_binary_search::SortVecBinarySearch;
 
-mod btree_multi_set {
-    use crate::btree_map_binary_search::BTreeMapBinarySearch;
-    use std::collections::BTreeMap;
-    #[derive(Debug, Clone)]
-    pub struct BTreeMultiSet<T> {
-        mp: BTreeMap<T, usize>,
-        cnt_sum: usize,
-    }
-    impl<T: Copy + Ord> BTreeMultiSet<T> {
-        pub fn new() -> Self {
-            BTreeMultiSet {
-                mp: BTreeMap::<T, usize>::new(),
-                cnt_sum: 0,
-            }
-        }
-        pub fn is_empty(&self) -> bool {
-            self.mp.is_empty()
-        }
-        pub fn len(&self) -> usize {
-            self.cnt_sum
-        }
-        pub fn insert(&mut self, key: T) {
-            *self.mp.entry(key).or_insert(0) += 1;
-            self.cnt_sum += 1;
-        }
-        pub fn remove(&mut self, key: &T) -> bool {
-            if let Some(cnt) = self.mp.get_mut(key) {
-                *cnt -= 1;
-                if *cnt == 0 {
-                    self.mp.remove(key);
-                }
-                self.cnt_sum -= 1;
-                true
-            } else {
-                false
-            }
-        }
-        pub fn contains(&self, key: &T) -> bool {
-            self.mp.contains_key(key)
-        }
-        pub fn remove_all(&mut self, key: &T) -> bool {
-            if let Some(cnt) = self.mp.remove(key) {
-                self.cnt_sum -= cnt;
-                true
-            } else {
-                false
-            }
-        }
-        pub fn first(&self) -> Option<&T> {
-            if let Some((key, _cnt)) = self.mp.iter().next() {
-                Some(key)
-            } else {
-                None
-            }
-        }
-        pub fn pop_first(&mut self) -> Option<T> {
-            if let Some(&key) = self.first() {
-                self.remove(&key);
-                Some(key)
-            } else {
-                None
-            }
-        }
-        pub fn last(&self) -> Option<&T> {
-            if let Some((key, _cnt)) = self.mp.iter().next_back() {
-                Some(key)
-            } else {
-                None
-            }
-        }
-        pub fn pop_last(&mut self) -> Option<T> {
-            if let Some(&key) = self.last() {
-                self.remove(&key);
-                Some(key)
-            } else {
-                None
-            }
-        }
-        pub fn clear(&mut self) {
-            self.mp.clear();
-            self.cnt_sum = 0;
-        }
-        pub fn greater_equal(&self, key: &T) -> Option<&T> {
-            if let Some((key, _cnt)) = self.mp.greater_equal(key) {
-                Some(key)
-            } else {
-                None
-            }
-        }
-        pub fn greater_than(&self, key: &T) -> Option<&T> {
-            if let Some((key, _cnt)) = self.mp.greater_than(key) {
-                Some(key)
-            } else {
-                None
-            }
-        }
-        pub fn less_equal(&self, key: &T) -> Option<&T> {
-            if let Some((key, _cnt)) = self.mp.less_equal(key) {
-                Some(key)
-            } else {
-                None
-            }
-        }
-        pub fn less_than(&self, key: &T) -> Option<&T> {
-            if let Some((key, _cnt)) = self.mp.less_than(key) {
-                Some(key)
-            } else {
-                None
-            }
-        }
-    }
-}
-use btree_multi_set::BTreeMultiSet;
-
 mod map_counter {
     use std::cmp::Ord;
     use std::collections::{BTreeMap, HashMap};
@@ -1840,20 +1713,21 @@ impl<T: Copy + Ord> Permutation<T> for Vec<T> {
         if n == 0 {
             return None;
         }
-        let mut seen = BTreeMultiSet::<T>::new();
-        seen.insert(*self.last().unwrap());
+        let mut seen = std::collections::BTreeMap::<T, usize>::new();
+        seen.incr(*self.last().unwrap());
         for i in (0..n).into_iter().rev().skip(1) {
-            seen.insert(self[i]);
+            seen.incr(self[i]);
             if self[i] < self[i + 1] {
                 let mut p = vec![];
                 for &lv in self.iter().take(i) {
                     p.push(lv);
                 }
-                let &rv = seen.greater_than(&self[i]).unwrap();
+                let &rv = seen.greater_than(&self[i]).unwrap().0;
                 p.push(rv);
                 seen.remove(&rv);
-                while let Some(rv) = seen.pop_first() {
+                while let Some((&rv, _nm)) = seen.iter().next() {
                     p.push(rv);
+                    seen.decr(&rv);
                 }
                 return Some(p);
             }
@@ -1865,20 +1739,21 @@ impl<T: Copy + Ord> Permutation<T> for Vec<T> {
         if n == 0 {
             return None;
         }
-        let mut seen = BTreeMultiSet::<T>::new();
-        seen.insert(*self.last().unwrap());
+        let mut seen = std::collections::BTreeMap::<T, usize>::new();
+        seen.incr(*self.last().unwrap());
         for i in (0..n).into_iter().rev().skip(1) {
-            seen.insert(self[i]);
+            seen.incr(self[i]);
             if self[i] > self[i + 1] {
                 let mut p = vec![];
                 for &lv in self.iter().take(i) {
                     p.push(lv);
                 }
-                let &rv = seen.less_than(&self[i]).unwrap();
+                let &rv = seen.less_than(&self[i]).unwrap().0;
                 p.push(rv);
                 seen.remove(&rv);
-                while let Some(rv) = seen.pop_last() {
+                while let Some((&rv, _nm)) = seen.iter().next_back() {
                     p.push(rv);
+                    seen.decr(&rv);
                 }
                 return Some(p);
             }
