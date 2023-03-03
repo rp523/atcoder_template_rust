@@ -671,27 +671,30 @@ mod modint {
         x: i64,
     }
     impl ModInt {
-        pub fn set_prime(val: i64) {
+        pub fn set_mod(val: i64) {
             unsafe {
                 MOD = val;
             }
         }
-        fn get_prime() -> i64 {
+        pub fn get_mod() -> i64 {
             unsafe { MOD }
+        }
+        pub fn val(&self) -> i64 {
+            self.x
         }
         fn new(mut sig: i64) -> Self {
             if sig < 0 {
-                let ab = (-sig + Self::get_prime() - 1) / Self::get_prime();
-                sig += ab * Self::get_prime();
+                let ab = (-sig + Self::get_mod() - 1) / Self::get_mod();
+                sig += ab * Self::get_mod();
                 debug_assert!(sig >= 0);
             }
             Self {
-                x: sig % Self::get_prime(),
+                x: sig % Self::get_mod(),
             }
         }
         fn inverse(&self) -> Self {
             // x * inv_x + M * _ = 1 (mod M)
-            Self::new(ext_gcd(self.x, Self::get_prime()).0)
+            Self::new(ext_gcd(self.x, Self::get_mod()).0)
 
             // [Fermat's little theorem]
             // if p is prime, for any integer a, a^p = a (mod p)
@@ -700,7 +703,7 @@ mod modint {
 
             //let mut ret = Self { x: 1 };
             //let mut mul: Self = *self;
-            //let mut p = Self::get_prime() - 2;
+            //let mut p = Self::get_mod() - 2;
             //while p > 0 {
             //    if p & 1 != 0 {
             //        ret *= mul;
@@ -996,6 +999,15 @@ mod modint {
     impl From<i32> for ModInt {
         fn from(x: i32) -> Self {
             ModInt::new(x as i64)
+        }
+    }
+    impl std::str::FromStr for ModInt {
+        type Err = std::num::ParseIntError;
+        fn from_str(s: &str) -> Result<Self, Self::Err> {
+            match s.parse::<i64>() {
+                Ok(x) => Ok(ModInt::from(x)),
+                Err(e) => Err(e),
+            }
         }
     }
     impl std::iter::Sum for ModInt {
@@ -2581,6 +2593,309 @@ mod max_flow {
 }
 use max_flow::MaxFlow;
 
+
+mod convolution {
+    // https://github.com/atcoder/ac-library/blob/master/atcoder/convolution.hpp
+    use crate::modint::ModInt as mint;
+    pub fn convolution(arga: &[mint], argb: &[mint]) -> Vec<mint> {
+        let n = arga.len();
+        let m = argb.len();
+        let z = 1 << ceil_pow2(n + m - 1);
+        let mut a = vec![mint::from(0); z];
+        let mut b = vec![mint::from(0); z];
+        for (a, &arga) in a.iter_mut().zip(arga.iter()) {
+            *a = arga;
+        }
+        butterfly(&mut a);
+        for (b, &argb) in b.iter_mut().zip(argb.iter()) {
+            *b = argb;
+        }
+        butterfly(&mut b);
+        for (a, b) in a.iter_mut().zip(b.into_iter()) {
+            *a *= b;
+        }
+        butterfly_inv(&mut a);
+        while a.len() > n + m - 1 {
+            a.pop();
+        }
+        let iz = mint::from(1) / mint::from(z);
+        for a in a.iter_mut() {
+            *a *= iz;
+        }
+        a
+    }
+    // returns 'r' s.t. 'r^(m - 1) == 1 (mod m)'
+    fn primitive_root(m: i64) -> i64 {
+        debug_assert!(is_prime(m));
+        if m == 2 {
+            return 1;
+        }
+        if m == 167772161 {
+            return 3;
+        }
+        if m == 469762049 {
+            return 3;
+        }
+        if m == 754974721 {
+            return 11;
+        }
+        if m == 998244353 {
+            return 3;
+        }
+        if m == 1000000007 {
+            return 5;
+        }
+        let mut divs = vec![];
+        divs.push(2);
+        let mut x = (m - 1) / 2;
+        while x % 2 == 0 {
+            x /= 2;
+        }
+        for i in (3..).step_by(2) {
+            if i * i > x {
+                break;
+            }
+            if x % i == 0 {
+                divs.push(i);
+                while x % i == 0 {
+                    x /= i;
+                }
+            }
+        }
+        if x > 1 {
+            divs.push(x);
+        }
+
+        for g in 2.. {
+            let mut ok = true;
+            for &div in divs.iter() {
+
+                fn pow_mod(x: i64, mut p: i64, m: i64) -> i64 {
+                    let mut ret = 1;
+                    let mut mul = x % m;
+                    while p > 0 {
+                        if p & 1 != 0 {
+                            ret *= mul;
+                            ret %= m;
+                        }
+                        p >>= 1;
+                        mul *= mul;
+                        mul %= m;
+                    }
+                    ret
+                }
+                
+                if pow_mod(g, (m - 1) / div, m) == 1 {
+                    ok = false;
+                    break;
+                }
+            }
+            if ok {
+                return g;
+            }
+        }
+        unreachable!();
+    }
+    fn is_prime(x: i64) -> bool {
+        if x == 1 {
+            return false;
+        }
+        for i in 2.. {
+            if i * i > x {
+                return true;
+            }
+            if x % i == 0 {
+                return false;
+            }
+        }
+        unreachable!();
+    }
+    struct FFTinfo {
+        root: Vec<mint>,  // root[i]^(2^i) == 1
+        iroot: Vec<mint>, // root[i] * iroot[i] == 1
+        rate2: Vec<mint>,
+        irate2: Vec<mint>,
+        rate3: Vec<mint>,
+        irate3: Vec<mint>,
+    }
+    // returns minimum non-negative `x` s.t. `(n & (1 << x)) != 0`
+    fn bsf(n: usize) -> usize {
+        let mut x = 0;
+        while (n & (1 << x)) == 0 {
+            x += 1;
+        }
+        x
+    }
+    impl FFTinfo {
+        fn new() -> Self {
+            let rank2 = bsf((mint::get_mod() - 1) as usize);
+            let mut root = vec![mint::from(0); rank2 + 1];
+            let mut iroot = vec![mint::from(0); rank2 + 1];
+            let mut rate2 = vec![mint::from(0); std::cmp::max(0, rank2 as i64 - 2 + 1) as usize];
+            let mut irate2 = vec![mint::from(0); std::cmp::max(0, rank2 as i64 - 2 + 1) as usize];
+            let mut rate3 = vec![mint::from(0); std::cmp::max(0, rank2 as i64 - 3 + 1) as usize];
+            let mut irate3 = vec![mint::from(0); std::cmp::max(0, rank2 as i64 - 3 + 1) as usize];
+
+            let g = primitive_root(mint::get_mod());
+            root[rank2] = mint::from(g).pow((mint::get_mod() as usize - 1) >> rank2);
+            iroot[rank2] = mint::from(1) / root[rank2];
+            for i in (0..rank2).rev() {
+                root[i] = root[i + 1] * root[i + 1];
+                iroot[i] = iroot[i + 1] * iroot[i + 1];
+            }
+
+            {
+                let mut prod = mint::from(1);
+                let mut iprod = mint::from(1);
+                for i in 0..=(rank2 - 2) {
+                    rate2[i] = root[i + 2] * prod;
+                    irate2[i] = iroot[i + 2] * iprod;
+                    prod *= iroot[i + 2];
+                    iprod *= root[i + 2];
+                }
+            }
+            {
+                let mut prod = mint::from(1);
+                let mut iprod = mint::from(1);
+                for i in 0..=(rank2 - 3) {
+                    rate3[i] = root[i + 3] * prod;
+                    irate3[i] = iroot[i + 3] * iprod;
+                    prod *= iroot[i + 3];
+                    iprod *= root[i + 3];
+                }
+            }
+
+            Self {
+                root,
+                iroot,
+                rate2,
+                irate2,
+                rate3,
+                irate3,
+            }
+        }
+    }
+    fn ceil_pow2(n: usize) -> usize {
+        let mut x = 0;
+        while (1 << x) < n {
+            x += 1;
+        }
+        x
+    }
+    fn butterfly(a: &mut [mint]) {
+        let n = a.len();
+        let h = ceil_pow2(n);
+
+        let info = FFTinfo::new();
+
+        let mut len = 0; // a[i, i+(n>>len), i+2*(n>>len), ..] is transformed
+        while len < h {
+            if h - len == 1 {
+                let p = 1 << (h - len - 1);
+                let mut rot = mint::from(1);
+                for s in 0..(1 << len) {
+                    let offset = s << (h - len);
+                    for i in 0..p {
+                        let l = a[i + offset];
+                        let r = a[i + offset + p] * rot;
+                        a[i + offset] = l + r;
+                        a[i + offset + p] = l - r;
+                    }
+                    if s + 1 != (1 << len) {
+                        rot *= info.rate2[bsf(!s)];
+                    }
+                }
+                len += 1;
+            } else {
+                // 4-base
+                let p = 1 << (h - len - 2);
+                let mut rot = mint::from(1);
+                let imag = info.root[2];
+                for s in 0..(1 << len) {
+                    let rot2 = rot * rot;
+                    let rot3 = rot2 * rot;
+                    let offset = s << (h - len);
+                    for i in 0..p {
+                        let mod2 = mint::get_mod() * mint::get_mod();
+                        let a0 = a[i + offset].val();
+                        let a1 = a[i + offset + p].val() * rot.val();
+                        let a2 = a[i + offset + 2 * p].val() * rot2.val();
+                        let a3 = a[i + offset + 3 * p].val() * rot3.val();
+                        let a1na3imag = mint::from(a1 + mod2 - a3).val() * imag.val();
+                        let na2 = mod2 - a2;
+                        a[i + offset] = mint::from(a0 + a2 + a1 + a3);
+                        a[i + offset + p] = mint::from(a0 + a2 + (2 * mod2 - (a1 + a3)));
+                        a[i + offset + 2 * p] = mint::from(a0 + na2 + a1na3imag);
+                        a[i + offset + 3 * p] = mint::from(a0 + na2 + (mod2 - a1na3imag));
+                    }
+                    if s + 1 != (1 << len) {
+                        rot *= info.rate3[bsf(!s)];
+                    }
+                }
+                len += 2;
+            }
+        }
+    }
+    fn butterfly_inv(a: &mut [mint]) {
+        let n = a.len();
+        let h = ceil_pow2(n);
+
+        let info = FFTinfo::new();
+
+        let mut len = h; // a[i, i+(n>>len), i+2*(n>>len), ..] is transformed
+        while len > 0 {
+            if len == 1 {
+                let p = 1 << (h - len);
+                let mut irot = mint::from(1);
+                for s in 0..(1 << (len - 1)) {
+                    let offset = s << (h - len + 1);
+                    for i in 0..p {
+                        let l = a[i + offset];
+                        let r = a[i + offset + p];
+                        a[i + offset] = l + r;
+                        a[i + offset + p] = mint::from((mint::get_mod() + l.val() - r.val()) * irot.val());
+                    }
+                    if s + 1 != (1 << (len - 1)) {
+                        irot *= info.irate2[bsf(!s)];
+                    }
+                }
+                len -= 1;
+            } else {
+                // 4-base
+                let p = 1 << (h - len);
+                let mut irot = mint::from(1);
+                let iimag = info.iroot[2];
+                for s in 0..(1 << (len - 2)) {
+                    let irot2 = irot * irot;
+                    let irot3 = irot2 * irot;
+                    let offset = s << (h - len + 2);
+                    for i in 0..p {
+                        let a0 = a[i + offset].val();
+                        let a1 = a[i + offset + p].val();
+                        let a2 = a[i + offset + 2 * p].val();
+                        let a3 = a[i + offset + 3 * p].val();
+                        let a2na3iimag = mint::from((mint::get_mod() + a2 - a3) * iimag.val()).val();
+                        a[i + offset] = mint::from(a0 + a1 + a2 + a3);
+                        a[i + offset + p] =
+                            mint::from((a0 + (mint::get_mod() - a1) + a2na3iimag) * irot.val());
+                        a[i + offset + 2 * p] = mint::from(
+                            (a0 + a1 + (mint::get_mod() - a2) + (mint::get_mod() - a3)) * irot2.val(),
+                        );
+                        a[i + offset + 3 * p] = mint::from(
+                            (a0 + (mint::get_mod() - a1) + (mint::get_mod() - a2na3iimag)) * irot3.val(),
+                        );
+                    }
+                    if s + 1 != (1 << (len - 2)) {
+                        irot *= info.irate3[bsf(!s)];
+                    }
+                }
+                len -= 2;
+            }
+        }
+    }
+}
+use convolution::convolution;
+
 mod procon_reader {
     use std::fmt::Debug;
     use std::io::Read;
@@ -2635,5 +2950,5 @@ use procon_reader::*;
 *************************************************************************************/
 
 fn main() {
-    
+
 }
