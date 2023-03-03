@@ -1089,20 +1089,25 @@ impl<
         #[allow(clippy::eq_op)]
         let one = self / self;
         let two = one + one;
+        let three = two + one;
         let mut n = self;
-        let mut ans = BTreeMap::<T, usize>::new();
+        let mut ans = BTreeMap::new();
+        while n % two == zero {
+            *ans.entry(two).or_insert(0) += 1;
+            n /= two;
+        }
         {
-            let mut i = two;
+            let mut i = three;
             while i * i <= n {
                 while n % i == zero {
-                    *ans.entry(i).or_insert(0_usize) += 1_usize;
+                    *ans.entry(i).or_insert(0) += 1;
                     n /= i;
                 }
-                i += one;
+                i += two;
             }
         }
         if n != one {
-            *ans.entry(n).or_insert(0) += 1_usize;
+            *ans.entry(n).or_insert(0) += 1;
         }
         ans
     }
@@ -2593,10 +2598,9 @@ mod max_flow {
 }
 use max_flow::MaxFlow;
 
-
 mod convolution {
     // https://github.com/atcoder/ac-library/blob/master/atcoder/convolution.hpp
-    use crate::modint::ModInt as mint;
+    use crate::{modint::ModInt as mint, IntegerOperation};
     pub fn convolution(arga: &[mint], argb: &[mint]) -> Vec<mint> {
         let n = arga.len();
         let m = argb.len();
@@ -2645,31 +2649,11 @@ mod convolution {
         if m == 1000000007 {
             return 5;
         }
-        let mut divs = vec![];
-        divs.push(2);
-        let mut x = (m - 1) / 2;
-        while x % 2 == 0 {
-            x /= 2;
-        }
-        for i in (3..).step_by(2) {
-            if i * i > x {
-                break;
-            }
-            if x % i == 0 {
-                divs.push(i);
-                while x % i == 0 {
-                    x /= i;
-                }
-            }
-        }
-        if x > 1 {
-            divs.push(x);
-        }
+        let divs = ((m - 1) / 2).into_primes();
 
         for g in 2.. {
             let mut ok = true;
-            for &div in divs.iter() {
-
+            for (&div, _) in divs.iter() {
                 fn pow_mod(x: i64, mut p: i64, m: i64) -> i64 {
                     let mut ret = 1;
                     let mut mul = x % m;
@@ -2684,7 +2668,7 @@ mod convolution {
                     }
                     ret
                 }
-                
+
                 if pow_mod(g, (m - 1) / div, m) == 1 {
                     ok = false;
                     break;
@@ -2853,7 +2837,8 @@ mod convolution {
                         let l = a[i + offset];
                         let r = a[i + offset + p];
                         a[i + offset] = l + r;
-                        a[i + offset + p] = mint::from((mint::get_mod() + l.val() - r.val()) * irot.val());
+                        a[i + offset + p] =
+                            mint::from((mint::get_mod() + l.val() - r.val()) * irot.val());
                     }
                     if s + 1 != (1 << (len - 1)) {
                         irot *= info.irate2[bsf(!s)];
@@ -2874,15 +2859,18 @@ mod convolution {
                         let a1 = a[i + offset + p].val();
                         let a2 = a[i + offset + 2 * p].val();
                         let a3 = a[i + offset + 3 * p].val();
-                        let a2na3iimag = mint::from((mint::get_mod() + a2 - a3) * iimag.val()).val();
+                        let a2na3iimag =
+                            mint::from((mint::get_mod() + a2 - a3) * iimag.val()).val();
                         a[i + offset] = mint::from(a0 + a1 + a2 + a3);
                         a[i + offset + p] =
                             mint::from((a0 + (mint::get_mod() - a1) + a2na3iimag) * irot.val());
                         a[i + offset + 2 * p] = mint::from(
-                            (a0 + a1 + (mint::get_mod() - a2) + (mint::get_mod() - a3)) * irot2.val(),
+                            (a0 + a1 + (mint::get_mod() - a2) + (mint::get_mod() - a3))
+                                * irot2.val(),
                         );
                         a[i + offset + 3 * p] = mint::from(
-                            (a0 + (mint::get_mod() - a1) + (mint::get_mod() - a2na3iimag)) * irot3.val(),
+                            (a0 + (mint::get_mod() - a1) + (mint::get_mod() - a2na3iimag))
+                                * irot3.val(),
                         );
                     }
                     if s + 1 != (1 << (len - 2)) {
@@ -2950,5 +2938,5 @@ use procon_reader::*;
 *************************************************************************************/
 
 fn main() {
-
+    
 }
