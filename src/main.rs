@@ -403,7 +403,7 @@ mod segment_tree {
         dat: Vec<T>,
         pair_op: fn(T, T) -> T,
     }
-    impl<T: Copy + Add<Output = T> + Sub<Output = T>> SegmentTree<T> {
+    impl<T: Copy> SegmentTree<T> {
         pub fn new(n: usize, pair_op: fn(T, T) -> T, ini_val: T) -> Self {
             let mut n2 = 1_usize;
             while n > n2 {
@@ -450,12 +450,6 @@ mod segment_tree {
         pub fn get(&self, pos: usize) -> T {
             self.dat[pos + self.n2 - 1]
         }
-        pub fn add(&mut self, pos: usize, add_val: T) {
-            self.set(pos, self.get(pos) + add_val);
-        }
-        pub fn sub(&mut self, pos: usize, sub_val: T) {
-            self.set(pos, self.get(pos) - sub_val);
-        }
         // get query value of [a, b]
         pub fn query(&self, a: usize, b: usize) -> T {
             self.query_sub(a, b + 1, 0, 0, self.n2)
@@ -480,6 +474,14 @@ mod segment_tree {
             } else {
                 panic!("invalid query range, ({a}, {b})");
             }
+        }
+    }
+    impl<T: Copy + Add<Output = T> + Sub<Output = T>> SegmentTree<T> {
+        pub fn add(&mut self, pos: usize, add_val: T) {
+            self.set(pos, self.get(pos) + add_val);
+        }
+        pub fn sub(&mut self, pos: usize, sub_val: T) {
+            self.set(pos, self.get(pos) - sub_val);
         }
     }
 }
@@ -2937,6 +2939,116 @@ use procon_reader::*;
 /*************************************************************************************
 *************************************************************************************/
 
+mod manhattan_mst {
+    use crate::change_min_max::ChangeMinMax;
+    use crate::{segment_tree::SegmentTree, CoordinateCompress};
+    use std::cmp::{min, Reverse};
+    use std::collections::BinaryHeap;
+    pub struct ManhattanMST {
+        points: Vec<(usize, (i64, i64))>,
+    }
+    impl ManhattanMST {
+        pub fn new() -> Self {
+            Self {points:vec![]}
+        }
+        pub fn push(&mut self, pt: (i64, i64)) {
+            self.points.push((self.points.len(), pt));
+        }
+        fn dijkstra(g8: Vec<Vec<(i64, usize)>>) -> Vec<Vec<(i64, usize)>> {
+            let n = g8.len();
+            let mut que = BinaryHeap::new();
+            que.push((Reverse(0), 0));
+            let mut dist = vec![None; n];
+            dist[0] = Some(0);
+            let mut pre = vec![None; n];
+            while let Some((Reverse(d), v)) = que.pop() {
+                if dist[v] != Some(d) {
+                    continue;
+                }
+                for (delta, nv) in g8[v].iter().copied() {
+                    let nd = d + delta;
+                    if dist[nv].chmin(nd) {
+                        que.push((Reverse(nd), nv));
+                        pre[nv] = Some((delta, v));
+                    }
+                }
+            }
+            let mut g = vec![vec![]; n];
+            for (nv, pre) in pre.into_iter().enumerate() {
+                if let Some((delta, v)) = pre {
+                    g[v].push((delta, nv));
+                    g[nv].push((delta, v));
+                }
+            }
+            g
+        }
+        pub fn minimum_spanning_tree(&mut self) -> Vec<Vec<(i64, usize)>> {
+            let n = self.points.len();
+            let mut g8 = vec![vec![]; n];
+            let inf = 1i64 << 60;
+            for _h0 in 0..2 {
+                for _h1 in 0..2 {
+                    for _h2 in 0..2 {
+                        let y_enc = self.points.iter().map(|&(_i, (y, _x))| y).collect::<Vec<_>>().compress_encoder();
+                        let mut st = SegmentTree::<(usize, i64)>::new(n, 
+                            |(i0, ypx0), (i1, ypx1)| if ypx0 < ypx1 {(i0, ypx0)} else {(i1, ypx1)},
+                            (0, inf));
+                        self.points.sort_by(|(_i0, (y0, x0)), (_i1, (y1, x1))| (y0 - x0).cmp(&(y1 - x1)));
+                        for &(i, (y, x)) in self.points.iter() {
+                            let ey = y_enc[&y];
+                            let q = st.query(ey, n - 1);
+                            if q.1 != inf {
+                                let delta = q.1 - (y + x);
+                                debug_assert!(delta >= 0);
+                                g8[i].push((delta, q.0));
+                            }
+                            //
+                            if st.get(ey).1 > y + x {
+                                st.set(ey, (i, y + x));
+                            }
+                        }
+                        for (_i, (y, x)) in self.points.iter_mut() {
+                            let oy = *y;
+                            let ox = *x;
+                            *y = ox;
+                            *x = oy;
+                        }
+                    }
+                    for (_i, (_y, x)) in self.points.iter_mut() {
+                        *x = - (*x);
+                    }
+                }
+                for (_i, (y, _x)) in self.points.iter_mut() {
+                    *y = - (*y);
+                }
+            }
+            Self::dijkstra(g8)
+        }
+    }
+}
+use manhattan_mst::ManhattanMST;
 fn main() {
-    
+    let n = read::<usize>();
+    let mut mst = ManhattanMST::new();
+    for _ in 0..n {
+        let x = read::<i64>();
+        let y = read::<i64>();
+        mst.push((y, x));
+    }
+    let g = mst.minimum_spanning_tree();
+    let mut ans = vec![];
+    let mut sm = 0;
+    for v in 0..n {
+        for (delta, nv) in g[v].iter().copied() {
+            if v > nv {
+                continue;
+            }
+            sm += delta;
+            ans.push((v, nv));
+        }
+    }
+    println!("{}", sm);
+    for (a, b) in ans {
+        println!("{} {}", a, b);
+    }
 }
