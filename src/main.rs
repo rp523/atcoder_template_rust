@@ -995,7 +995,7 @@ mod modint {
     }
     impl From<i64> for ModInt {
         fn from(x: i64) -> Self {
-            ModInt::new(x as i64)
+            ModInt::new(x)
         }
     }
     impl From<i32> for ModInt {
@@ -1423,9 +1423,9 @@ use btree_set_binary_search::BTreeSetBinarySearch;
 mod sort_vec_binary_search {
     static mut VEC_IS_SORTED_ONCE: bool = false;
     #[allow(clippy::type_complexity)]
-    fn sorted_binary_search<'a, 'b, T: PartialOrd>(
+    fn sorted_binary_search<'a, T: PartialOrd>(
         vec: &'a Vec<T>,
-        key: &'b T,
+        key: & T,
         earlier: fn(&T, &T) -> bool,
     ) -> (Option<(usize, &'a T)>, Option<(usize, &'a T)>) {
         unsafe {
@@ -1466,16 +1466,16 @@ mod sort_vec_binary_search {
         fn less_than(&self, key: &T) -> Option<(usize, &T)>;
     }
     impl<T: Ord> SortVecBinarySearch<T> for Vec<T> {
-        fn greater_equal<'a>(&self, key: &'a T) -> Option<(usize, &T)> {
+        fn greater_equal(&self, key: &T) -> Option<(usize, &T)> {
             sorted_binary_search(self, key, |x: &T, y: &T| x < y).1
         }
-        fn greater_than<'a>(&self, key: &'a T) -> Option<(usize, &T)> {
+        fn greater_than(&self, key: &T) -> Option<(usize, &T)> {
             sorted_binary_search(self, key, |x: &T, y: &T| x <= y).1
         }
-        fn less_equal<'a>(&self, key: &'a T) -> Option<(usize, &T)> {
+        fn less_equal(&self, key: & T) -> Option<(usize, &T)> {
             sorted_binary_search(self, key, |x: &T, y: &T| x <= y).0
         }
-        fn less_than<'a>(&self, key: &'a T) -> Option<(usize, &T)> {
+        fn less_than(&self, key: & T) -> Option<(usize, &T)> {
             sorted_binary_search(self, key, |x: &T, y: &T| x < y).0
         }
     }
@@ -1734,7 +1734,7 @@ impl<T: Copy + Ord> Permutation<T> for Vec<T> {
         }
         let mut seen = std::collections::BTreeMap::<T, usize>::new();
         seen.incr(*self.last().unwrap());
-        for i in (0..n).into_iter().rev().skip(1) {
+        for i in (0..n).rev().skip(1) {
             seen.incr(self[i]);
             if self[i] < self[i + 1] {
                 let mut p = vec![];
@@ -1760,7 +1760,7 @@ impl<T: Copy + Ord> Permutation<T> for Vec<T> {
         }
         let mut seen = std::collections::BTreeMap::<T, usize>::new();
         seen.incr(*self.last().unwrap());
-        for i in (0..n).into_iter().rev().skip(1) {
+        for i in (0..n).rev().skip(1) {
             seen.incr(self[i]);
             if self[i] > self[i + 1] {
                 let mut p = vec![];
@@ -2917,11 +2917,10 @@ mod procon_reader {
     where
         <T as FromStr>::Err: Debug,
     {
-        (0..n).into_iter().map(|_| read::<T>()).collect::<Vec<T>>()
+        (0..n).map(|_| read::<T>()).collect::<Vec<T>>()
     }
     pub fn read_vec_sub1(n: usize) -> Vec<usize> {
         (0..n)
-            .into_iter()
             .map(|_| read::<usize>() - 1)
             .collect::<Vec<usize>>()
     }
@@ -2930,7 +2929,6 @@ mod procon_reader {
         <T as FromStr>::Err: Debug,
     {
         (0..h)
-            .into_iter()
             .map(|_| read_vec::<T>(w))
             .collect::<Vec<Vec<T>>>()
     }
@@ -3038,8 +3036,8 @@ fn main() {
     let g = mst.minimum_spanning_tree();
     let mut ans = vec![];
     let mut sm = 0;
-    for v in 0..n {
-        for (delta, nv) in g[v].iter().copied() {
+    for (v, to) in g.into_iter().enumerate() {
+        for (delta, nv) in to {
             if v > nv {
                 continue;
             }
