@@ -1145,20 +1145,21 @@ impl<
 }
 
 pub trait CoordinateCompress<T> {
-    fn compress_encoder(&self) -> BTreeMap<T, usize>;
+    fn compress_encoder(&self) -> HashMap<T, usize>;
     fn compress_decoder(&self) -> Vec<T>;
     fn compress(self) -> Vec<usize>;
 }
-impl<T: Copy + Ord> CoordinateCompress<T> for Vec<T> {
-    fn compress_encoder(&self) -> BTreeMap<T, usize> {
-        let mut dict = BTreeMap::<T, usize>::new();
+impl<T: Copy + Ord + std::hash::Hash> CoordinateCompress<T> for Vec<T> {
+    fn compress_encoder(&self) -> HashMap<T, usize> {
+        let mut dict = BTreeSet::new();
         for &x in self.iter() {
-            let _ = dict.entry(x).or_insert(0); //keys.insert(*x);
+            dict.insert(x);
         }
-        for (i, kv) in dict.iter_mut().enumerate() {
-            *kv.1 = i;
+        let mut ret = HashMap::new();
+        for (i, value) in dict.into_iter().enumerate() {
+            ret.insert(value, i);
         }
-        dict
+        ret
     }
     fn compress_decoder(&self) -> Vec<T> {
         let mut keys = BTreeSet::<T>::new();
@@ -1172,9 +1173,9 @@ impl<T: Copy + Ord> CoordinateCompress<T> for Vec<T> {
         self.into_iter().map(|x| dict[&x]).collect::<Vec<usize>>()
     }
 }
-impl<T: Copy + Ord> CoordinateCompress<T> for BTreeSet<T> {
-    fn compress_encoder(&self) -> BTreeMap<T, usize> {
-        let mut dict = BTreeMap::<T, usize>::new();
+impl<T: Copy + Ord + std::hash::Hash> CoordinateCompress<T> for BTreeSet<T> {
+    fn compress_encoder(&self) -> HashMap<T, usize> {
+        let mut dict = HashMap::new();
         for (i, &key) in self.iter().enumerate() {
             dict.insert(key, i);
         }
@@ -1187,16 +1188,17 @@ impl<T: Copy + Ord> CoordinateCompress<T> for BTreeSet<T> {
         (0..self.len()).collect::<Vec<usize>>()
     }
 }
-impl<T: Copy + Ord> CoordinateCompress<T> for HashSet<T> {
-    fn compress_encoder(&self) -> BTreeMap<T, usize> {
-        let mut dict = BTreeMap::<T, usize>::new();
+impl<T: Copy + Ord + std::hash::Hash> CoordinateCompress<T> for HashSet<T> {
+    fn compress_encoder(&self) -> HashMap<T, usize> {
+        let mut dict = BTreeSet::new();
         for &x in self.iter() {
-            let _ = dict.entry(x).or_insert(0); //keys.insert(*x);
+            dict.insert(x);
         }
-        for (i, kv) in dict.iter_mut().enumerate() {
-            *kv.1 = i;
+        let mut ret = HashMap::new();
+        for (i, value) in dict.into_iter().enumerate() {
+            ret.insert(value, i);
         }
-        dict
+        ret
     }
     fn compress_decoder(&self) -> Vec<T> {
         let mut keys = BTreeSet::<T>::new();
@@ -1425,7 +1427,7 @@ mod sort_vec_binary_search {
     #[allow(clippy::type_complexity)]
     fn sorted_binary_search<'a, T: PartialOrd>(
         vec: &'a Vec<T>,
-        key: & T,
+        key: &T,
         earlier: fn(&T, &T) -> bool,
     ) -> (Option<(usize, &'a T)>, Option<(usize, &'a T)>) {
         unsafe {
@@ -1472,10 +1474,10 @@ mod sort_vec_binary_search {
         fn greater_than(&self, key: &T) -> Option<(usize, &T)> {
             sorted_binary_search(self, key, |x: &T, y: &T| x <= y).1
         }
-        fn less_equal(&self, key: & T) -> Option<(usize, &T)> {
+        fn less_equal(&self, key: &T) -> Option<(usize, &T)> {
             sorted_binary_search(self, key, |x: &T, y: &T| x <= y).0
         }
-        fn less_than(&self, key: & T) -> Option<(usize, &T)> {
+        fn less_than(&self, key: &T) -> Option<(usize, &T)> {
             sorted_binary_search(self, key, |x: &T, y: &T| x < y).0
         }
     }
@@ -2886,6 +2888,93 @@ mod convolution {
 }
 use convolution::convolution;
 
+mod manhattan_mst {
+    use crate::change_min_max::ChangeMinMax;
+    use crate::{segment_tree::SegmentTree, CoordinateCompress, UnionFind};
+    use std::cmp::{min, Reverse};
+    use std::collections::BinaryHeap;
+    pub struct ManhattanMST {
+        points: Vec<(usize, (i64, i64))>,
+    }
+    impl ManhattanMST {
+        pub fn new() -> Self {
+            Self { points: vec![] }
+        }
+        pub fn push(&mut self, pt: (i64, i64)) {
+            self.points.push((self.points.len(), pt));
+        }
+        fn mst(mut edges: Vec<(i64, usize, usize)>, n: usize) -> Vec<Vec<(i64, usize)>> {
+            let mut uf = UnionFind::new(n);
+            let mut g = vec![vec![]; n];
+            edges.sort();
+            for (delta, i, j) in edges {
+                if !uf.same(i, j) {
+                    uf.unite(i, j);
+                    g[i].push((delta, j));
+                    g[j].push((delta, i));
+                }
+            }
+            g
+        }
+        pub fn minimum_spanning_tree(&mut self) -> Vec<Vec<(i64, usize)>> {
+            let n = self.points.len();
+            let mut edges = vec![];
+            let inf = 1i64 << 60;
+            for h0 in 0..2 {
+                for h1 in 0..2 {
+                    let y_enc = self
+                        .points
+                        .iter()
+                        .map(|&(_i, (y, _x))| y)
+                        .collect::<Vec<_>>()
+                        .compress_encoder();
+                    for h2 in 0..2 {
+                        let mut st = SegmentTree::<(usize, i64)>::new(
+                            n,
+                            |(i0, ypx0), (i1, ypx1)| {
+                                if ypx0 < ypx1 {
+                                    (i0, ypx0)
+                                } else {
+                                    (i1, ypx1)
+                                }
+                            },
+                            (0, inf),
+                        );
+                        self.points
+                            .sort_by(|(_i0, (y0, x0)), (_i1, (y1, x1))| (y0 - x0).cmp(&(y1 - x1)));
+                        for &(i, (y, x)) in self.points.iter() {
+                            let ey = y_enc[&y];
+                            let q = st.query(ey, n - 1);
+                            if q.1 != inf {
+                                let delta = q.1 - (y + x);
+                                debug_assert!(delta >= 0);
+                                edges.push((delta, i, q.0));
+                            }
+                            //
+                            if st.get(ey).1 > y + x {
+                                st.set(ey, (i, y + x));
+                            }
+                        }
+                        if h2 == 0 {
+                            self.points.iter_mut().for_each(|(_i, (_y, x))| *x = -(*x));
+                        }
+                    }
+                    if h1 == 0 {
+                        self.points.iter_mut().for_each(|(_i, (y, _x))| *y = -(*y));
+                    }
+                }
+                if h0 == 0 {
+                    self.points
+                        .iter_mut()
+                        .for_each(|(_i, (y, x))| std::mem::swap(x, y));
+                }
+            }
+            Self::mst(edges, n)
+        }
+    }
+}
+use manhattan_mst::ManhattanMST;
+
 mod procon_reader {
     use std::fmt::Debug;
     use std::io::Read;
@@ -2920,133 +3009,19 @@ mod procon_reader {
         (0..n).map(|_| read::<T>()).collect::<Vec<T>>()
     }
     pub fn read_vec_sub1(n: usize) -> Vec<usize> {
-        (0..n)
-            .map(|_| read::<usize>() - 1)
-            .collect::<Vec<usize>>()
+        (0..n).map(|_| read::<usize>() - 1).collect::<Vec<usize>>()
     }
     pub fn read_mat<T: std::str::FromStr>(h: usize, w: usize) -> Vec<Vec<T>>
     where
         <T as FromStr>::Err: Debug,
     {
-        (0..h)
-            .map(|_| read_vec::<T>(w))
-            .collect::<Vec<Vec<T>>>()
+        (0..h).map(|_| read_vec::<T>(w)).collect::<Vec<Vec<T>>>()
     }
 }
 use procon_reader::*;
 /*************************************************************************************
 *************************************************************************************/
 
-mod manhattan_mst {
-    use crate::change_min_max::ChangeMinMax;
-    use crate::{segment_tree::SegmentTree, CoordinateCompress};
-    use std::cmp::{min, Reverse};
-    use std::collections::BinaryHeap;
-    pub struct ManhattanMST {
-        points: Vec<(usize, (i64, i64))>,
-    }
-    impl ManhattanMST {
-        pub fn new() -> Self {
-            Self {points:vec![]}
-        }
-        pub fn push(&mut self, pt: (i64, i64)) {
-            self.points.push((self.points.len(), pt));
-        }
-        fn dijkstra(g8: Vec<Vec<(i64, usize)>>) -> Vec<Vec<(i64, usize)>> {
-            let n = g8.len();
-            let mut que = BinaryHeap::new();
-            que.push((Reverse(0), 0));
-            let mut dist = vec![None; n];
-            dist[0] = Some(0);
-            let mut pre = vec![None; n];
-            while let Some((Reverse(d), v)) = que.pop() {
-                if dist[v] != Some(d) {
-                    continue;
-                }
-                for (delta, nv) in g8[v].iter().copied() {
-                    let nd = d + delta;
-                    if dist[nv].chmin(nd) {
-                        que.push((Reverse(nd), nv));
-                        pre[nv] = Some((delta, v));
-                    }
-                }
-            }
-            let mut g = vec![vec![]; n];
-            for (nv, pre) in pre.into_iter().enumerate() {
-                if let Some((delta, v)) = pre {
-                    g[v].push((delta, nv));
-                    g[nv].push((delta, v));
-                }
-            }
-            g
-        }
-        pub fn minimum_spanning_tree(&mut self) -> Vec<Vec<(i64, usize)>> {
-            let n = self.points.len();
-            let mut g8 = vec![vec![]; n];
-            let inf = 1i64 << 60;
-            for _h0 in 0..2 {
-                for _h1 in 0..2 {
-                    for _h2 in 0..2 {
-                        let y_enc = self.points.iter().map(|&(_i, (y, _x))| y).collect::<Vec<_>>().compress_encoder();
-                        let mut st = SegmentTree::<(usize, i64)>::new(n, 
-                            |(i0, ypx0), (i1, ypx1)| if ypx0 < ypx1 {(i0, ypx0)} else {(i1, ypx1)},
-                            (0, inf));
-                        self.points.sort_by(|(_i0, (y0, x0)), (_i1, (y1, x1))| (y0 - x0).cmp(&(y1 - x1)));
-                        for &(i, (y, x)) in self.points.iter() {
-                            let ey = y_enc[&y];
-                            let q = st.query(ey, n - 1);
-                            if q.1 != inf {
-                                let delta = q.1 - (y + x);
-                                debug_assert!(delta >= 0);
-                                g8[i].push((delta, q.0));
-                            }
-                            //
-                            if st.get(ey).1 > y + x {
-                                st.set(ey, (i, y + x));
-                            }
-                        }
-                        for (_i, (y, x)) in self.points.iter_mut() {
-                            let oy = *y;
-                            let ox = *x;
-                            *y = ox;
-                            *x = oy;
-                        }
-                    }
-                    for (_i, (_y, x)) in self.points.iter_mut() {
-                        *x = - (*x);
-                    }
-                }
-                for (_i, (y, _x)) in self.points.iter_mut() {
-                    *y = - (*y);
-                }
-            }
-            Self::dijkstra(g8)
-        }
-    }
-}
-use manhattan_mst::ManhattanMST;
 fn main() {
-    let n = read::<usize>();
-    let mut mst = ManhattanMST::new();
-    for _ in 0..n {
-        let x = read::<i64>();
-        let y = read::<i64>();
-        mst.push((y, x));
-    }
-    let g = mst.minimum_spanning_tree();
-    let mut ans = vec![];
-    let mut sm = 0;
-    for (v, to) in g.into_iter().enumerate() {
-        for (delta, nv) in to {
-            if v > nv {
-                continue;
-            }
-            sm += delta;
-            ans.push((v, nv));
-        }
-    }
-    println!("{}", sm);
-    for (a, b) in ans {
-        println!("{} {}", a, b);
-    }
+    
 }
