@@ -2345,7 +2345,7 @@ fn convex_hull<
 mod matrix {
     use crate::Identity;
     use std::iter::Sum;
-    use std::ops::{Index, IndexMut, Mul, MulAssign, Sub};
+    use std::ops::{Add, Index, IndexMut, Mul, MulAssign, Sub};
     use std::slice::SliceIndex;
     #[derive(Clone)]
     pub struct Matrix<T> {
@@ -2428,6 +2428,27 @@ mod matrix {
             let mut ret = vec![v0; self.h];
             for y in 0..self.h {
                 ret[y] = (0..self.w).map(|x| self[y][x] * rhs[x]).sum::<T>();
+            }
+            ret
+        }
+    }
+    impl<
+            T: Clone
+                + Copy
+                + Identity
+                + Add<Output = T>
+                + Sub<Output = T>
+                + Mul
+                + Sum<<T as Mul>::Output>,
+        > Add<Matrix<T>> for Matrix<T>
+    {
+        type Output = Matrix<T>;
+        fn add(self, rhs: Self) -> Self::Output {
+            let mut ret = Matrix::<T>::new(self.h, self.w);
+            for y in 0..self.h {
+                for x in 0..self.w {
+                    ret[y][x] = self[y][x] + rhs[y][x];
+                }
             }
             ret
         }
@@ -2974,6 +2995,54 @@ mod manhattan_mst {
     }
 }
 use manhattan_mst::ManhattanMST;
+
+mod mo {
+    use std::vec::IntoIter;
+    pub struct Mo {
+        ls: Vec<usize>,
+        rs: Vec<usize>,
+    }
+    pub struct MoIterator {
+        index_iter: IntoIter<usize>,
+        ls: Vec<usize>,
+        rs: Vec<usize>,
+    }
+    impl Mo {
+        pub fn new() -> Self {
+            Self {
+                ls: vec![],
+                rs: vec![],
+            }
+        }
+        pub fn add_range_queue(&mut self, l: usize, r: usize) {
+            self.ls.push(l);
+            self.rs.push(r);
+        }
+        pub fn into_iter(self) -> MoIterator {
+            let n = self.rs.iter().max().unwrap() + 1;
+            let q = self.rs.len();
+            let d = n / ((q as f64).sqrt() as usize + 1) + 1;
+            let mut indexes = (0..q).collect::<Vec<_>>();
+            indexes.sort_by_cached_key(|&i| (self.ls[i] / d, self.rs[i]));
+            MoIterator {
+                index_iter: indexes.into_iter(),
+                ls: self.ls,
+                rs: self.rs,
+            }
+        }
+    }
+    impl Iterator for MoIterator {
+        type Item = (usize, (usize, usize));
+        fn next(&mut self) -> Option<Self::Item> {
+            if let Some(i) = self.index_iter.next() {
+                Some((i, (self.ls[i], self.rs[i])))
+            } else {
+                None
+            }
+        }
+    }
+}
+use mo::*;
 
 mod procon_reader {
     use std::fmt::Debug;
