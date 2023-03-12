@@ -3023,7 +3023,14 @@ mod mo {
             let q = self.rs.len();
             let d = n / ((q as f64).sqrt() as usize + 1) + 1;
             let mut indexes = (0..q).collect::<Vec<_>>();
-            indexes.sort_by_cached_key(|&i| (self.ls[i] / d, self.rs[i]));
+            indexes.sort_by_cached_key(|&i| {
+                let div = self.ls[i] / d;
+                if div % 2 == 0 {
+                    (div, self.rs[i])
+                } else {
+                    (div, n - self.rs[i])
+                }
+            });
             MoIterator {
                 index_iter: indexes.into_iter(),
                 ls: self.ls,
