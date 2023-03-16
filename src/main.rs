@@ -1069,7 +1069,6 @@ pub trait IntegerOperation {
 impl<
         T: Copy
             + Ord
-            + Neg<Output = T>
             + AddAssign
             + SubAssign
             + MulAssign
