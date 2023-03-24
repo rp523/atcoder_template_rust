@@ -2513,18 +2513,22 @@ mod suffix_array {
 }
 use suffix_array::ToSuffixArray;
 
-mod max_flow {
+mod flow {
+    use crate::change_min_max::ChangeMinMax;
+    use std::cmp::Reverse;
+    use std::collections::BinaryHeap;
     #[derive(Clone, Copy)]
     pub struct Edge {
         pub to: usize,
         pub rev_idx: usize, // index of paired edge at node "to".
         pub capacity: i64,  // - inf <= flow <= capacity
         pub flow: i64,      // flow can be negative.
+        pub cost: i64,      // for min-cost flow
     }
-    pub struct MaxFlow {
+    pub struct Flow {
         pub g: Vec<Vec<Edge>>,
     }
-    impl MaxFlow {
+    impl Flow {
         pub fn new(n: usize) -> Self {
             Self { g: vec![vec![]; n] }
         }
@@ -2535,6 +2539,7 @@ mod max_flow {
                 rev_idx,
                 capacity,
                 flow: 0,
+                cost: 0,
             });
             let rev_idx = self.g[from].len() - 1;
             self.g[to].push(Edge {
@@ -2542,6 +2547,25 @@ mod max_flow {
                 rev_idx,
                 capacity: 0,
                 flow: 0,
+                cost: 0,
+            });
+        }
+        pub fn add_cost_edge(&mut self, from: usize, to: usize, capacity: i64, cost: i64) {
+            let rev_idx = self.g[to].len();
+            self.g[from].push(Edge {
+                to,
+                rev_idx,
+                capacity,
+                flow: 0,
+                cost,
+            });
+            let rev_idx = self.g[from].len() - 1;
+            self.g[to].push(Edge {
+                to: from,
+                rev_idx,
+                capacity: 0,
+                flow: 0,
+                cost: -cost,
             });
         }
         fn bfs(g: &[Vec<Edge>], source: usize) -> Vec<Option<usize>> {
@@ -2618,9 +2642,61 @@ mod max_flow {
             }
             flow
         }
+        pub fn min_cost_flow(&mut self, source: usize, sink: usize, mut flow: i64) -> Option<i64> {
+            let mut min_cost = 0;
+            let mut h = vec![0; self.g.len()];
+            let mut dist = vec![None; self.g.len()];
+            let mut prev = vec![None; self.g.len()];
+            while flow > 0 {
+                let mut que = BinaryHeap::new();
+                que.push((Reverse(0), source));
+                dist.iter_mut().for_each(|dist| *dist = None);
+                dist[source] = Some(0);
+                while let Some((Reverse(d), v)) = que.pop() {
+                    if dist[v].unwrap() != d {
+                        continue;
+                    }
+                    for (ei, e) in self.g[v].iter().enumerate() {
+                        if e.flow >= e.capacity {
+                            continue;
+                        }
+                        let nd = d + e.cost + h[v] - h[e.to];
+                        if dist[e.to].chmin(nd) {
+                            prev[e.to] = Some((v, ei));
+                            que.push((Reverse(nd), e.to));
+                        }
+                    }
+                }
+                dist[sink]?;
+                h.iter_mut()
+                    .zip(dist.iter())
+                    .for_each(|(h, d)| *h += d.unwrap());
+                let mut delta_flow = flow;
+                {
+                    let mut v = sink;
+                    while let Some((pv, pei)) = prev[v] {
+                        let e = &self.g[pv][pei];
+                        delta_flow.chmin(e.capacity - e.flow);
+                        v = pv;
+                    }
+                }
+                flow -= delta_flow;
+                min_cost += delta_flow * h[sink];
+                {
+                    let mut v = sink;
+                    while let Some((pv, pei)) = prev[v] {
+                        self.g[pv][pei].flow += delta_flow;
+                        let rev_idx = self.g[pv][pei].rev_idx;
+                        self.g[v][rev_idx].flow -= delta_flow;
+                        v = pv;
+                    }
+                }
+            }
+            Some(min_cost)
+        }
     }
 }
-use max_flow::MaxFlow;
+use flow::Flow;
 
 mod convolution {
     // https://github.com/atcoder/ac-library/blob/master/atcoder/convolution.hpp
@@ -3097,6 +3173,4 @@ use procon_reader::*;
 /*************************************************************************************
 *************************************************************************************/
 
-fn main() {
-    
-}
+fn main() {}
