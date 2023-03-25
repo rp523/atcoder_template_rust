@@ -2668,9 +2668,11 @@ mod flow {
                     }
                 }
                 dist[sink]?;
-                h.iter_mut()
-                    .zip(dist.iter())
-                    .for_each(|(h, d)| *h += d.unwrap());
+                h.iter_mut().zip(dist.iter()).for_each(|(h, d)| {
+                    if let Some(d) = d {
+                        *h += d
+                    }
+                });
                 let mut delta_flow = flow;
                 {
                     let mut v = sink;
