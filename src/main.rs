@@ -306,6 +306,9 @@ fn combination<
     n: usize,
     k: usize,
 ) -> T {
+    if n < k {
+        return T::from(0_usize);
+    }
     if k == 0 {
         return T::from(1_usize);
     } else if k == 1 {
@@ -319,6 +322,15 @@ fn combination<
     } else {
         factorial::<T>(n) / (factorial::<T>(k) * factorial::<T>(n - k))
     }
+}
+
+fn combination_with_overlap<
+    T: Clone + Copy + From<usize> + Into<usize> + Mul<Output = T> + Div<Output = T> + 'static,
+>(
+    n: usize,
+    k: usize,
+) -> T {
+    combination(n + k - 1, k)
 }
 
 fn permutation<
