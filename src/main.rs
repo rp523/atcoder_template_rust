@@ -3140,6 +3140,132 @@ mod mo {
 }
 use mo::*;
 
+mod heavy_light_decomposition {
+    use std::cmp::Ordering;
+
+    use crate::ChangeMinMax;
+    use crate::UnionFind;
+    pub struct Hld {
+        vis_order: Vec<usize>,
+        head_of: Vec<usize>,
+        sub_size: Vec<usize>,
+        g: Vec<Vec<usize>>,
+        root: usize,
+        uf: UnionFind,
+        par: Vec<usize>,
+        depth: Vec<usize>,
+    }
+    impl Hld {
+        pub fn new(n: usize, root: usize) -> Self {
+            Self {
+                vis_order: vec![n; n],
+                head_of: vec![n; n],
+                sub_size: vec![n + 1; n],
+                g: vec![vec![]; n],
+                root,
+                uf: UnionFind::new(n),
+                par: vec![n; n],
+                depth: vec![n; n],
+            }
+        }
+        pub fn add_edge(&mut self, a: usize, b: usize) {
+            self.g[a].push(b);
+            self.g[b].push(a);
+            self.uf.unite(a, b);
+            if self.uf.group_num() == 1 {
+                self.build();
+            }
+        }
+        fn build(&mut self) {
+            self.depth[self.root] = 0;
+            self.dfs_sz(self.root, self.g.len());
+            self.dfs_hld(self.root, self.g.len(), self.root, &mut 0);
+        }
+        fn dfs_sz(&mut self, v: usize, pre: usize) {
+            self.sub_size[v] = 1;
+            for nv in self.g[v].clone() {
+                if nv == pre {
+                    continue;
+                }
+                self.par[nv] = v;
+                self.depth[nv] = self.depth[v] + 1;
+                self.dfs_sz(nv, v);
+                self.sub_size[v] += self.sub_size[nv];
+            }
+        }
+        fn dfs_hld(&mut self, v: usize, pre: usize, head: usize, vis_cnt: &mut usize) {
+            self.head_of[v] = head;
+            self.vis_order[v] = *vis_cnt;
+            *vis_cnt += 1;
+            let mut sub_size_max = None;
+            let mut sub_size_max_ei = None;
+            for (ei, nv) in self.g[v].iter().copied().enumerate() {
+                if nv == pre {
+                    continue;
+                }
+                if sub_size_max.chmax(self.sub_size[nv]) {
+                    sub_size_max_ei = Some(ei);
+                }
+            }
+            if sub_size_max.is_none() {
+                // no child
+                return;
+            }
+
+            // set heavy child at g[v][0]
+            let sub_size_max1st_ei = sub_size_max_ei.unwrap();
+            if sub_size_max1st_ei != 0 {
+                self.g[v].swap(0, sub_size_max1st_ei);
+            }
+
+            for (ei, nv) in self.g[v].clone().into_iter().enumerate() {
+                if nv == pre {
+                    continue;
+                }
+                let nhead = if ei == 0 { head } else { nv };
+                self.dfs_hld(nv, v, nhead, vis_cnt);
+            }
+        }
+        pub fn lca(&self, mut a: usize, mut b: usize) -> usize {
+            while self.head_of[a] != self.head_of[b] {
+                if self.vis_order[self.head_of[a]] > self.vis_order[self.head_of[b]] {
+                    a = self.par[self.head_of[a]];
+                } else {
+                    b = self.par[self.head_of[b]];
+                }
+            }
+            if self.depth[a] < self.depth[b] {
+                a
+            } else {
+                b
+            }
+        }
+        pub fn edges_to_arrayranges(&self, mut a: usize, mut b: usize) -> Vec<(usize, usize)> {
+            let mut ret = vec![];
+            while self.head_of[a] != self.head_of[b] {
+                if self.vis_order[self.head_of[a]] > self.vis_order[self.head_of[b]] {
+                    ret.push((self.vis_order[self.head_of[a]], self.vis_order[a]));
+                    a = self.par[self.head_of[a]];
+                } else {
+                    ret.push((self.vis_order[self.head_of[b]], self.vis_order[b]));
+                    b = self.par[self.head_of[b]];
+                }
+            }
+            match self.depth[a].cmp(&self.depth[b]) {
+                Ordering::Less => {
+                    ret.push((self.vis_order[self.g[a][0]], self.vis_order[b]));
+                }
+                Ordering::Greater => {
+                    ret.push((self.vis_order[self.g[b][0]], self.vis_order[a]));
+                }
+                _ => {}
+            }
+            ret
+        }
+    }
+}
+use heavy_light_decomposition::Hld;
+
 mod procon_reader {
     use std::fmt::Debug;
     use std::io::Read;
@@ -3187,6 +3313,4 @@ use procon_reader::*;
 /*************************************************************************************
 *************************************************************************************/
 
-fn main() {
-    
-}
+fn main() {}
