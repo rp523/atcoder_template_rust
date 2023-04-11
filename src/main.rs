@@ -3092,6 +3092,8 @@ mod manhattan_mst {
 use manhattan_mst::ManhattanMST;
 
 mod mo {
+    use std::iter::{Chain, Rev};
+    use std::ops::{Range, RangeInclusive};
     use std::vec::IntoIter;
     pub struct Mo {
         ls: Vec<usize>,
@@ -3131,6 +3133,22 @@ mod mo {
                 ls: self.ls,
                 rs: self.rs,
             }
+        }
+        pub fn add_chain(
+            l0: usize,
+            r0: usize,
+            l1: usize,
+            r1: usize,
+        ) -> Chain<Rev<Range<usize>>, RangeInclusive<usize>> {
+            (l1..l0).rev().chain(r0 + 1..=r1)
+        }
+        pub fn remove_chain(
+            l0: usize,
+            r0: usize,
+            l1: usize,
+            r1: usize,
+        ) -> Chain<Range<usize>, Rev<RangeInclusive<usize>>> {
+            (l0..l1).chain(((r1 + 1)..=r0).rev())
         }
     }
     impl Iterator for MoIterator {
