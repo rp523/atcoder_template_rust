@@ -1,6 +1,6 @@
 #![allow(unused_macros, unused_imports, dead_code)]
 use std::any::TypeId;
-use std::cmp::{max, min, Reverse};
+use std::cmp::{max, min, Ordering, Reverse};
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, VecDeque};
 use std::mem::swap;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Rem, Sub, SubAssign};
@@ -415,7 +415,7 @@ mod segment_tree {
         dat: Vec<T>,
         pair_op: fn(T, T) -> T,
     }
-    impl<T: Copy> SegmentTree<T> {
+    impl<T: Clone> SegmentTree<T> {
         pub fn new(n: usize, pair_op: fn(T, T) -> T, ini_val: T) -> Self {
             let mut n2 = 1_usize;
             while n > n2 {
@@ -425,11 +425,11 @@ mod segment_tree {
                 n2,
                 neff: n,
                 pair_op,
-                dat: vec![ini_val; 2 * n2 - 1],
+                dat: vec![ini_val.clone(); 2 * n2 - 1],
             };
 
             for i in 0..n {
-                s.set(i, ini_val);
+                s.set(i, ini_val.clone());
             }
             s
         }
@@ -443,11 +443,11 @@ mod segment_tree {
                 n2,
                 neff: n,
                 pair_op,
-                dat: vec![ini_values[0]; 2 * n2 - 1],
+                dat: vec![ini_values[0].clone(); 2 * n2 - 1],
             };
 
             for (i, ini_val) in ini_values.iter().enumerate() {
-                st.set(i, *ini_val);
+                st.set(i, ini_val.clone());
             }
             st
         }
@@ -456,11 +456,12 @@ mod segment_tree {
             self.dat[pos] = val;
             while pos > 0 {
                 pos = (pos - 1) / 2; // parent
-                self.dat[pos] = (self.pair_op)(self.dat[pos * 2 + 1], self.dat[pos * 2 + 2]);
+                self.dat[pos] =
+                    (self.pair_op)(self.dat[pos * 2 + 1].clone(), self.dat[pos * 2 + 2].clone());
             }
         }
         pub fn get(&self, pos: usize) -> T {
-            self.dat[pos + self.n2 - 1]
+            self.dat[pos + self.n2 - 1].clone()
         }
         // get query value of [a, b]
         pub fn query(&self, a: usize, b: usize) -> T {
@@ -472,7 +473,7 @@ mod segment_tree {
                 panic!("invalid query range, ({a}, {b})");
             } else if (a <= node_l) && (node_r <= b) {
                 // this not is covered by given interval.
-                self.dat[node]
+                self.dat[node].clone()
             } else if a < (node_l + node_r) / 2 {
                 let vl = self.query_sub(a, b, node * 2 + 1, node_l, (node_l + node_r) / 2);
                 if (node_l + node_r) / 2 < b {
@@ -511,7 +512,7 @@ mod lazy_segment_tree {
         lazy_ops: Vec<Option<M>>,     // reserved operations
         built: bool,
     }
-    impl<X: Copy, M: Copy> LazySegmentTree<X, M> {
+    impl<X: Clone, M: Clone> LazySegmentTree<X, M> {
         pub fn new(
             n: usize,
             pair_op: fn(X, X) -> X,
@@ -528,7 +529,7 @@ mod lazy_segment_tree {
                 pair_op,
                 update_op,
                 update_concat,
-                dat: vec![ini_val; n * 4],
+                dat: vec![ini_val.clone(); n * 4],
                 lazy_ops: vec![None; n * 4],
                 built: false,
             };
@@ -551,12 +552,12 @@ mod lazy_segment_tree {
                 pair_op,
                 update_op,
                 update_concat,
-                dat: vec![init_vals[0]; n * 4],
+                dat: vec![init_vals[0].clone(); n * 4],
                 lazy_ops: vec![None; n * 4],
                 built: false,
             };
             for (i, init_val) in init_vals.iter().enumerate() {
-                ret.set(i, *init_val);
+                ret.set(i, init_val.clone());
             }
             ret
         }
@@ -573,12 +574,13 @@ mod lazy_segment_tree {
         }
         fn init_all(&mut self, ini_val: X) {
             for i in 0..self.n2 {
-                self.set(i, ini_val);
+                self.set(i, ini_val.clone());
             }
         }
         fn build(&mut self) {
             for k in (0..self.n2).rev().skip(1) {
-                self.dat[k] = (self.pair_op)(self.dat[2 * k + 1], self.dat[2 * k + 2]);
+                self.dat[k] =
+                    (self.pair_op)(self.dat[2 * k + 1].clone(), self.dat[2 * k + 2].clone());
             }
         }
         fn lazy_eval(&mut self, node: usize) {
@@ -586,20 +588,21 @@ mod lazy_segment_tree {
                 self.build();
                 self.built = true;
             }
-            if let Some(lazy_val) = self.lazy_ops[node] {
+            if let Some(lazy_val) = self.lazy_ops[node].clone() {
                 if node < self.n2 - 1 {
                     // if the target node is not a terminal one, propagate to its' children.
                     for d in 1..=2_usize {
                         let nc = node * 2 + d;
-                        if let Some(nc_lazy_val) = self.lazy_ops[nc] {
-                            self.lazy_ops[nc] = Some((self.update_concat)(nc_lazy_val, lazy_val));
+                        if let Some(nc_lazy_val) = self.lazy_ops[nc].clone() {
+                            self.lazy_ops[nc] =
+                                Some((self.update_concat)(nc_lazy_val, lazy_val.clone()));
                         } else {
-                            self.lazy_ops[nc] = Some(lazy_val);
+                            self.lazy_ops[nc] = Some(lazy_val.clone());
                         }
                     }
                 }
                 // update the target node
-                self.dat[node] = (self.update_op)(self.dat[node], lazy_val);
+                self.dat[node] = (self.update_op)(self.dat[node].clone(), lazy_val);
                 self.lazy_ops[node] = None;
             }
         }
@@ -615,7 +618,7 @@ mod lazy_segment_tree {
             self.lazy_eval(node);
             if (a <= node_l) && (node_r <= b) {
                 // this node is inside the query range.
-                if let Some(lazy_val) = self.lazy_ops[node] {
+                if let Some(lazy_val) = self.lazy_ops[node].clone() {
                     self.lazy_ops[node] = Some((self.update_concat)(lazy_val, m));
                 } else {
                     self.lazy_ops[node] = Some(m);
@@ -623,9 +626,12 @@ mod lazy_segment_tree {
                 self.lazy_eval(node);
             } else if (node_r > a) && (b > node_l) {
                 // this node and query range overlap partly.
-                self.reserve_sub(a, b, m, node * 2 + 1, node_l, (node_l + node_r) / 2); // 左の子
+                self.reserve_sub(a, b, m.clone(), node * 2 + 1, node_l, (node_l + node_r) / 2); // 左の子
                 self.reserve_sub(a, b, m, node * 2 + 2, (node_l + node_r) / 2, node_r); // 右の子
-                self.dat[node] = (self.pair_op)(self.dat[node * 2 + 1], self.dat[node * 2 + 2]);
+                self.dat[node] = (self.pair_op)(
+                    self.dat[node * 2 + 1].clone(),
+                    self.dat[node * 2 + 2].clone(),
+                );
             }
         }
         fn query_sub(
@@ -639,7 +645,7 @@ mod lazy_segment_tree {
             self.lazy_eval(node);
             if (a <= node_l) && (node_r <= b) {
                 // this node is inside the query range.
-                self.dat[node]
+                self.dat[node].clone()
             } else if (node_r > a) && (b > node_l) {
                 // this node and query range overlap partly.
                 let n0 = node * 2 + 1;
