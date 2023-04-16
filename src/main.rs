@@ -2660,15 +2660,91 @@ mod flow {
             }
             flow
         }
-        pub fn min_cost_flow(&mut self, source: usize, sink: usize, mut flow: i64) -> Option<i64> {
+        pub fn min_negcost_flow(
+            &mut self,
+            source: usize,
+            sink: usize,
+            flow_lb: i64, // lower bound flow
+            flow_ub: i64, // upper bound flow
+        ) -> Option<i64> {
+            let mut flow_now = 0;
+            let mut min_cost = 0;
+            let mut dist = vec![None; self.g.len()];
+            let mut prev = vec![None; self.g.len()];
+            loop {
+                dist[source] = Some(0);
+                let mut update = true;
+                while update {
+                    update = false;
+                    for (v, to) in self.g.iter().enumerate() {
+                        if dist[v].is_none() {
+                            continue;
+                        }
+                        for (ei, e) in to.iter().enumerate() {
+                            if e.flow >= e.capacity {
+                                continue;
+                            }
+                            let nd = dist[v].unwrap() + e.cost;
+                            if dist[e.to].chmin(nd) {
+                                prev[e.to] = Some((v, ei));
+                                update = true;
+                            }
+                        }
+                    }
+                }
+
+                if let Some(dist_sink) = dist[sink] {
+                    if (flow_now >= flow_lb) && (dist_sink > 0) {
+                        break;
+                    }
+                    let mut delta_flow = flow_ub - flow_now;
+                    {
+                        let mut v = sink;
+                        while let Some((pv, pei)) = prev[v] {
+                            let e = &self.g[pv][pei];
+                            delta_flow.chmin(e.capacity - e.flow);
+                            v = pv;
+                        }
+                    }
+                    if delta_flow == 0 {
+                        break;
+                    }
+                    flow_now += delta_flow;
+                    min_cost += delta_flow * dist_sink;
+                    {
+                        let mut v = sink;
+                        while let Some((pv, pei)) = prev[v] {
+                            self.g[pv][pei].flow += delta_flow;
+                            let rev_idx = self.g[pv][pei].rev_idx;
+                            self.g[v][rev_idx].flow -= delta_flow;
+                            v = pv;
+                        }
+                    }
+                } else if flow_now >= flow_lb {
+                    break;
+                } else {
+                    return None;
+                }
+
+                dist.iter_mut().for_each(|x| *x = None);
+                prev.iter_mut().for_each(|x| *x = None);
+            }
+            Some(min_cost)
+        }
+        pub fn min_poscost_flow(
+            &mut self,
+            source: usize,
+            sink: usize,
+            flow_lb: i64, // lower bound flow;
+        ) -> Option<i64> {
+            let mut flow_now = 0;
             let mut min_cost = 0;
             let mut h = vec![0; self.g.len()];
             let mut dist = vec![None; self.g.len()];
             let mut prev = vec![None; self.g.len()];
-            while flow > 0 {
+            while flow_now < flow_lb {
                 let mut que = BinaryHeap::new();
                 que.push((Reverse(0), source));
-                dist.iter_mut().for_each(|dist| *dist = None);
                 dist[source] = Some(0);
                 while let Some((Reverse(d), v)) = que.pop() {
                     if dist[v].unwrap() != d {
@@ -2691,7 +2767,7 @@ mod flow {
                         *h += d
                     }
                 });
-                let mut delta_flow = flow;
+                let mut delta_flow = flow_lb - flow_now;
                 {
                     let mut v = sink;
                     while let Some((pv, pei)) = prev[v] {
@@ -2700,7 +2776,7 @@ mod flow {
                         v = pv;
                     }
                 }
-                flow -= delta_flow;
+                flow_now += delta_flow;
                 min_cost += delta_flow * h[sink];
                 {
                     let mut v = sink;
@@ -2711,6 +2787,9 @@ mod flow {
                         v = pv;
                     }
                 }
+
+                dist.iter_mut().for_each(|dist| *dist = None);
+                prev.iter_mut().for_each(|dist| *dist = None);
             }
             Some(min_cost)
         }
