@@ -2538,24 +2538,28 @@ mod flow {
     #[derive(Clone, Copy)]
     pub struct Edge {
         pub to: usize,
-        pub rev_idx: usize, // index of paired edge at node "to".
-        pub capacity: i64,  // - inf <= flow <= capacity
-        pub flow: i64,      // flow can be negative.
-        pub cost: i64,      // for min-cost flow
+        pub rev_idx: usize,  // index of paired edge at node "to".
+        pub cap_remain: i64, // flow <= cap_remain
+        pub flow: i64,       // flow can be negative.
+        pub cost: i64,       // for min-cost flow
     }
     pub struct Flow {
         pub g: Vec<Vec<Edge>>,
+        flow_lb_sum: i64,
     }
     impl Flow {
         pub fn new(n: usize) -> Self {
-            Self { g: vec![vec![]; n] }
+            Self {
+                g: vec![vec![]; n + 2],
+                flow_lb_sum: 0,
+            }
         }
-        pub fn add_edge(&mut self, from: usize, to: usize, capacity: i64) {
+        pub fn add_edge(&mut self, from: usize, to: usize, cap: i64) {
             let rev_idx = self.g[to].len();
             self.g[from].push(Edge {
                 to,
                 rev_idx,
-                capacity,
+                cap_remain: cap,
                 flow: 0,
                 cost: 0,
             });
@@ -2563,17 +2567,25 @@ mod flow {
             self.g[to].push(Edge {
                 to: from,
                 rev_idx,
-                capacity: 0,
+                cap_remain: 0,
                 flow: 0,
                 cost: 0,
             });
         }
-        pub fn add_cost_edge(&mut self, from: usize, to: usize, capacity: i64, cost: i64) {
+        pub fn add_flowbound_edge(&mut self, from: usize, to: usize, cap_min: i64, cap_max: i64) {
+            self.flow_lb_sum += cap_min;
+            self.add_edge(from, to, cap_max - cap_min);
+            let dummy_src = self.g.len() - 2;
+            self.add_edge(dummy_src, to, cap_min);
+            let dummy_dst = self.g.len() - 1;
+            self.add_edge(from, dummy_dst, cap_min);
+        }
+        pub fn add_cost_edge(&mut self, from: usize, to: usize, cap: i64, cost: i64) {
             let rev_idx = self.g[to].len();
             self.g[from].push(Edge {
                 to,
                 rev_idx,
-                capacity,
+                cap_remain: cap,
                 flow: 0,
                 cost,
             });
@@ -2581,7 +2593,7 @@ mod flow {
             self.g[to].push(Edge {
                 to: from,
                 rev_idx,
-                capacity: 0,
+                cap_remain: 0,
                 flow: 0,
                 cost: -cost,
             });
@@ -2594,7 +2606,7 @@ mod flow {
             while let Some(v) = que.pop_front() {
                 let nxt_level = level[v].unwrap() + 1;
                 for edge in g[v].iter().copied() {
-                    if level[edge.to].is_none() && (edge.capacity > edge.flow) {
+                    if level[edge.to].is_none() && (edge.cap_remain > edge.flow) {
                         level[edge.to] = Some(nxt_level);
                         que.push_back(edge.to);
                     }
@@ -2616,7 +2628,7 @@ mod flow {
             while search_cnt[v] < g[v].len() {
                 let (to, rev_idx, remain_capacity) = {
                     let edge = g[v][search_cnt[v]];
-                    (edge.to, edge.rev_idx, edge.capacity - edge.flow)
+                    (edge.to, edge.rev_idx, edge.cap_remain - edge.flow)
                 };
                 if let Some(nxt_level) = level[to] {
                     if (level[v].unwrap() < nxt_level) && (remain_capacity > 0) {
@@ -2639,7 +2651,27 @@ mod flow {
             }
             0
         }
-        pub fn max_flow(&mut self, source: usize, sink: usize) -> i64 {
+        pub fn max_flow(&mut self, src: usize, dst: usize) -> Option<i64> {
+            if self.flow_lb_sum == 0 {
+                return Some(self.max_flow_impl(src, dst));
+            }
+            let dummy_src = self.g.len() - 2;
+            let dummy_dst = self.g.len() - 1;
+            let ds_to_dt = self.max_flow_impl(dummy_src, dummy_dst);
+            let s_to_dt = self.max_flow_impl(src, dummy_dst);
+            let ds_to_t = self.max_flow_impl(dummy_src, dst);
+            let s_to_t = self.max_flow_impl(src, dst);
+
+            let ds_out = ds_to_dt + ds_to_t;
+            let dt_in = ds_to_dt + s_to_dt;
+            if (ds_out == self.flow_lb_sum) && (dt_in == self.flow_lb_sum) {
+                let s_out = s_to_dt + s_to_t;
+                Some(s_out)
+            } else {
+                None
+            }
+        }
+        fn max_flow_impl(&mut self, source: usize, sink: usize) -> i64 {
             let inf = 1i64 << 60;
             let mut flow = 0;
             loop {
@@ -2681,7 +2713,7 @@ mod flow {
                             continue;
                         }
                         for (ei, e) in to.iter().enumerate() {
-                            if e.flow >= e.capacity {
+                            if e.flow >= e.cap_remain {
                                 continue;
                             }
                             let nd = dist[v].unwrap() + e.cost;
@@ -2702,7 +2734,7 @@ mod flow {
                         let mut v = sink;
                         while let Some((pv, pei)) = prev[v] {
                             let e = &self.g[pv][pei];
-                            delta_flow.chmin(e.capacity - e.flow);
+                            delta_flow.chmin(e.cap_remain - e.flow);
                             v = pv;
                         }
                     }
@@ -2751,7 +2783,7 @@ mod flow {
                         continue;
                     }
                     for (ei, e) in self.g[v].iter().enumerate() {
-                        if e.flow >= e.capacity {
+                        if e.flow >= e.cap_remain {
                             continue;
                         }
                         let nd = d + e.cost + h[v] - h[e.to];
@@ -2772,7 +2804,7 @@ mod flow {
                     let mut v = sink;
                     while let Some((pv, pei)) = prev[v] {
                         let e = &self.g[pv][pei];
-                        delta_flow.chmin(e.capacity - e.flow);
+                        delta_flow.chmin(e.cap_remain - e.flow);
                         v = pv;
                     }
                 }
