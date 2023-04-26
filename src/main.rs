@@ -2060,12 +2060,12 @@ use my_string::Str;
 
 mod rolling_hash {
     use u64 as htype;
-    const MOD: htype = 10000000000000061;
+    const MODS: [htype; 2] = [1000000007, 998244353];
     pub struct RollingHash {
-        cum_hashes: Vec<htype>,
+        cum_hashes: Vec<Vec<htype>>,
         base: usize,
-        base_powers: Vec<htype>,
-        base_powers_inv: Vec<htype>,
+        base_powers: Vec<Vec<htype>>,
+        base_powers_inv: Vec<Vec<htype>>,
     }
     pub struct RollingHashValue<'a> {
         org: &'a RollingHash,
@@ -2081,39 +2081,53 @@ mod rolling_hash {
         }
     }
     impl RollingHash {
-        fn new(values: &Vec<usize>, base: usize) -> RollingHash {
+        pub fn new(values: &Vec<usize>, base: usize) -> RollingHash {
             let n = values.len();
 
-            let mut base_powers = vec![1; n];
-            for p in 1..n {
-                base_powers[p] = (base_powers[p - 1] * base as htype) % MOD;
+            let mut base_powers = vec![vec![1; n]; 2];
+            for m in 0..2 {
+                for p in 1..n {
+                    base_powers[m][p] = (base_powers[m][p - 1] * base as htype) % MODS[m];
+                }
             }
 
-            let inv_base = {
-                let mut p = MOD - 2;
+            let calc_inv_base = |md: u64, base: htype| -> htype {
+                let mut p = md - 2;
                 let mut ret: htype = 1;
                 let mut mul = base as htype;
                 while p > 0 {
                     if p & 1 != 0 {
-                        ret = (ret * mul) % MOD;
+                        ret = (ret * mul) % md;
                     }
                     p >>= 1;
-                    mul = (mul * mul) % MOD;
+                    mul = (mul * mul) % md;
                 }
                 ret
             };
+            let inv_bases = (0..2)
+                .map(|m| calc_inv_base(MODS[m], base as htype))
+                .collect::<Vec<_>>();
 
-            let mut base_powers_inv = vec![1; n];
-            for p in 1..n {
-                base_powers_inv[p] = (base_powers_inv[p - 1] * inv_base) % MOD;
+            let mut base_powers_inv = vec![vec![1; n]; 2];
+            for m in 0..2 {
+                for p in 1..n {
+                    base_powers_inv[m][p] = (base_powers_inv[m][p - 1] * inv_bases[m]) % MODS[m];
+                }
             }
 
-            let mut cum_hashes = (0..n)
-                .map(|i| (values[i] as htype * base_powers[i]) % MOD)
-                .collect::<Vec<_>>();
-            for i in 1..n {
-                cum_hashes[i] += cum_hashes[i - 1];
-                cum_hashes[i] %= MOD;
+            let mut cum_hashes = (0..2)
+                .map(|m| {
+                    (0..n)
+                        .map(|i| (values[i] as htype * base_powers[m][i]) % MODS[m])
+                        .collect::<Vec<_>>()
+                })
+                .collect::<Vec<Vec<_>>>();
+
+            for m in 0..2 {
+                for i in 1..n {
+                    cum_hashes[m][i] += cum_hashes[m][i - 1];
+                    cum_hashes[m][i] %= MODS[m];
+                }
             }
 
             Self {
@@ -2123,19 +2137,28 @@ mod rolling_hash {
                 base_powers_inv,
             }
         }
+        // hash value of array range (closed interval, [i0, i1])
         pub fn hash(&self, i0: usize, i1: usize) -> RollingHashValue {
             RollingHashValue { org: self, i0, i1 }
         }
     }
     impl<'a> RollingHashValue<'a> {
-        fn get(&'a self) -> htype {
-            if self.i0 > 0 {
-                ((MOD + self.org.cum_hashes[self.i1] - self.org.cum_hashes[self.i0 - 1])
-                    * self.org.base_powers_inv[self.i0])
-                    % MOD
+        fn get(&'a self) -> (htype, htype) {
+            let retv = if self.i0 > 0 {
+                (0..2)
+                    .map(|m| {
+                        ((MODS[m] + self.org.cum_hashes[m][self.i1]
+                            - self.org.cum_hashes[m][self.i0 - 1])
+                            * self.org.base_powers_inv[m][self.i0])
+                            % MODS[m]
+                    })
+                    .collect::<Vec<_>>()
             } else {
-                self.org.cum_hashes[self.i1]
-            }
+                (0..2)
+                    .map(|m| self.org.cum_hashes[m][self.i1])
+                    .collect::<Vec<_>>()
+            };
+            (retv[0], retv[1])
         }
     }
     impl PartialEq for RollingHashValue<'_> {
@@ -3457,5 +3480,5 @@ use procon_reader::*;
 *************************************************************************************/
 
 fn main() {
-    
+
 }
