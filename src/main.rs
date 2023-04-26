@@ -433,7 +433,7 @@ mod segment_tree {
             }
             s
         }
-        pub fn from(pair_op: fn(T, T) -> T, ini_values: Vec<T>) -> Self {
+        pub fn from_vec(pair_op: fn(T, T) -> T, ini_values: Vec<T>) -> Self {
             let n = ini_values.len();
             let mut n2 = 1_usize;
             while n > n2 {
@@ -536,11 +536,11 @@ mod lazy_segment_tree {
             ret.init_all(ini_val);
             ret
         }
-        pub fn from(
+        pub fn from_vec(
             pair_op: fn(X, X) -> X,
             update_op: fn(X, M) -> X,
             update_concat: fn(M, M) -> M,
-            init_vals: &[X],
+            init_vals: Vec<X>,
         ) -> Self {
             let n = init_vals.len();
             let mut n2 = 1_usize;
