@@ -2094,7 +2094,7 @@ mod rolling_hash {
             let calc_inv_base = |md: u64, base: htype| -> htype {
                 let mut p = md - 2;
                 let mut ret: htype = 1;
-                let mut mul = base as htype;
+                let mut mul = base;
                 while p > 0 {
                     if p & 1 != 0 {
                         ret = (ret * mul) % md;
@@ -3432,6 +3432,26 @@ mod heavy_light_decomposition {
 }
 use heavy_light_decomposition::Hld;
 
+// construct XOR basis.
+// Some XOR combination of these can make every element of the array.
+// When msb of a[i] is b-th, b-th bit of all the other element is zero.
+fn xor_basis(a: &[usize]) -> Vec<usize> {
+    let mut basis: Vec<usize> = vec![];
+    for mut a in a.iter().copied() {
+        for &base in basis.iter() {
+            a.chmin(a ^ base);
+        }
+        for base in basis.iter_mut() {
+            base.chmin(a ^ *base);
+        }
+        if a > 0 {
+            basis.push(a);
+        }
+    }
+    basis.sort();
+    basis
+}
+
 mod procon_reader {
     use std::fmt::Debug;
     use std::io::Read;
@@ -3480,5 +3500,5 @@ use procon_reader::*;
 *************************************************************************************/
 
 fn main() {
-
+    
 }
