@@ -2569,39 +2569,38 @@ mod flow {
     pub struct Flow {
         pub g: Vec<Vec<Edge>>,
         flow_lb_sum: i64,
+        neg_cost_any: bool,
     }
     impl Flow {
         pub fn new(n: usize) -> Self {
             Self {
                 g: vec![vec![]; n + 2],
                 flow_lb_sum: 0,
+                neg_cost_any: false,
             }
         }
         pub fn add_edge(&mut self, from: usize, to: usize, cap: i64) {
-            let rev_idx = self.g[to].len();
-            self.g[from].push(Edge {
-                to,
-                rev_idx,
-                cap_remain: cap,
-                flow: 0,
-                cost: 0,
-            });
-            let rev_idx = self.g[from].len() - 1;
-            self.g[to].push(Edge {
-                to: from,
-                rev_idx,
-                cap_remain: 0,
-                flow: 0,
-                cost: 0,
-            });
+            self.add_cost_edge(from, to, cap, 0);
         }
         pub fn add_flowbound_edge(&mut self, from: usize, to: usize, cap_min: i64, cap_max: i64) {
-            self.flow_lb_sum += cap_min;
-            self.add_edge(from, to, cap_max - cap_min);
-            let dummy_src = self.g.len() - 2;
-            self.add_edge(dummy_src, to, cap_min);
-            let dummy_dst = self.g.len() - 1;
-            self.add_edge(from, dummy_dst, cap_min);
+            self.add_flowbound_cost_edge(from, to, cap_min, cap_max, 0);
+        }
+        pub fn add_flowbound_cost_edge(
+            &mut self,
+            from: usize,
+            to: usize,
+            cap_min: i64,
+            cap_max: i64,
+            cost: i64,
+        ) {
+            self.add_cost_edge(from, to, cap_max - cap_min, cost);
+            if cap_min > 0 {
+                self.flow_lb_sum += cap_min;
+                let dummy_src = self.g.len() - 2;
+                self.add_cost_edge(dummy_src, to, cap_min, cost);
+                let dummy_dst = self.g.len() - 1;
+                self.add_cost_edge(from, dummy_dst, cap_min, cost);
+            }
         }
         pub fn add_cost_edge(&mut self, from: usize, to: usize, cap: i64, cost: i64) {
             let rev_idx = self.g[to].len();
@@ -2620,6 +2619,9 @@ mod flow {
                 flow: 0,
                 cost: -cost,
             });
+            if cost < 0 {
+                self.neg_cost_any = true;
+            }
         }
         fn bfs(g: &[Vec<Edge>], source: usize) -> Vec<Option<usize>> {
             let mut level = vec![None; g.len()];
@@ -2680,19 +2682,12 @@ mod flow {
             }
             let dummy_src = self.g.len() - 2;
             let dummy_dst = self.g.len() - 1;
-            let ds_to_dt = self.max_flow_impl(dummy_src, dummy_dst);
-            let s_to_dt = self.max_flow_impl(src, dummy_dst);
-            let ds_to_t = self.max_flow_impl(dummy_src, dst);
-            let s_to_t = self.max_flow_impl(src, dst);
-
-            let ds_out = ds_to_dt + ds_to_t;
-            let dt_in = ds_to_dt + s_to_dt;
-            if (ds_out == self.flow_lb_sum) && (dt_in == self.flow_lb_sum) {
-                let s_out = s_to_dt + s_to_t;
-                Some(s_out)
-            } else {
-                None
+            // cyclic flow
+            self.add_edge(dst, src, 1 << 60);
+            if self.max_flow_impl(dummy_src, dummy_dst) != self.flow_lb_sum {
+                return None;
             }
+            Some(self.max_flow_impl(src, dst))
         }
         fn max_flow_impl(&mut self, source: usize, sink: usize) -> i64 {
             let inf = 1i64 << 60;
@@ -2715,13 +2710,45 @@ mod flow {
             }
             flow
         }
-        pub fn min_negcost_flow(
+        pub fn min_cost_flow(
+            &mut self,
+            src: usize,
+            dst: usize,
+            flow_lb: i64,
+            flow_ub: i64,
+        ) -> Option<(i64, i64)> {
+            if self.flow_lb_sum == 0 {
+                return self.min_cost_flow_impl(src, dst, flow_lb, flow_ub);
+            }
+            let dummy_src = self.g.len() - 2;
+            let dummy_dst = self.g.len() - 1;
+            // cyclic flow
+            self.add_edge(dst, src, 1 << 60);
+            let (dcost, _ds_to_dt) =
+                self.min_cost_flow_impl(dummy_src, dummy_dst, self.flow_lb_sum, self.flow_lb_sum)?;
+            let (cost, s_to_t) = self.min_cost_flow_impl(src, dst, flow_lb, flow_ub)?;
+            Some((cost + dcost, s_to_t))
+        }
+        fn min_cost_flow_impl(
+            &mut self,
+            src: usize,
+            dst: usize,
+            flow_lb: i64, // lower bound flow
+            flow_ub: i64, // upper bound flow
+        ) -> Option<(i64, i64)> {
+            if self.neg_cost_any {
+                self.min_negcost_flow(src, dst, flow_lb, flow_ub)
+            } else {
+                self.min_poscost_flow(src, dst, flow_lb)
+            }
+        }
+        fn min_negcost_flow(
             &mut self,
             source: usize,
             sink: usize,
             flow_lb: i64, // lower bound flow
             flow_ub: i64, // upper bound flow
-        ) -> Option<i64> {
+        ) -> Option<(i64, i64)> {
             let mut flow_now = 0;
             let mut min_cost = 0;
             let mut dist = vec![None; self.g.len()];
@@ -2784,14 +2811,14 @@ mod flow {
                 dist.iter_mut().for_each(|x| *x = None);
                 prev.iter_mut().for_each(|x| *x = None);
             }
-            Some(min_cost)
+            Some((min_cost, flow_now))
         }
-        pub fn min_poscost_flow(
+        fn min_poscost_flow(
             &mut self,
             source: usize,
             sink: usize,
             flow_lb: i64, // lower bound flow;
-        ) -> Option<i64> {
+        ) -> Option<(i64, i64)> {
             let mut flow_now = 0;
             let mut min_cost = 0;
             let mut h = vec![0; self.g.len()];
@@ -2846,7 +2873,7 @@ mod flow {
                 dist.iter_mut().for_each(|dist| *dist = None);
                 prev.iter_mut().for_each(|dist| *dist = None);
             }
-            Some(min_cost)
+            Some((min_cost, flow_now))
         }
     }
 }
