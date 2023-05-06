@@ -682,27 +682,28 @@ use lazy_segment_tree::LazySegmentTree;
 mod modint {
     use crate::gcd::ext_gcd;
     use crate::Identity;
+    use i64 as mtype;
     use std::fmt;
     use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, Sub, SubAssign};
-    static mut MOD: i64 = 2;
+    static mut MOD: mtype = 2;
 
     #[derive(Clone, Copy, Eq, Hash, PartialEq)]
     pub struct ModInt {
-        x: i64,
+        x: mtype,
     }
     impl ModInt {
-        pub fn set_mod(val: i64) {
+        pub fn set_mod(val: mtype) {
             unsafe {
                 MOD = val;
             }
         }
-        pub fn get_mod() -> i64 {
+        pub fn get_mod() -> mtype {
             unsafe { MOD }
         }
-        pub fn val(&self) -> i64 {
+        pub fn val(&self) -> mtype {
             self.x
         }
-        fn new(mut sig: i64) -> Self {
+        fn new(mut sig: mtype) -> Self {
             if sig < 0 {
                 let ab = (-sig + Self::get_mod() - 1) / Self::get_mod();
                 sig += ab * Self::get_mod();
@@ -3527,5 +3528,5 @@ use procon_reader::*;
 *************************************************************************************/
 
 fn main() {
-    
+
 }
