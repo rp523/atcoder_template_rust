@@ -1,4 +1,5 @@
 #![allow(unused_macros, unused_imports, dead_code)]
+use permutohedron::LexicalPermutation;
 use std::any::TypeId;
 use std::cmp::{max, min, Ordering, Reverse};
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, VecDeque};
@@ -1742,93 +1743,27 @@ fn exit_by<T: std::fmt::Display>(msg: T) {
     std::process::exit(0);
 }
 
-pub trait Permutation<T> {
-    fn next_permutation(&self) -> Option<Vec<T>>;
-    fn prev_permutation(&self) -> Option<Vec<T>>;
-}
-impl<T: Copy + Ord> Permutation<T> for Vec<T> {
-    fn next_permutation(&self) -> Option<Vec<T>> {
-        let n = self.len();
-        if n == 0 {
-            return None;
-        }
-        let mut seen = std::collections::BTreeMap::<T, usize>::new();
-        seen.incr(*self.last().unwrap());
-        for i in (0..n).rev().skip(1) {
-            seen.incr(self[i]);
-            if self[i] < self[i + 1] {
-                let mut p = vec![];
-                for &lv in self.iter().take(i) {
-                    p.push(lv);
-                }
-                let &rv = seen.greater_than(&self[i]).unwrap().0;
-                p.push(rv);
-                seen.remove(&rv);
-                while let Some((&rv, _nm)) = seen.iter().next() {
-                    p.push(rv);
-                    seen.decr(&rv);
-                }
-                return Some(p);
-            }
-        }
-        None
-    }
-    fn prev_permutation(&self) -> Option<Vec<T>> {
-        let n = self.len();
-        if n == 0 {
-            return None;
-        }
-        let mut seen = std::collections::BTreeMap::<T, usize>::new();
-        seen.incr(*self.last().unwrap());
-        for i in (0..n).rev().skip(1) {
-            seen.incr(self[i]);
-            if self[i] > self[i + 1] {
-                let mut p = vec![];
-                for &lv in self.iter().take(i) {
-                    p.push(lv);
-                }
-                let &rv = seen.less_than(&self[i]).unwrap().0;
-                p.push(rv);
-                seen.remove(&rv);
-                while let Some((&rv, _nm)) = seen.iter().next_back() {
-                    p.push(rv);
-                    seen.decr(&rv);
-                }
-                return Some(p);
-            }
-        }
-        None
-    }
-}
 pub struct PermutationIterator<T> {
     v: Vec<T>,
-    is_finished: bool,
+    is_first: bool,
 }
 impl<T: Copy + Ord + Clone> PermutationIterator<T> {
     pub fn new(mut v: Vec<T>) -> PermutationIterator<T> {
         v.sort();
-        PermutationIterator {
-            v,
-            is_finished: false,
-        }
+        PermutationIterator { v, is_first: true }
     }
 }
 impl<T: Copy + Ord + Clone> Iterator for PermutationIterator<T> {
     type Item = Vec<T>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.is_finished {
-            // next perm doesn't exist.
-            None
-        } else if let Some(nxt) = self.v.next_permutation() {
-            // return self state, and update self for future use.
-            let ret = Some(self.v.clone());
-            self.v = nxt;
-            ret
-        } else {
-            // this time is the last.
-            self.is_finished = true;
+        if self.is_first {
+            self.is_first = false;
             Some(self.v.clone())
+        } else if self.v.next_permutation() {
+            Some(self.v.clone())
+        } else {
+            None
         }
     }
 }
@@ -1842,7 +1777,6 @@ impl<T: Copy + Ord + Clone, I: IntoIterator<Item = T>> IntoPermutations<T> for I
         PermutationIterator::new(self.into_iter().collect())
     }
 }
-
 mod add_header {
     pub trait AddHeader<T> {
         fn add_header(&mut self, add_val: T);
