@@ -2228,7 +2228,7 @@ mod rational {
 }
 use rational::Rational;
 
-fn z_algo(s: &Str) -> Vec<usize> {
+fn z_algo(s: &[usize]) -> Vec<usize> {
     // https://www.youtube.com/watch?v=f6ct5PQHqM0
     let n = s.len();
     let mut last_match = None;
