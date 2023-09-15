@@ -3469,22 +3469,6 @@ use procon_reader::*;
 
 mod euler_tour {
     use std::collections::HashMap;
-    struct EulerTour {
-        tours: Vec<HashMap<usize, Box<EulerMove>>>,
-    }
-    impl EulerTour {
-        fn new(n: usize) -> Self {
-            Self {
-                tours: (0..n)
-                    .map(|i| {
-                        let mut mp = HashMap::new();
-                        mp.insert(i, Box::new(EulerMove::new(i, i)));
-                        mp
-                    })
-                    .collect::<Vec<_>>(),
-            }
-        }
-    }
     #[derive(Clone, Copy, PartialEq)]
     enum SplayDir {
         None = 0,
@@ -3493,10 +3477,11 @@ mod euler_tour {
     }
     #[derive(Clone)]
     struct EulerMove {
-        left: Option<Box<EulerMove>>,
-        right: Option<Box<EulerMove>>,
-        parent: Option<Box<EulerMove>>,
-        as_for_parent: SplayDir,
+        // splay
+        left: *mut EulerMove,
+        right: *mut EulerMove,
+        parent: *mut EulerMove,
+        // euler tour
         from: usize,
         to: usize,
         size: usize,
@@ -3505,114 +3490,204 @@ mod euler_tour {
         fn new(from: usize, to: usize) -> Self {
             Self {
                 // splay
-                left: None,
-                right: None,
-                parent: None,
-                as_for_parent: SplayDir::None,
+                left: std::ptr::null_mut(),
+                right: std::ptr::null_mut(),
+                parent: std::ptr::null_mut(),
                 // euler tour
                 from,
                 to,
                 size: if from == to { 1 } else { 0 },
             }
         }
-        fn gen_path(&self) -> Option<Vec<SplayDir>> {
-            if self.as_for_parent == SplayDir::None {
-                return None;
-            }
-            let mut path = vec![];
-            let mut now = self;
-            while now.as_for_parent != SplayDir::None {
-                path.push(now.as_for_parent);
-                now = now.parent.as_ref().unwrap();
-            }
-            path.reverse();
-            Some(path)
-        }
-        fn rotate(mut root: Box<Self>, dir: SplayDir) -> Box<Self> {
-            match dir {
-                SplayDir::Left => {
-                    // lift left node by right rotation
-                    let mut new_root = root.left.unwrap();
-                    root.left = new_root.right;
-                    new_root.right = Some(root);
-                    new_root
+        fn root(&mut self) -> *mut EulerMove {
+            let mut t = self as *mut Self;
+            unsafe {
+                while !(*t).parent.is_null() {
+                    t = (*t).parent;
                 }
-                SplayDir::Right => {
-                    // lift right node by left rotation
-                    let mut new_root = root.right.unwrap();
-                    root.right = new_root.left;
-                    new_root.left = Some(root);
-                    new_root
+            }
+            t
+        }
+        fn same(s: *mut Self, t: *mut Self) -> bool {
+            unsafe {
+                (*s).splay();
+                (*t).splay();
+                (*s).root() == (*t).root()
+            }
+        }
+        fn update(&mut self) {
+            self.size = if self.from == self.to { 1 } else { 0 };
+            unsafe {
+                if !self.left.is_null() {
+                    self.size += (*self.left).size;
                 }
-                _ => unreachable!(),
+                if !self.right.is_null() {
+                    self.size += (*self.right).size;
+                }
             }
         }
-        fn splay(root: Option<Box<Self>>, tgt: &Self) -> Option<Box<Self>> {
-            if let Some(path) = tgt.gen_path() {
-                Self::splay_sub(root, &path)
+        fn splay(&mut self) {
+            while self.as_for_parent() != SplayDir::None {
+                unsafe {
+                    let p = self.parent;
+                    let p_for_pp = (*p).as_for_parent();
+                    if p_for_pp == SplayDir::None {
+                        // zig
+                        self.rotate();
+                    } else if p_for_pp == self.as_for_parent() {
+                        // zig zig
+                        (*p).rotate();
+                        self.rotate();
+                    } else {
+                        // zig zag
+                        self.rotate();
+                        self.rotate();
+                    }
+                }
+            }
+        }
+        fn as_for_parent(&mut self) -> SplayDir {
+            if self.parent.is_null() {
+                SplayDir::None
             } else {
-                root
+                unsafe {
+                    let me = self as *mut Self;
+                    if (*self.parent).left == me {
+                        SplayDir::Left
+                    } else {
+                        debug_assert!((*self.parent).right == me);
+                        SplayDir::Right
+                    }
+                }
             }
         }
-        fn splay_sub(root: Option<Box<Self>>, path: &[SplayDir]) -> Option<Box<Self>> {
-            let root = root.unwrap();
-            let new_root = match path[0] {
-                SplayDir::Left => Self::splay_left(root, path),
-                SplayDir::Right => Self::splay_right(root, path), // todo
-                SplayDir::None => root,
-            };
-            Some(new_root)
+        fn rotate(&mut self) {
+            let p = self.parent;
+            debug_assert!(!p.is_null());
+            let me = self as *mut Self;
+            unsafe {
+                debug_assert!((*me).as_for_parent() != SplayDir::None);
+                let pp = (*p).parent;
+                let c;
+                if (*me).as_for_parent() == SplayDir::Left {
+                    c = (*me).right;
+                    (*me).right = p;
+                    (*p).left = c;
+                } else {
+                    c = (*me).left;
+                    (*me).left = p;
+                    (*p).right = c;
+                }
+                if !pp.is_null() {
+                    if (*pp).left == p {
+                        (*pp).left = me;
+                    } else {
+                        (*pp).right = me;
+                    }
+                }
+                (*me).parent = pp;
+                (*p).parent = me;
+                if !c.is_null() {
+                    (*c).parent = p;
+                }
+                (*p).update();
+            }
+            self.update();
         }
-        fn splay_left(mut root: Box<Self>, path: &[SplayDir]) -> Box<Self> {
-            if root.left.is_none() {
-                debug_assert!(path.is_empty());
-                return root;
+        fn merge(mut s: *mut Self, t: *mut Self) -> *mut Self {
+            if s.is_null() {
+                return t;
             }
-            debug_assert!(!path.is_empty());
-            debug_assert!(path[0] == SplayDir::Left);
-            if path.len() == 1 {
-                // zig
-                return Self::rotate(root, path[0]);
+            if t.is_null() {
+                return s;
             }
-            let mut left = root.left.unwrap();
-            debug_assert!(path.len() >= 2);
-            if path[0] == path[1] {
-                // zig - zig
-                left.left = Self::splay_sub(left.left, &path[2..]);
-                root.left = Some(left);
-                let new_root = Self::rotate(root, path[0]);
-                Self::rotate(new_root, path[1])
-            } else {
-                // zig - zag
-                left.right = Self::splay_sub(left.right, &path[2..]);
-                root.left = Some(Self::rotate(left, path[1]));
-                Self::rotate(root, path[0])
+            unsafe {
+                while !(*s).right.is_null() {
+                    s = (*s).right;
+                }
+                (*s).splay();
+                (*s).right = t;
+                (*t).parent = s;
+                (*s).update();
+            }
+            s
+        }
+        fn split(s: *mut Self) -> (*mut Self, *mut Self) // (..s, s..)
+        {
+            unsafe {
+                (*s).splay();
+                let t = (*s).left;
+                if !t.is_null() {
+                    (*t).parent = std::ptr::null_mut();
+                }
+                (*s).left = std::ptr::null_mut();
+                (*s).update();
+                (t, s)
             }
         }
-        fn splay_right(mut root: Box<Self>, path: &[SplayDir]) -> Box<Self> {
-            if root.right.is_none() {
-                debug_assert!(path.is_empty());
-                return root;
+    }
+    struct EulerTour {
+        tours: Vec<HashMap<usize, EulerMove>>,
+    }
+    impl EulerTour {
+        fn new(n: usize) -> Self {
+            Self {
+                tours: (0..n)
+                    .map(|i| {
+                        let mut mp = HashMap::new();
+                        mp.insert(i, EulerMove::new(i, i));
+                        mp
+                    })
+                    .collect::<Vec<_>>(),
             }
-            debug_assert!(!path.is_empty());
-            debug_assert!(path[0] == SplayDir::Right);
-            if path.len() == 1 {
-                // zig
-                return Self::rotate(root, path[0]);
+        }
+        fn get_node(&mut self, from: usize, to: usize) -> *mut EulerMove {
+            if !self.tours[from].contains_key(&to) {
+                self.tours[from].insert(to, EulerMove::new(from, to));
             }
-            let mut right = root.right.unwrap();
-            debug_assert!(path.len() >= 2);
-            if path[0] == path[1] {
-                // zig - zig
-                right.right = Self::splay_sub(right.right, &path[2..]);
-                root.right = Some(right);
-                let new_root = Self::rotate(root, path[0]);
-                Self::rotate(new_root, path[1])
-            } else {
-                // zig - zag
-                right.left = Self::splay_sub(right.left, &path[2..]);
-                root.right = Some(Self::rotate(right, path[1]));
-                Self::rotate(root, path[0])
+            Box::into_raw(Box::new(self.tours[from].get_mut(&to).unwrap())) as *mut EulerMove
+        }
+        #[allow(unused_assignments)]
+        fn re_tour(mut s: *mut EulerMove) {
+            let (s0, s1) = EulerMove::split(s);
+            s = EulerMove::merge(s1, s0);
+        }
+        fn same(&mut self, a: usize, b: usize) -> bool {
+            let a = self.get_node(a, a);
+            let b = self.get_node(b, b);
+            EulerMove::same(a, b)
+        }
+        #[allow(unused_assignments)]
+        fn unite(&mut self, a: usize, b: usize) -> bool {
+            if self.same(a, b) {
+                return false;
+            }
+            let mut aa = self.get_node(a, a);
+            Self::re_tour(aa);
+            let bb = self.get_node(b, b);
+            Self::re_tour(bb);
+            let ab = self.get_node(a, b);
+            let ba = self.get_node(b, a);
+            let aa_ab = EulerMove::merge(aa, ab);
+            let bb_ba = EulerMove::merge(bb, ba);
+            aa = EulerMove::merge(aa_ab, bb_ba);
+            true
+        }
+    }
+    #[cfg(test)]
+    mod euler_tour_test {
+        use super::EulerTour;
+        use super::SplayDir;
+
+        fn test() {
+            let mut et = EulerTour::new(10);
+            for i in 0..10 {
+                let pt = et.get_node(i, i);
+                unsafe {
+                    assert!((*pt).from == i);
+                    assert!((*pt).to == i);
+                    assert!((*pt).as_for_parent() == SplayDir::None);
+                }
             }
         }
     }
