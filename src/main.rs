@@ -1,13 +1,13 @@
 #![allow(unused_macros, unused_imports, dead_code)]
 use permutohedron::LexicalPermutation;
+use rand::{seq::SliceRandom, SeedableRng};
+use rand_chacha::ChaChaRng;
 use std::any::TypeId;
 use std::cmp::{max, min, Ordering, Reverse};
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, VecDeque};
 use std::mem::swap;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Rem, Sub, SubAssign};
 use std::time::Instant;
-use rand::{seq::SliceRandom, SeedableRng};
-use rand_chacha::ChaChaRng;
 //let mut rng = ChaChaRng::from_seed([0; 32]);
 
 macro_rules! __debug_impl {
@@ -3467,6 +3467,164 @@ use procon_reader::*;
 //////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////
 
+mod euler_tour {
+    use std::collections::HashMap;
+    struct EulerTour {
+        tours: Vec<HashMap<usize, Box<EulerMove>>>,
+    }
+    impl EulerTour {
+        fn new(n: usize) -> Self {
+            Self {
+                tours: (0..n)
+                    .map(|i| {
+                        let mut mp = HashMap::new();
+                        mp.insert(i, Box::new(EulerMove::new(i, i)));
+                        mp
+                    })
+                    .collect::<Vec<_>>(),
+            }
+        }
+    }
+    #[derive(Clone, Copy, PartialEq)]
+    enum SplayDir {
+        None = 0,
+        Left,
+        Right,
+    }
+    #[derive(Clone)]
+    struct EulerMove {
+        left: Option<Box<EulerMove>>,
+        right: Option<Box<EulerMove>>,
+        parent: Option<Box<EulerMove>>,
+        as_for_parent: SplayDir,
+        from: usize,
+        to: usize,
+        size: usize,
+    }
+    impl EulerMove {
+        fn new(from: usize, to: usize) -> Self {
+            Self {
+                // splay
+                left: None,
+                right: None,
+                parent: None,
+                as_for_parent: SplayDir::None,
+                // euler tour
+                from,
+                to,
+                size: if from == to { 1 } else { 0 },
+            }
+        }
+        fn gen_path(&self) -> Option<Vec<SplayDir>> {
+            if self.as_for_parent == SplayDir::None {
+                return None;
+            }
+            let mut path = vec![];
+            let mut now = self;
+            while now.as_for_parent != SplayDir::None {
+                path.push(now.as_for_parent);
+                now = now.parent.as_ref().unwrap();
+            }
+            path.reverse();
+            Some(path)
+        }
+        fn rotate(mut root: Box<Self>, dir: SplayDir) -> Box<Self> {
+            match dir {
+                SplayDir::Left => {
+                    // lift left node by right rotation
+                    let mut new_root = root.left.unwrap();
+                    root.left = new_root.right;
+                    new_root.right = Some(root);
+                    new_root
+                }
+                SplayDir::Right => {
+                    // lift right node by left rotation
+                    let mut new_root = root.right.unwrap();
+                    root.right = new_root.left;
+                    new_root.left = Some(root);
+                    new_root
+                }
+                _ => unreachable!(),
+            }
+        }
+        fn splay(root: Option<Box<Self>>, tgt: &Self) -> Option<Box<Self>> {
+            if let Some(path) = tgt.gen_path() {
+                Self::splay_sub(root, &path)
+            } else {
+                root
+            }
+        }
+        fn splay_sub(root: Option<Box<Self>>, path: &[SplayDir]) -> Option<Box<Self>> {
+            let root = root.unwrap();
+            let new_root = match path[0] {
+                SplayDir::Left => Self::splay_left(root, path),
+                SplayDir::Right => Self::splay_right(root, path), // todo
+                SplayDir::None => root,
+            };
+            Some(new_root)
+        }
+        fn splay_left(mut root: Box<Self>, path: &[SplayDir]) -> Box<Self> {
+            if root.left.is_none() {
+                debug_assert!(path.is_empty());
+                return root;
+            }
+            debug_assert!(!path.is_empty());
+            debug_assert!(path[0] == SplayDir::Left);
+            if path.len() == 1 {
+                // zig
+                return Self::rotate(root, path[0]);
+            }
+            let mut left = root.left.unwrap();
+            debug_assert!(path.len() >= 2);
+            if path[0] == path[1] {
+                // zig - zig
+                left.left = Self::splay_sub(left.left, &path[2..]);
+                root.left = Some(left);
+                let new_root = Self::rotate(root, path[0]);
+                Self::rotate(new_root, path[1])
+            } else {
+                // zig - zag
+                left.right = Self::splay_sub(left.right, &path[2..]);
+                root.left = Some(Self::rotate(left, path[1]));
+                Self::rotate(root, path[0])
+            }
+        }
+        fn splay_right(mut root: Box<Self>, path: &[SplayDir]) -> Box<Self> {
+            if root.right.is_none() {
+                debug_assert!(path.is_empty());
+                return root;
+            }
+            debug_assert!(!path.is_empty());
+            debug_assert!(path[0] == SplayDir::Right);
+            if path.len() == 1 {
+                // zig
+                return Self::rotate(root, path[0]);
+            }
+            let mut right = root.right.unwrap();
+            debug_assert!(path.len() >= 2);
+            if path[0] == path[1] {
+                // zig - zig
+                right.right = Self::splay_sub(right.right, &path[2..]);
+                root.right = Some(right);
+                let new_root = Self::rotate(root, path[0]);
+                Self::rotate(new_root, path[1])
+            } else {
+                // zig - zag
+                right.left = Self::splay_sub(right.left, &path[2..]);
+                root.right = Some(Self::rotate(right, path[1]));
+                Self::rotate(root, path[0])
+            }
+        }
+    }
+}
 fn main() {
-
+    #[derive(Clone)]
+    struct Val {
+        val: i32,
+    }
+    let a = Box::new(Val { val: 1 });
+    println!("{}", a.val);
+    let mut b = Box::clone(&a);
+    b.val = 0;
+    println!("{}", a.val);
 }
