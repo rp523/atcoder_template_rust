@@ -3467,287 +3467,330 @@ use procon_reader::*;
 //////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////
 
-mod euler_tour {
-    use std::collections::HashMap;
+mod online_dynamic_connectivity {
     #[derive(Clone, Copy, PartialEq)]
     enum SplayDir {
         None = 0,
         Left,
         Right,
     }
-    #[derive(Clone)]
-    struct EulerMove {
-        // splay
-        left: *mut EulerMove,
-        right: *mut EulerMove,
-        parent: *mut EulerMove,
-        // euler tour
-        from: usize,
-        to: usize,
-        size: usize,
-        at_this_level: bool,
-        at_this_level_subany: bool,
-    }
-    impl EulerMove {
-        fn new(from: usize, to: usize) -> Self {
-            Self {
-                // splay
-                left: std::ptr::null_mut(),
-                right: std::ptr::null_mut(),
-                parent: std::ptr::null_mut(),
-                // euler tour
-                from,
-                to,
-                size: if from == to { 1 } else { 0 },
-                at_this_level: from < to,
-                at_this_level_subany: from < to,
-            }
+    mod euler_move {
+        use super::SplayDir;
+        #[derive(Clone)]
+        pub struct EulerMove {
+            // splay
+            pub left: *mut EulerMove,
+            pub right: *mut EulerMove,
+            pub parent: *mut EulerMove,
+            // euler tour
+            pub from: usize,
+            pub to: usize,
+            pub size: usize,
+            pub at_this_level: bool,
+            pub at_this_level_subany: bool,
+            pub useless_connected: bool,
+            pub useless_connected_subany: bool,
         }
-        fn root(&mut self) -> *mut EulerMove {
-            let mut t = self as *mut Self;
-            unsafe {
-                while !(*t).parent.is_null() {
-                    t = (*t).parent;
+        impl EulerMove {
+            pub fn new(from: usize, to: usize) -> Self {
+                Self {
+                    // splay
+                    left: std::ptr::null_mut(),
+                    right: std::ptr::null_mut(),
+                    parent: std::ptr::null_mut(),
+                    // euler tour
+                    from,
+                    to,
+                    size: if from == to { 1 } else { 0 },
+                    at_this_level: from < to,
+                    at_this_level_subany: from < to,
+                    useless_connected: false,
+                    useless_connected_subany: false,
                 }
             }
-            t
-        }
-        fn same(s: *mut Self, t: *mut Self) -> bool {
-            unsafe {
-                (*s).splay();
-                (*t).splay();
-                (*s).root() == (*t).root()
-            }
-        }
-        fn update(&mut self) {
-            self.size = if self.from == self.to { 1 } else { 0 };
-            self.at_this_level_subany = self.at_this_level;
-            let left = self.left;
-            let right = self.right;
-            unsafe {
-                if !left.is_null() {
-                    self.size += (*left).size;
-                    self.at_this_level_subany =
-                        self.at_this_level_subany || (*left).at_this_level_subany;
-                }
-                if !right.is_null() {
-                    self.size += (*right).size;
-                    self.at_this_level_subany =
-                        self.at_this_level_subany || (*right).at_this_level_subany;
-                }
-            }
-        }
-        fn splay(&mut self) {
-            while self.for_parent() != SplayDir::None {
+            fn root(&mut self) -> *mut EulerMove {
+                let mut t = self as *mut Self;
                 unsafe {
-                    let p = self.parent;
-                    let p_for_pp = (*p).for_parent();
-                    if p_for_pp == SplayDir::None {
-                        // zig
-                        self.rotate();
-                    } else if p_for_pp == self.for_parent() {
-                        // zig zig
-                        (*p).rotate();
-                        self.rotate();
-                    } else {
-                        // zig zag
-                        self.rotate();
-                        self.rotate();
+                    while !(*t).parent.is_null() {
+                        t = (*t).parent;
                     }
                 }
+                t
             }
-        }
-        fn for_parent(&mut self) -> SplayDir {
-            if self.parent.is_null() {
-                SplayDir::None
-            } else {
+            pub fn same(s: *mut Self, t: *mut Self) -> bool {
                 unsafe {
-                    let me = self as *mut Self;
-                    if (*self.parent).left == me {
-                        SplayDir::Left
-                    } else {
-                        debug_assert!((*self.parent).right == me);
-                        SplayDir::Right
-                    }
-                }
-            }
-        }
-        fn rotate(&mut self) {
-            let p = self.parent;
-            debug_assert!(!p.is_null());
-            let me = self as *mut Self;
-            unsafe {
-                debug_assert!((*me).for_parent() != SplayDir::None);
-                let pp = (*p).parent;
-                let c;
-                if (*me).for_parent() == SplayDir::Left {
-                    c = (*me).right;
-                    (*me).right = p;
-                    (*p).left = c;
-                } else {
-                    c = (*me).left;
-                    (*me).left = p;
-                    (*p).right = c;
-                }
-                if !pp.is_null() {
-                    if (*pp).left == p {
-                        (*pp).left = me;
-                    } else {
-                        (*pp).right = me;
-                    }
-                }
-                (*me).parent = pp;
-                (*p).parent = me;
-                if !c.is_null() {
-                    (*c).parent = p;
-                }
-                (*p).update();
-            }
-            self.update();
-        }
-        fn merge(mut s: *mut Self, t: *mut Self) -> *mut Self {
-            if s.is_null() {
-                debug_assert!(!t.is_null());
-                return t;
-            }
-            if t.is_null() {
-                debug_assert!(!s.is_null());
-                return s;
-            }
-            unsafe {
-                while !(*s).right.is_null() {
-                    s = (*s).right;
-                }
-                (*s).splay();
-                (*s).right = t;
-                (*t).parent = s;
-                (*s).update();
-            }
-            s
-        }
-        fn split(s: *mut Self) -> (*mut Self, *mut Self) // (..s, s..)
-        {
-            unsafe {
-                (*s).splay();
-                let t = (*s).left;
-                if !t.is_null() {
-                    (*t).parent = std::ptr::null_mut();
-                }
-                (*s).left = std::ptr::null_mut();
-                (*s).update();
-                (t, s)
-            }
-        }
-    }
-    struct EulerTour {
-        tours: Vec<HashMap<usize, EulerMove>>,
-    }
-    impl EulerTour {
-        fn new(n: usize) -> Self {
-            Self {
-                tours: (0..n)
-                    .map(|i| {
-                        let mut mp = HashMap::new();
-                        mp.insert(i, EulerMove::new(i, i));
-                        mp
-                    })
-                    .collect::<Vec<_>>(),
-            }
-        }
-        fn get_node(&mut self, from: usize, to: usize) -> *mut EulerMove {
-            self.tours[from]
-                .entry(to)
-                .or_insert_with(|| EulerMove::new(from, to));
-            self.tours[from].get_mut(&to).unwrap() as *mut EulerMove
-        }
-        #[allow(unused_assignments)]
-        fn re_tour(mut s: *mut EulerMove) {
-            let (s0, s1) = EulerMove::split(s);
-            s = EulerMove::merge(s1, s0);
-        }
-        fn same(&mut self, a: usize, b: usize) -> bool {
-            let a = self.get_node(a, a);
-            let b = self.get_node(b, b);
-            EulerMove::same(a, b)
-        }
-        #[allow(unused_assignments)]
-        fn unite(&mut self, a: usize, b: usize) -> bool {
-            if self.same(a, b) {
-                return false;
-            }
-            let mut aa = self.get_node(a, a);
-            Self::re_tour(aa);
-            let bb = self.get_node(b, b);
-            Self::re_tour(bb);
-            let ab = self.get_node(a, b);
-            let ba = self.get_node(b, a);
-            let aa_ab = EulerMove::merge(aa, ab);
-            let bb_ba = EulerMove::merge(bb, ba);
-            aa = EulerMove::merge(aa_ab, bb_ba);
-            true
-        }
-        fn remove_split(&mut self, from: usize, to: usize) -> (*mut EulerMove, *mut EulerMove) {
-            let c = self.get_node(from, to);
-            unsafe {
-                (*c).splay();
-                let left = (*c).left;
-                let right = (*c).right;
-                if !left.is_null() {
-                    (*left).parent = std::ptr::null_mut();
-                }
-                if !right.is_null() {
-                    (*right).parent = std::ptr::null_mut();
-                }
-                assert!(self.tours[from].remove(&to).is_some());
-                (left, right)
-            }
-        }
-        fn cut(&mut self, a: usize, b: usize) -> bool {
-            if !self.tours[a].contains_key(&b) {
-                return false;
-            }
-            let (xxa, bxx) = self.remove_split(a, b);
-            if EulerMove::same(xxa, self.get_node(b, a)) {
-                let (xxb, _axxa) = self.remove_split(b, a);
-                let _ = EulerMove::merge(bxx, xxb);
-            } else {
-                let (_bxxb, axx) = self.remove_split(b, a);
-                let _ = EulerMove::merge(axx, xxa);
-            }
-            true
-        }
-        fn get_size(&mut self, a: usize) -> usize {
-            let a = self.get_node(a, a);
-            unsafe {
-                (*a).splay();
-                (*a).size
-            }
-        }
-        fn extract_level_match(t: *mut EulerMove) -> Option<(usize, usize)> {
-            unsafe {
-                if t.is_null() || !(*t).at_this_level_subany {
-                    return None;
-                }
-                if (*t).at_this_level {
+                    (*s).splay();
                     (*t).splay();
-                    (*t).at_this_level = false;
-                    (*t).update();
-                    return Some(((*t).from, (*t).to));
+                    (*s).root() == (*t).root()
                 }
-                let left = (*t).left;
-                if let Some(ret) = Self::extract_level_match(left) {
-                    return Some(ret);
+            }
+            pub fn update(&mut self) {
+                self.size = if self.from == self.to { 1 } else { 0 };
+                self.at_this_level_subany = self.at_this_level;
+                self.useless_connected_subany = self.useless_connected;
+                let left = self.left;
+                let right = self.right;
+                unsafe {
+                    if !left.is_null() {
+                        self.size += (*left).size;
+                        self.at_this_level_subany =
+                            self.at_this_level_subany || (*left).at_this_level_subany;
+                        self.useless_connected_subany =
+                            self.useless_connected_subany || (*left).useless_connected_subany;
+                    }
+                    if !right.is_null() {
+                        self.size += (*right).size;
+                        self.at_this_level_subany =
+                            self.at_this_level_subany || (*right).at_this_level_subany;
+                        self.useless_connected_subany =
+                            self.useless_connected_subany || (*right).useless_connected_subany;
+                    }
                 }
-                let right = (*t).right;
-                if let Some(ret) = Self::extract_level_match(right) {
-                    return Some(ret);
+            }
+            pub fn splay(&mut self) {
+                while self.for_parent() != SplayDir::None {
+                    unsafe {
+                        let p = self.parent;
+                        let p_for_pp = (*p).for_parent();
+                        if p_for_pp == SplayDir::None {
+                            // zig
+                            self.rotate();
+                        } else if p_for_pp == self.for_parent() {
+                            // zig zig
+                            (*p).rotate();
+                            self.rotate();
+                        } else {
+                            // zig zag
+                            self.rotate();
+                            self.rotate();
+                        }
+                    }
                 }
-                None
+            }
+            fn for_parent(&mut self) -> SplayDir {
+                if self.parent.is_null() {
+                    SplayDir::None
+                } else {
+                    unsafe {
+                        let me = self as *mut Self;
+                        if (*self.parent).left == me {
+                            SplayDir::Left
+                        } else {
+                            debug_assert!((*self.parent).right == me);
+                            SplayDir::Right
+                        }
+                    }
+                }
+            }
+            fn rotate(&mut self) {
+                let p = self.parent;
+                debug_assert!(!p.is_null());
+                let me = self as *mut Self;
+                unsafe {
+                    debug_assert!((*me).for_parent() != SplayDir::None);
+                    let pp = (*p).parent;
+                    let c;
+                    if (*me).for_parent() == SplayDir::Left {
+                        c = (*me).right;
+                        (*me).right = p;
+                        (*p).left = c;
+                    } else {
+                        c = (*me).left;
+                        (*me).left = p;
+                        (*p).right = c;
+                    }
+                    if !pp.is_null() {
+                        if (*pp).left == p {
+                            (*pp).left = me;
+                        } else {
+                            (*pp).right = me;
+                        }
+                    }
+                    (*me).parent = pp;
+                    (*p).parent = me;
+                    if !c.is_null() {
+                        (*c).parent = p;
+                    }
+                    (*p).update();
+                }
+                self.update();
+            }
+            pub fn merge(mut s: *mut Self, t: *mut Self) -> *mut Self {
+                if s.is_null() {
+                    debug_assert!(!t.is_null());
+                    return t;
+                }
+                if t.is_null() {
+                    debug_assert!(!s.is_null());
+                    return s;
+                }
+                unsafe {
+                    while !(*s).right.is_null() {
+                        s = (*s).right;
+                    }
+                    (*s).splay();
+                    (*s).right = t;
+                    (*t).parent = s;
+                    (*s).update();
+                }
+                s
+            }
+            pub fn split(s: *mut Self) -> (*mut Self, *mut Self) // (..s, s..)
+            {
+                unsafe {
+                    (*s).splay();
+                    let t = (*s).left;
+                    if !t.is_null() {
+                        (*t).parent = std::ptr::null_mut();
+                    }
+                    (*s).left = std::ptr::null_mut();
+                    (*s).update();
+                    (t, s)
+                }
             }
         }
     }
-    mod dynamic_connectivity {
-        use super::{EulerMove, EulerTour};
+    mod euler_tree {
+        use super::euler_move::EulerMove;
+        use std::collections::HashMap;
+        pub struct EulerTour {
+            tours: Vec<HashMap<usize, EulerMove>>,
+        }
+        impl EulerTour {
+            pub fn new(n: usize) -> Self {
+                Self {
+                    tours: (0..n)
+                        .map(|i| {
+                            let mut mp = HashMap::new();
+                            mp.insert(i, EulerMove::new(i, i));
+                            mp
+                        })
+                        .collect::<Vec<_>>(),
+                }
+            }
+            pub fn get_node(&mut self, from: usize, to: usize) -> *mut EulerMove {
+                self.tours[from]
+                    .entry(to)
+                    .or_insert_with(|| EulerMove::new(from, to));
+                self.tours[from].get_mut(&to).unwrap() as *mut EulerMove
+            }
+            #[allow(unused_assignments)]
+            fn re_tour(s: *mut EulerMove) -> *mut EulerMove {
+                let (s0, s1) = EulerMove::split(s);
+                EulerMove::merge(s1, s0)
+            }
+            pub fn same(&mut self, a: usize, b: usize) -> bool {
+                let a = self.get_node(a, a);
+                let b = self.get_node(b, b);
+                EulerMove::same(a, b)
+            }
+            #[allow(unused_assignments)]
+            pub fn unite(&mut self, a: usize, b: usize) -> bool {
+                if self.same(a, b) {
+                    return false;
+                }
+                let mut aa = self.get_node(a, a);
+                aa = Self::re_tour(aa);
+                let mut bb = self.get_node(b, b);
+                bb = Self::re_tour(bb);
+                let ab = self.get_node(a, b);
+                let ba = self.get_node(b, a);
+                let aa_ab = EulerMove::merge(aa, ab);
+                let bb_ba = EulerMove::merge(bb, ba);
+                aa = EulerMove::merge(aa_ab, bb_ba);
+                true
+            }
+            fn remove_split(&mut self, from: usize, to: usize) -> (*mut EulerMove, *mut EulerMove) {
+                let c = self.get_node(from, to);
+                unsafe {
+                    (*c).splay();
+                    let left = (*c).left;
+                    let right = (*c).right;
+                    if !left.is_null() {
+                        (*left).parent = std::ptr::null_mut();
+                    }
+                    if !right.is_null() {
+                        (*right).parent = std::ptr::null_mut();
+                    }
+                    assert!(self.tours[from].remove(&to).is_some());
+                    (left, right)
+                }
+            }
+            pub fn cut(&mut self, a: usize, b: usize) -> bool {
+                if !self.tours[a].contains_key(&b) {
+                    return false;
+                }
+                let (xxa, bxx) = self.remove_split(a, b);
+                if EulerMove::same(xxa, self.get_node(b, a)) {
+                    let (xxb, _axxa) = self.remove_split(b, a);
+                    let _ = EulerMove::merge(bxx, xxb);
+                } else {
+                    let (_bxxb, axx) = self.remove_split(b, a);
+                    let _ = EulerMove::merge(axx, xxa);
+                }
+                true
+            }
+            pub fn get_size(&mut self, a: usize) -> usize {
+                let a = self.get_node(a, a);
+                unsafe {
+                    (*a).splay();
+                    (*a).size
+                }
+            }
+            pub fn extract_level_match(t: *mut EulerMove) -> Option<(usize, usize)> {
+                unsafe {
+                    if t.is_null() || !(*t).at_this_level_subany {
+                        return None;
+                    }
+                    if (*t).at_this_level {
+                        (*t).splay();
+                        (*t).at_this_level = false;
+                        (*t).update();
+                        return Some(((*t).from, (*t).to));
+                    }
+                    let left = (*t).left;
+                    if let Some(ret) = Self::extract_level_match(left) {
+                        return Some(ret);
+                    }
+                    let right = (*t).right;
+                    if let Some(ret) = Self::extract_level_match(right) {
+                        return Some(ret);
+                    }
+                    None
+                }
+            }
+            pub fn extract_useless_connected(t: *mut EulerMove) -> Option<usize> {
+                unsafe {
+                    if t.is_null() || !(*t).useless_connected_subany {
+                        return None;
+                    }
+                    if (*t).useless_connected {
+                        (*t).splay();
+                        return Some((*t).from);
+                    }
+                    let left = (*t).left;
+                    if let Some(ret) = Self::extract_useless_connected(left) {
+                        return Some(ret);
+                    }
+                    let right = (*t).right;
+                    if let Some(ret) = Self::extract_useless_connected(right) {
+                        return Some(ret);
+                    }
+                    None
+                }
+            }
+            pub fn update_useless_connected(&mut self, x: usize, b: bool) {
+                let x = self.get_node(x, x);
+                unsafe {
+                    (*x).splay();
+                    (*x).useless_connected = b;
+                    (*x).update();
+                }
+            }
+        }
+    }
+    pub mod dynamic_connectivity {
+        use super::{euler_move::EulerMove, euler_tree::EulerTour};
         use std::collections::HashSet;
         pub struct DynamicConnectivity {
             n: usize,
@@ -3810,41 +3853,79 @@ mod euler_tour {
                                     self.trees[i + 1].unite(lup_a, lup_b);
                                     (*node_a).splay();
                                 }
+                                // try_reconnect in euler tour
+                                while let Some(x) = EulerTour::extract_useless_connected(node_a) {
+                                    while let Some(&y) = self.useless_edges[i][x].iter().next() {
+                                        for (x, y) in vec![(x, y), (y, x)].iter().copied() {
+                                            assert!(self.useless_edges[i][x].remove(&y));
+                                            if self.useless_edges[i][x].is_empty() {
+                                                self.trees[i].update_useless_connected(x, false);
+                                            }
+                                        }
+                                        if self.trees[i].same(x, y) {
+                                            for (x, y) in vec![(x, y), (y, x)].iter().copied() {
+                                                self.useless_edges[i + 1][x].insert(y);
+                                                if self.useless_edges[i + 1][x].len() == 1 {
+                                                    self.trees[i + 1]
+                                                        .update_useless_connected(x, true);
+                                                }
+                                            }
+                                        } else {
+                                            for j in 0..=i {
+                                                self.trees[j].unite(x, y);
+                                            }
+                                            return false;
+                                        }
+                                    }
+                                    (*node_a).splay();
+                                }
                             }
-                            // try_reconnect in euler tour
                         }
+                        return true;
                     }
                 }
                 false
             }
         }
     }
-    #[cfg(test)]
-    mod euler_tour_test {
-        use super::EulerTour;
-        use super::SplayDir;
-
-        fn test() {
-            let mut et = EulerTour::new(10);
-            for i in 0..10 {
-                let pt = et.get_node(i, i);
-                unsafe {
-                    assert!((*pt).from == i);
-                    assert!((*pt).to == i);
-                    assert!((*pt).for_parent() == SplayDir::None);
-                }
+}
+use online_dynamic_connectivity::dynamic_connectivity::DynamicConnectivity;
+fn aoj() {
+    // https://judge.u-aizu.ac.jp/onlinejudge/description.jsp?id=2235&lang=jp
+    let n = 4;
+    let queries = vec![
+        (1, 0, 1),
+        (1, 0, 2),
+        (3, 1, 2),
+        (2, 0, 1),
+        (1, 2, 3),
+        (3, 0, 1),
+        (1, 0, 1),
+        (2, 0, 2),
+        (1, 1, 3),
+        (3, 0, 2),
+    ];
+    let mut uf = crate::DynamicConnectivity::new(n);
+    let mut ans = vec![];
+    for (qi, (t, a, b)) in queries.into_iter().enumerate() {
+        match t {
+            1 => {
+                uf.unite(a, b);
             }
+            2 => {
+                uf.cut(a, b);
+            }
+            3 => {
+                ans.push(uf.same(a, b));
+            }
+            _ => unreachable!(),
         }
     }
+    assert!(ans[0]);
+    assert!(!ans[1]);
+    assert!(ans[2]);
 }
+
 fn main() {
-    #[derive(Clone)]
-    struct Val {
-        val: i32,
-    }
-    let a = Box::new(Val { val: 1 });
-    println!("{}", a.val);
-    let mut b = Box::clone(&a);
-    b.val = 0;
-    println!("{}", a.val);
+    aoj();
 }
