@@ -98,6 +98,14 @@ mod online_dynamic_connectivity {
                 t
             }
             pub fn same(s: *mut Self, t: *mut Self) -> bool {
+                if s.is_null() {
+                    debug_assert!(!t.is_null());
+                    return false;
+                }
+                if t.is_null() {
+                    debug_assert!(!s.is_null());
+                    return false;
+                }
                 unsafe {
                     (*s).splay();
                     (*t).splay();
@@ -205,6 +213,9 @@ mod online_dynamic_connectivity {
                     return s;
                 }
                 unsafe {
+                    while !(*s).parent.is_null() {
+                        s = (*s).parent;
+                    }
                     while !(*s).right.is_null() {
                         s = (*s).right;
                     }
@@ -234,25 +245,25 @@ mod online_dynamic_connectivity {
         use super::euler_move::EulerMove;
         use std::collections::HashMap;
         pub struct EulerTour {
-            tours: Vec<HashMap<usize, EulerMove>>,
+            tour: Vec<HashMap<usize, Box<EulerMove>>>,
         }
         impl EulerTour {
             pub fn new(n: usize) -> Self {
                 Self {
-                    tours: (0..n)
+                    tour: (0..n)
                         .map(|i| {
                             let mut mp = HashMap::new();
-                            mp.insert(i, EulerMove::new(i, i));
+                            mp.insert(i, Box::new(EulerMove::new(i, i)));
                             mp
-                        })
-                        .collect::<Vec<_>>(),
+                        }
+                    ).collect::<Vec<_>>(),
                 }
             }
             pub fn get_node(&mut self, from: usize, to: usize) -> *mut EulerMove {
-                self.tours[from]
+                self.tour[from]
                     .entry(to)
-                    .or_insert_with(|| EulerMove::new(from, to));
-                self.tours[from].get_mut(&to).unwrap() as *mut EulerMove
+                    .or_insert_with(|| Box::new(EulerMove::new(from, to)));
+                &mut **self.tour[from].get_mut(&to).unwrap()
             }
             #[allow(unused_assignments)]
             fn re_tour(s: *mut EulerMove) -> *mut EulerMove {
@@ -269,15 +280,16 @@ mod online_dynamic_connectivity {
                 if self.same(a, b) {
                     return false;
                 }
-                let mut aa = self.get_node(a, a);
-                aa = Self::re_tour(aa);
-                let mut bb = self.get_node(b, b);
-                bb = Self::re_tour(bb);
+                let aa = self.get_node(a, a);
+                let aa_root = Self::re_tour(aa);
+                let bb = self.get_node(b, b);
+                let bb_root = Self::re_tour(bb);
+
                 let ab = self.get_node(a, b);
                 let ba = self.get_node(b, a);
-                let aa_ab = EulerMove::merge(aa, ab);
-                let bb_ba = EulerMove::merge(bb, ba);
-                aa = EulerMove::merge(aa_ab, bb_ba);
+                let aa_ab = EulerMove::merge(aa_root, ab);
+                let bb_ba = EulerMove::merge(bb_root, ba);
+                let _ = EulerMove::merge(aa_ab, bb_ba);
                 true
             }
             fn remove_split(&mut self, from: usize, to: usize) -> (*mut EulerMove, *mut EulerMove) {
@@ -292,12 +304,12 @@ mod online_dynamic_connectivity {
                     if !right.is_null() {
                         (*right).parent = std::ptr::null_mut();
                     }
-                    assert!(self.tours[from].remove(&to).is_some());
+                    assert!(self.tour[from].remove(&to).is_some());
                     (left, right)
                 }
             }
             pub fn cut(&mut self, a: usize, b: usize) -> bool {
-                if !self.tours[a].contains_key(&b) {
+                if !self.tour[a].contains_key(&b) {
                     return false;
                 }
                 let (xxa, bxx) = self.remove_split(a, b);
@@ -374,7 +386,7 @@ mod online_dynamic_connectivity {
         use std::collections::HashSet;
         pub struct DynamicConnectivity {
             n: usize,
-            trees: Vec<EulerTour>,
+            pub trees: Vec<EulerTour>,
             useless_edges: Vec<Vec<HashSet<usize>>>,
         }
         impl DynamicConnectivity {
@@ -394,6 +406,12 @@ mod online_dynamic_connectivity {
                 }
                 assert!(self.useless_edges[0][a].insert(b));
                 assert!(self.useless_edges[0][b].insert(a));
+                if self.useless_edges[0][a].len() == 1 {
+                    self.trees[0].update_useless_connected(a, true);
+                }
+                if self.useless_edges[0][b].len() == 1 {
+                    self.trees[0].update_useless_connected(b, true);
+                }
                 false
             }
             pub fn same(&mut self, a: usize, b: usize) -> bool {
@@ -403,10 +421,16 @@ mod online_dynamic_connectivity {
                 if a == b {
                     return false;
                 }
-                self.useless_edges.iter_mut().for_each(|edges| {
-                    edges[a].remove(&b);
-                    edges[b].remove(&a);
-                });
+                self.trees
+                    .iter_mut()
+                    .zip(self.useless_edges.iter_mut())
+                    .for_each(|(tree, edges)| {
+                        for (a, b) in [(a, b), (b, a)].iter().copied() {
+                            if edges[a].remove(&b) && edges[a].is_empty() {
+                                tree.update_useless_connected(a, false);
+                            }
+                        }
+                    });
                 let org_level_len = self.trees.len();
                 for level in (0..org_level_len).rev() {
                     if self.trees[level].cut(a, b) {
@@ -471,10 +495,91 @@ mod online_dynamic_connectivity {
 }
 use online_dynamic_connectivity::dynamic_connectivity::DynamicConnectivity;
 
+#[cfg(test)]
+fn check() {
+    fn trial(n: usize, ques: Vec<(usize, usize, usize)>) {
+        println!("{:?}", ques);
+        let mut dc = DynamicConnectivity::new(n);
+        let mut es = BTreeSet::new();
+        let mut log_n = 1usize;
+        while 2usize.pow(log_n as u32) < n {
+            log_n += 1;
+        }
+        for (t, a, b) in ques {
+            debug!(t, a, b);
+            let mut uf0 = UnionFind::new(n);
+            for &(a, b) in es.iter() {
+                uf0.unite(a, b);
+            }
+            match t {
+                1 => {
+                    assert!(dc.unite(a, b) != uf0.same(a, b));
+                    assert!(es.insert((a, b)));
+                }
+                2 => {
+                    let dc_ret = dc.cut(a, b);
+                    assert!(es.remove(&(a, b)));
+                    {
+                        let mut uf = UnionFind::new(n);
+                        for &(a, b) in es.iter() {
+                            uf.unite(a, b);
+                        }
+                        assert!(dc_ret != uf.same(a, b));
+                    }
+                }
+                _ => unreachable!(),
+            }
+            let mut uf = UnionFind::new(n);
+            for &(a, b) in es.iter() {
+                uf.unite(a, b);
+            }
+            for j in 0..n {
+                for i in 0..j {
+                    assert!(dc.same(i, j) == uf.same(i, j));
+                }
+            }
+            assert!(dc.trees.len() <= log_n);
+        }
+    }
+    let n = 10;
+    let mut rand = XorShift64::new();
+    for _ in 0..1000 {
+        let ques = {
+            let mut es = BTreeSet::new();
+            let mut ques = vec![];
+            while ques.len() < n * n {
+                let t = rand.next_usize() % 2 + 1;
+                let a = rand.next_usize() % n;
+                let b = (a + 1 + rand.next_usize() % (n - 1)) % n;
+                let (a, b) = (min(a, b), max(a, b));
+                match t {
+                    1 => {
+                        if es.contains(&(a, b)) {
+                            continue;
+                        }
+                        es.insert((a, b));
+                        ques.push((t, a, b));
+                    }
+                    2 => {
+                        if !es.contains(&(a, b)) {
+                            continue;
+                        }
+                        es.remove(&(a, b));
+                        ques.push((t, a, b));
+                    }
+                    _ => unreachable!(),
+                }
+            }
+            ques
+        };
+        trial(n, ques);
+    }
+}
 fn main() {
     let n = read::<usize>();
+    let k = read::<usize>();
     let mut uf = DynamicConnectivity::new(n);
-    for _ in 0..read::<usize>() {
+    for _ in 0..k {
         let t = read::<usize>();
         let a = read::<usize>();
         let b = read::<usize>();
