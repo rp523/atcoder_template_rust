@@ -1,13 +1,13 @@
 #![allow(unused_macros, unused_imports, dead_code)]
 use permutohedron::LexicalPermutation;
-use rand::{seq::SliceRandom, SeedableRng};
-use rand_chacha::ChaChaRng;
 use std::any::TypeId;
 use std::cmp::{max, min, Ordering, Reverse};
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, VecDeque};
 use std::mem::swap;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Rem, Sub, SubAssign};
 use std::time::Instant;
+use rand::{seq::SliceRandom, SeedableRng};
+use rand_chacha::ChaChaRng;
 //let mut rng = ChaChaRng::from_seed([0; 32]);
 
 macro_rules! __debug_impl {
