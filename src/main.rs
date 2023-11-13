@@ -1,13 +1,13 @@
 #![allow(unused_macros, unused_imports, dead_code)]
 use permutohedron::LexicalPermutation;
+use rand::{seq::SliceRandom, SeedableRng};
+use rand_chacha::ChaChaRng;
 use std::any::TypeId;
 use std::cmp::{max, min, Ordering, Reverse};
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, VecDeque};
 use std::mem::swap;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Rem, Sub, SubAssign};
 use std::time::Instant;
-use rand::{seq::SliceRandom, SeedableRng};
-use rand_chacha::ChaChaRng;
 //let mut rng = ChaChaRng::from_seed([0; 32]);
 
 macro_rules! __debug_impl {
@@ -363,6 +363,7 @@ mod union_find {
     #[derive(Debug, Clone)]
     pub struct UnionFind {
         pub graph: Vec<Vec<usize>>,
+        potential: Vec<i64>,
         parents: Vec<usize>,
         grp_sz: Vec<usize>,
         grp_num: usize,
@@ -372,6 +373,7 @@ mod union_find {
         pub fn new(sz: usize) -> Self {
             Self {
                 graph: vec![vec![]; sz],
+                potential: vec![0; sz],
                 parents: (0..sz).collect::<Vec<usize>>(),
                 grp_sz: vec![1; sz],
                 grp_num: sz,
@@ -381,20 +383,33 @@ mod union_find {
             if v == self.parents[v] {
                 v
             } else {
-                self.parents[v] = self.root(self.parents[v]);
+                let pv = self.parents[v];
+                let rv = self.root(pv);
+                self.potential[v] += self.potential[pv];
+                self.parents[v] = rv;
                 self.parents[v]
             }
+        }
+        pub fn get_delta(&mut self, v0: usize, v1: usize) -> Option<i64> {
+            if !self.same(v0, v1) {
+                return None;
+            }
+            Some(self.potential[v1] - self.potential[v0])
         }
         pub fn same(&mut self, a: usize, b: usize) -> bool {
             self.root(a) == self.root(b)
         }
         pub fn unite(&mut self, into: usize, from: usize) {
+            self.unite_with_delta(into, from, 0);
+        }
+        pub fn unite_with_delta(&mut self, into: usize, from: usize, delta: i64) {
             self.graph[into].push(from);
             self.graph[from].push(into);
             let r_into = self.root(into);
             let r_from = self.root(from);
             if r_into != r_from {
                 self.parents[r_from] = r_into;
+                self.potential[r_from] = self.potential[into] - self.potential[from] + delta;
                 self.grp_sz[r_into] += self.grp_sz[r_from];
                 self.grp_sz[r_from] = 0;
                 self.grp_num -= 1;
