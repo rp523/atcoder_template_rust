@@ -2673,38 +2673,69 @@ mod flow {
             flow_lb: i64,
             flow_ub: i64,
         ) -> Option<(i64, i64)> {
+            if let Some(&(cost, flow)) = self.min_cost_slope_sub(src, dst, flow_lb, flow_ub).last()
+            {
+                if flow_lb <= flow && flow <= flow_ub {
+                    return Some((cost, flow));
+                }
+            }
+            None
+        }
+        pub fn min_cost_slope(
+            &mut self,
+            src: usize,
+            dst: usize,
+            flow_lb: i64,
+            flow_ub: i64,
+        ) -> Vec<(i64, i64)> {
+            self.min_cost_slope_sub(src, dst, flow_lb, flow_ub)
+        }
+        fn min_cost_slope_sub(
+            &mut self,
+            src: usize,
+            dst: usize,
+            flow_lb: i64,
+            flow_ub: i64,
+        ) -> Vec<(i64, i64)> {
             if self.flow_lb_sum == 0 {
-                return self.min_cost_flow_impl(src, dst, flow_lb, flow_ub);
+                return self.min_cost_slope_impl(src, dst, flow_lb, flow_ub);
             }
             let dummy_src = self.g.len() - 2;
             let dummy_dst = self.g.len() - 1;
             // cyclic flow
             self.add_edge(dst, src, 1 << 60);
-            let (dcost, _ds_to_dt) =
-                self.min_cost_flow_impl(dummy_src, dummy_dst, self.flow_lb_sum, self.flow_lb_sum)?;
-            let (cost, s_to_t) = self.min_cost_flow_impl(src, dst, flow_lb, flow_ub)?;
-            Some((cost + dcost, s_to_t))
+            let ds2dt_cost_flow =
+                self.min_cost_slope_impl(dummy_src, dummy_dst, self.flow_lb_sum, self.flow_lb_sum);
+            let s2t_cost_flow = self.min_cost_slope_impl(src, dst, flow_lb, flow_ub);
+            s2t_cost_flow
+                .into_iter()
+                .zip(ds2dt_cost_flow.into_iter())
+                .map(|((ds2dt_cost, _ds2dt_flow), (s2t_cost, s2t_flow))| {
+                    (ds2dt_cost + s2t_cost, s2t_flow)
+                })
+                .collect::<Vec<_>>()
         }
-        fn min_cost_flow_impl(
+        fn min_cost_slope_impl(
             &mut self,
             src: usize,
             dst: usize,
             flow_lb: i64, // lower bound flow
             flow_ub: i64, // upper bound flow
-        ) -> Option<(i64, i64)> {
+        ) -> Vec<(i64, i64)> {
             if self.neg_cost_any {
-                self.min_negcost_flow(src, dst, flow_lb, flow_ub)
+                self.min_negcost_slope(src, dst, flow_lb, flow_ub)
             } else {
-                self.min_poscost_flow(src, dst, flow_lb)
+                self.min_poscost_slope(src, dst, flow_lb)
             }
         }
-        fn min_negcost_flow(
+        fn min_negcost_slope(
             &mut self,
             source: usize,
             sink: usize,
             flow_lb: i64, // lower bound flow
             flow_ub: i64, // upper bound flow
-        ) -> Option<(i64, i64)> {
+        ) -> Vec<(i64, i64)> {
+            let mut slope = vec![];
             let mut flow_now = 0;
             let mut min_cost = 0;
             let mut dist = vec![None; self.g.len()];
@@ -2747,8 +2778,9 @@ mod flow {
                     if delta_flow == 0 {
                         break;
                     }
-                    flow_now += delta_flow;
                     min_cost += delta_flow * dist_sink;
+                    flow_now += delta_flow;
+                    slope.push((min_cost, flow_now));
                     {
                         let mut v = sink;
                         while let Some((pv, pei)) = prev[v] {
@@ -2758,23 +2790,22 @@ mod flow {
                             v = pv;
                         }
                     }
-                } else if flow_now >= flow_lb {
-                    break;
                 } else {
-                    return None;
+                    break;
                 }
 
                 dist.iter_mut().for_each(|x| *x = None);
                 prev.iter_mut().for_each(|x| *x = None);
             }
-            Some((min_cost, flow_now))
+            slope
         }
-        fn min_poscost_flow(
+        fn min_poscost_slope(
             &mut self,
             source: usize,
             sink: usize,
             flow_lb: i64, // lower bound flow;
-        ) -> Option<(i64, i64)> {
+        ) -> Vec<(i64, i64)> {
+            let mut slope = vec![];
             let mut flow_now = 0;
             let mut min_cost = 0;
             let mut h = vec![0; self.g.len()];
@@ -2799,7 +2830,9 @@ mod flow {
                         }
                     }
                 }
-                dist[sink]?;
+                if dist[sink].is_none() {
+                    break;
+                }
                 h.iter_mut().zip(dist.iter()).for_each(|(h, d)| {
                     if let Some(d) = d {
                         *h += d
@@ -2814,8 +2847,9 @@ mod flow {
                         v = pv;
                     }
                 }
-                flow_now += delta_flow;
                 min_cost += delta_flow * h[sink];
+                flow_now += delta_flow;
+                slope.push((min_cost, flow_now));
                 {
                     let mut v = sink;
                     while let Some((pv, pei)) = prev[v] {
@@ -2829,7 +2863,7 @@ mod flow {
                 dist.iter_mut().for_each(|dist| *dist = None);
                 prev.iter_mut().for_each(|dist| *dist = None);
             }
-            Some((min_cost, flow_now))
+            slope
         }
     }
 }
