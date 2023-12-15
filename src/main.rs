@@ -254,58 +254,42 @@ fn factorial_inv<
     unsafe { factorial_impl(p, &mut MEMO, |x: T, y: T| x / y) }
 }
 
-fn combination<
-    T: Clone + Copy + From<usize> + Into<usize> + Mul<Output = T> + Div<Output = T> + 'static,
->(
-    n: usize,
-    k: usize,
-) -> T {
+fn combination<const MOD: i64>(n: usize, k: usize) -> ModInt<MOD> {
     if n < k {
-        return T::from(0_usize);
+        return ModInt::<MOD>::from(0_usize);
     }
     if k == 0 {
-        return T::from(1_usize);
+        return ModInt::<MOD>::from(1_usize);
     } else if k == 1 {
-        return T::from(n);
+        return ModInt::<MOD>::from(n);
     } else if k == 2 {
-        return (T::from(n) * T::from(n - 1)) / T::from(2);
+        return (ModInt::<MOD>::from(n) * ModInt::<MOD>::from(n - 1)) / ModInt::<MOD>::from(2);
     }
 
-    if TypeId::of::<mint>() == TypeId::of::<T>() {
-        factorial::<T>(n) * factorial_inv::<T>(k) * factorial_inv::<T>(n - k)
+    if TypeId::of::<ModInt<MOD>>() == TypeId::of::<ModInt<MOD>>() {
+        factorial::<ModInt<MOD>>(n)
+            * factorial_inv::<ModInt<MOD>>(k)
+            * factorial_inv::<ModInt<MOD>>(n - k)
     } else {
-        factorial::<T>(n) / (factorial::<T>(k) * factorial::<T>(n - k))
+        factorial::<ModInt<MOD>>(n)
+            / (factorial::<ModInt<MOD>>(k) * factorial::<ModInt<MOD>>(n - k))
     }
 }
 
-fn combination_with_overlap<
-    T: Clone + Copy + From<usize> + Into<usize> + Mul<Output = T> + Div<Output = T> + 'static,
->(
-    n: usize,
-    k: usize,
-) -> T {
-    combination(n + k - 1, k)
+fn combination_with_overlap<const MOD: i64>(n: usize, k: usize) -> ModInt<MOD> {
+    combination::<MOD>(n + k - 1, k)
 }
 
-fn permutation<
-    T: Clone + Copy + From<usize> + Into<usize> + Mul<Output = T> + Div<Output = T> + 'static,
->(
-    n: usize,
-    k: usize,
-) -> T {
+fn permutation<const MOD: i64>(n: usize, k: usize) -> ModInt<MOD> {
     if k == 0 {
-        return T::from(1_usize);
+        return ModInt::<MOD>::one();
     } else if k == 1 {
-        return T::from(n);
+        return ModInt::<MOD>::from(n);
     } else if k == 2 {
-        return T::from(n) * T::from(n - 1);
+        return ModInt::<MOD>::from(n) * ModInt::<MOD>::from(n - 1);
     }
 
-    if TypeId::of::<mint>() == TypeId::of::<T>() {
-        factorial::<T>(n) * factorial_inv::<T>(n - k)
-    } else {
-        factorial::<T>(n) / factorial::<T>(n - k)
-    }
+    factorial::<ModInt<MOD>>(n) * factorial_inv::<ModInt<MOD>>(n - k)
 }
 
 mod union_find {
@@ -650,41 +634,29 @@ use lazy_segment_tree::LazySegmentTree;
 
 mod modint {
     use crate::gcd::ext_gcd;
-    use i64 as mtype;
     use num::{One, Zero};
     use std::fmt;
     use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, Sub, SubAssign};
-    static mut MOD: mtype = 2;
 
     #[derive(Clone, Copy, Eq, Hash, PartialEq)]
-    pub struct ModInt {
-        x: mtype,
+    pub struct ModInt<const MOD: i64> {
+        x: i64,
     }
-    impl ModInt {
-        pub fn set_mod(val: mtype) {
-            unsafe {
-                MOD = val;
-            }
-        }
-        pub fn get_mod() -> mtype {
-            unsafe { MOD }
-        }
-        pub fn val(&self) -> mtype {
+    impl<const MOD: i64> ModInt<MOD> {
+        pub fn val(&self) -> i64 {
             self.x
         }
-        fn new(mut sig: mtype) -> Self {
+        fn new(mut sig: i64) -> Self {
             if sig < 0 {
-                let ab = (-sig + Self::get_mod() - 1) / Self::get_mod();
-                sig += ab * Self::get_mod();
+                let ab = (-sig + MOD - 1) / MOD;
+                sig += ab * MOD;
                 debug_assert!(sig >= 0);
             }
-            Self {
-                x: sig % Self::get_mod(),
-            }
+            Self { x: sig % MOD }
         }
         fn inverse(&self) -> Self {
             // x * inv_x + M * _ = 1 (mod M)
-            Self::new(ext_gcd(self.x, Self::get_mod()).0)
+            Self::new(ext_gcd(self.x, MOD).0)
 
             // [Fermat's little theorem]
             // if p is prime, for any integer a, a^p = a (mod p)
@@ -693,7 +665,7 @@ mod modint {
 
             //let mut ret = Self { x: 1 };
             //let mut mul: Self = *self;
-            //let mut p = Self::get_mod() - 2;
+            //let mut p = MOD() - 2;
             //while p > 0 {
             //    if p & 1 != 0 {
             //        ret *= mul;
@@ -716,72 +688,72 @@ mod modint {
             ret
         }
     }
-    impl One for ModInt {
+    impl<const MOD: i64> One for ModInt<MOD> {
         fn one() -> Self {
             Self { x: 1 }
         }
     }
-    impl AddAssign<Self> for ModInt {
+    impl<const MOD: i64> AddAssign<Self> for ModInt<MOD> {
         fn add_assign(&mut self, rhs: Self) {
             *self = ModInt::new(self.x + rhs.x);
         }
     }
-    impl Add<ModInt> for ModInt {
-        type Output = ModInt;
+    impl<const MOD: i64> Add<ModInt<MOD>> for ModInt<MOD> {
+        type Output = ModInt<MOD>;
         fn add(self, rhs: Self) -> Self::Output {
             ModInt::new(self.x + rhs.x)
         }
     }
-    impl SubAssign<Self> for ModInt {
+    impl<const MOD: i64> SubAssign<Self> for ModInt<MOD> {
         fn sub_assign(&mut self, rhs: Self) {
             *self = ModInt::new(self.x - rhs.x);
         }
     }
-    impl Sub<ModInt> for ModInt {
-        type Output = ModInt;
+    impl<const MOD: i64> Sub<ModInt<MOD>> for ModInt<MOD> {
+        type Output = ModInt<MOD>;
         fn sub(self, rhs: Self) -> Self::Output {
             ModInt::new(self.x - rhs.x)
         }
     }
-    impl MulAssign<Self> for ModInt {
+    impl<const MOD: i64> MulAssign<Self> for ModInt<MOD> {
         fn mul_assign(&mut self, rhs: Self) {
             *self = ModInt::new(self.x * rhs.x);
         }
     }
-    impl Mul<ModInt> for ModInt {
-        type Output = ModInt;
+    impl<const MOD: i64> Mul<ModInt<MOD>> for ModInt<MOD> {
+        type Output = ModInt<MOD>;
         fn mul(self, rhs: Self) -> Self::Output {
             ModInt::new(self.x * rhs.x)
         }
     }
-    impl DivAssign<Self> for ModInt {
+    impl<const MOD: i64> DivAssign<Self> for ModInt<MOD> {
         fn div_assign(&mut self, rhs: Self) {
             *self = *self / rhs;
         }
     }
-    impl Div<ModInt> for ModInt {
-        type Output = ModInt;
+    impl<const MOD: i64> Div<ModInt<MOD>> for ModInt<MOD> {
+        type Output = ModInt<MOD>;
         fn div(self, rhs: Self) -> Self::Output {
             #[allow(clippy::suspicious_arithmetic_impl)]
             ModInt::new(self.x * rhs.inverse().x)
         }
     }
-    impl From<usize> for ModInt {
+    impl<const MOD: i64> From<usize> for ModInt<MOD> {
         fn from(x: usize) -> Self {
             ModInt::new(x as i64)
         }
     }
-    impl From<i64> for ModInt {
+    impl<const MOD: i64> From<i64> for ModInt<MOD> {
         fn from(x: i64) -> Self {
             ModInt::new(x)
         }
     }
-    impl From<i32> for ModInt {
+    impl<const MOD: i64> From<i32> for ModInt<MOD> {
         fn from(x: i32) -> Self {
             ModInt::new(x as i64)
         }
     }
-    impl std::str::FromStr for ModInt {
+    impl<const MOD: i64> std::str::FromStr for ModInt<MOD> {
         type Err = std::num::ParseIntError;
         fn from_str(s: &str) -> Result<Self, Self::Err> {
             match s.parse::<i64>() {
@@ -790,8 +762,8 @@ mod modint {
             }
         }
     }
-    impl std::iter::Sum for ModInt {
-        fn sum<I: Iterator<Item = ModInt>>(iter: I) -> Self {
+    impl<const MOD: i64> std::iter::Sum for ModInt<MOD> {
+        fn sum<I: Iterator<Item = ModInt<MOD>>>(iter: I) -> Self {
             let mut ret = ModInt::new(0);
             for v in iter {
                 ret += v;
@@ -800,40 +772,23 @@ mod modint {
         }
     }
     #[allow(clippy::from_over_into)]
-    impl Into<usize> for ModInt {
+    impl<const MOD: i64> Into<usize> for ModInt<MOD> {
         fn into(self) -> usize {
             self.x as usize
         }
     }
-    impl fmt::Display for ModInt {
+    impl<const MOD: i64> fmt::Display for ModInt<MOD> {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
             write!(f, "{}", self.x)
         }
     }
-    impl fmt::Debug for ModInt {
+    impl<const MOD: i64> fmt::Debug for ModInt<MOD> {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
             write!(f, "{}", self.x)
         }
     }
 }
-use modint::ModInt as mint;
-
-fn precalc_power(base: i64, n: usize) -> Vec<mint> {
-    let mut ret = vec![mint::from(1); n + 1];
-    for p in 1..=n {
-        ret[p] = ret[p - 1] * mint::from(base);
-    }
-    ret
-}
-
-fn precalc_invpower(base: i64, n: usize) -> Vec<mint> {
-    let mut ret = vec![mint::from(1); n + 1];
-    let inv_base = mint::from(1) / mint::from(base);
-    for p in 1..=n {
-        ret[p] = ret[p - 1] * inv_base;
-    }
-    ret
-}
+use modint::ModInt;
 
 pub trait IntegerOperation {
     fn into_primes(self) -> BTreeMap<Self, usize>
@@ -2554,6 +2509,7 @@ mod flow {
 }
 use flow::Flow;
 
+/*
 mod convolution {
     // https://github.com/atcoder/ac-library/blob/master/atcoder/convolution.hpp
     use crate::{modint::ModInt as mint, IntegerOperation};
@@ -2839,6 +2795,7 @@ mod convolution {
     }
 }
 use convolution::convolution;
+*/
 
 mod manhattan_mst {
     use crate::change_min_max::ChangeMinMax;
