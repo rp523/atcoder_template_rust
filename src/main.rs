@@ -1,4 +1,5 @@
 #![allow(unused_macros, unused_imports, dead_code)]
+use num::{One, Zero};
 use permutohedron::LexicalPermutation;
 use rand::{seq::SliceRandom, SeedableRng};
 use rand_chacha::ChaChaRng;
@@ -51,50 +52,6 @@ macro_rules! debug {
             __debug_select!($($xs),+);
         }
     };
-}
-
-pub trait Identity {
-    fn identity() -> Self;
-}
-impl Identity for i32 {
-    fn identity() -> Self {
-        1_i32
-    }
-}
-impl Identity for u32 {
-    fn identity() -> Self {
-        1_u32
-    }
-}
-impl Identity for i64 {
-    fn identity() -> Self {
-        1_i64
-    }
-}
-impl Identity for u64 {
-    fn identity() -> Self {
-        1_u64
-    }
-}
-impl Identity for i128 {
-    fn identity() -> Self {
-        1_i128
-    }
-}
-impl Identity for u128 {
-    fn identity() -> Self {
-        1_u128
-    }
-}
-impl Identity for f64 {
-    fn identity() -> Self {
-        1_f64
-    }
-}
-impl Identity for usize {
-    fn identity() -> Self {
-        1_usize
-    }
 }
 
 mod change_min_max {
@@ -152,12 +109,11 @@ mod change_min_max {
 use change_min_max::ChangeMinMax;
 
 mod gcd {
+    use num::{One, Zero};
     use std::cmp::{PartialEq, PartialOrd};
     use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Rem, RemAssign, Sub, SubAssign};
-    pub fn gcd<T: Copy + Sub<Output = T> + Rem<Output = T> + PartialEq>(a: T, b: T) -> T {
-        #[allow(clippy::eq_op)]
-        let zero = a - a;
-        if b == zero {
+    pub fn gcd<T: Copy + Rem<Output = T> + PartialEq + Zero>(a: T, b: T) -> T {
+        if b == T::zero() {
             a
         } else {
             gcd(b, a % b)
@@ -168,20 +124,17 @@ mod gcd {
         T: Eq
             + Copy
             + Sub<Output = T>
-            + SubAssign
             + Mul<Output = T>
             + Div<Output = T>
-            + Rem<Output = T>,
+            + Rem<Output = T>
+            + Zero
+            + One,
     >(
         a: T,
         b: T,
     ) -> (T, T) {
-        #[allow(clippy::eq_op)]
-        let zero = b - b;
-        #[allow(clippy::eq_op)]
-        let one = b / b;
-        if a == zero {
-            return (zero, one);
+        if a == T::zero() {
+            return (T::zero(), T::one());
         }
         // (b % a) * x + a * y = gcd(a, b)
         // b % a = b - (b / a) * a
@@ -205,26 +158,24 @@ mod gcd {
             + Mul<Output = T>
             + Div<Output = T>
             + Rem<Output = T>
-            + RemAssign,
+            + RemAssign
+            + Zero
+            + One,
     >(
         m1: T,
         r1: T,
         m2: T,
         r2: T,
     ) -> Option<(T, T)> {
-        #[allow(clippy::eq_op)]
-        let zero = m1 - m1;
-        #[allow(clippy::eq_op)]
-        let one = m1 / m1;
         let (p, _q) = ext_gcd(m1, m2);
         let g = gcd(m1, m2);
-        if (r2 - r1) % g != zero {
+        if (r2 - r1) % g != T::zero() {
             None
         } else {
             let lcm = m1 * (m2 / g);
             let mut r = r1 + m1 * ((r2 - r1) / g) * p;
-            if r < zero {
-                let dv = (-r + lcm - one) / lcm;
+            if r < T::zero() {
+                let dv = (-r + lcm - T::one()) / lcm;
                 r += dv * lcm;
             }
             r %= lcm;
@@ -245,18 +196,16 @@ mod gcd {
             + Mul<Output = T>
             + Div<Output = T>
             + Rem<Output = T>
-            + RemAssign,
+            + RemAssign
+            + One
+            + Zero,
     >(
         mods: &[T],
         rems: &[T],
     ) -> Option<(T, T)> {
         debug_assert!(mods.len() == rems.len());
-        #[allow(clippy::eq_op)]
-        let zero = mods[0] - mods[0];
-        #[allow(clippy::eq_op)]
-        let one = mods[0] / mods[0];
-        let mut lcm = one;
-        let mut rem = zero;
+        let mut lcm = T::one();
+        let mut rem = T::zero();
         for (m, r) in mods.iter().copied().zip(rems.iter().copied()) {
             if let Some((nlcm, nrem)) = chinese_rem_elem2(lcm, rem, m, r) {
                 lcm = nlcm;
@@ -701,8 +650,8 @@ use lazy_segment_tree::LazySegmentTree;
 
 mod modint {
     use crate::gcd::ext_gcd;
-    use crate::Identity;
     use i64 as mtype;
+    use num::{One, Zero};
     use std::fmt;
     use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, Sub, SubAssign};
     static mut MOD: mtype = 2;
@@ -767,8 +716,8 @@ mod modint {
             ret
         }
     }
-    impl Identity for ModInt {
-        fn identity() -> Self {
+    impl One for ModInt {
+        fn one() -> Self {
             Self { x: 1 }
         }
     }
@@ -899,69 +848,63 @@ impl<
         T: Copy
             + Ord
             + AddAssign
-            + SubAssign
             + MulAssign
             + DivAssign
             + Add<Output = T>
-            + Sub<Output = T>
             + Mul<Output = T>
             + Div<Output = T>
-            + Rem<Output = T>,
+            + Rem<Output = T>
+            + Zero
+            + One,
     > IntegerOperation for T
 {
     fn into_primes(self) -> BTreeMap<T, usize> // O(N^0.5 x logN)
     {
         #[allow(clippy::eq_op)]
-        let zero = self - self;
-        if self == zero {
+        if self == T::zero() {
             panic!("Zero has no divisors.");
         }
         #[allow(clippy::eq_op)]
-        let one = self / self;
-        let two = one + one;
-        let three = two + one;
+        let two = T::one() + T::one();
+        let three = two + T::one();
         let mut n = self;
         let mut ans = BTreeMap::new();
-        while n % two == zero {
+        while n % two == T::zero() {
             *ans.entry(two).or_insert(0) += 1;
             n /= two;
         }
         {
             let mut i = three;
             while i * i <= n {
-                while n % i == zero {
+                while n % i == T::zero() {
                     *ans.entry(i).or_insert(0) += 1;
                     n /= i;
                 }
                 i += two;
             }
         }
-        if n != one {
+        if n != T::one() {
             *ans.entry(n).or_insert(0) += 1;
         }
         ans
     }
     fn into_divisors(self) -> Vec<T> // O(N^0.5)
     {
-        #[allow(clippy::eq_op)]
-        let zero = self - self;
-        if self == zero {
+        if self == T::zero() {
             panic!("Zero has no primes.");
         }
-        #[allow(clippy::eq_op)]
-        let one = self / self;
         let n = self;
         let mut ret: Vec<T> = Vec::new();
         {
-            let mut i = one;
+            let mut i = T::one();
             while i * i <= n {
-                if n % i == zero {
+                if n % i == T::zero() {
                     ret.push(i);
                     if i * i != n {
                         ret.push(n / i);
                     }
                 }
-                i += one;
+                i += T::one();
             }
         }
         ret.sort();
@@ -2045,9 +1988,8 @@ fn convex_hull<
         + Add<Output = T>
         + Sub<Output = T>
         + Div<Output = T>
-        + Add<Output = T>
-        + Sub<Output = T>
-        + Mul<Output = T>,
+        + Mul<Output = T>
+        + Zero,
 >(
     points: &[(T, T)],
 ) -> Vec<(T, T)> {
@@ -2060,13 +2002,12 @@ fn convex_hull<
     }
 
     #[allow(clippy::eq_op)]
-    let zero = points[0].0 - points[0].0;
     let mut points = points.to_vec();
     points.sort_by(|x, y| x.partial_cmp(y).unwrap());
     let mut ret = vec![];
     for &p in points.iter() {
         while ret.len() >= 2 {
-            if outer_product(ret[ret.len() - 1], ret[ret.len() - 2], p) < zero {
+            if outer_product(ret[ret.len() - 1], ret[ret.len() - 2], p) < T::zero() {
                 break;
             }
             ret.pop();
@@ -2076,7 +2017,7 @@ fn convex_hull<
     let t = ret.len();
     for p in points.into_iter().rev().skip(1) {
         while ret.len() > t {
-            if outer_product(ret[ret.len() - 1], ret[ret.len() - 2], p) < zero {
+            if outer_product(ret[ret.len() - 1], ret[ret.len() - 2], p) < T::zero() {
                 break;
             }
             ret.pop();
@@ -2087,7 +2028,7 @@ fn convex_hull<
 }
 
 mod matrix {
-    use crate::Identity;
+    use num::{One, Zero};
     use std::iter::Sum;
     use std::ops::{Add, Index, IndexMut, Mul, MulAssign, Sub};
     use std::slice::SliceIndex;
@@ -2097,9 +2038,9 @@ mod matrix {
         w: usize,
         vals: Vec<Vec<T>>,
     }
-    impl<T: Clone + Copy + Identity + Sub<Output = T> + Mul + Sum<<T as Mul>::Output>> Matrix<T> {
+    impl<T: Clone + Copy + One + Sub<Output = T> + Mul + Sum<<T as Mul>::Output>> Matrix<T> {
         pub fn new(h: usize, w: usize) -> Self {
-            let v1 = T::identity();
+            let v1 = T::one();
             #[allow(clippy::eq_op)]
             let v0 = v1 - v1;
             Self {
@@ -2110,7 +2051,7 @@ mod matrix {
         }
         pub fn identity(h: usize, w: usize) -> Self {
             debug_assert!(h == w);
-            let v1 = T::identity();
+            let v1 = T::one();
             #[allow(clippy::eq_op)]
             let v0 = v1 - v1;
             let mut vals = vec![vec![v0; w]; h];
@@ -2145,8 +2086,8 @@ mod matrix {
             &mut self.vals[index]
         }
     }
-    impl<T: Clone + Copy + Identity + Sub<Output = T> + Mul + Sum<<T as Mul>::Output>>
-        Mul<Matrix<T>> for Matrix<T>
+    impl<T: Clone + Copy + One + Sub<Output = T> + Mul + Sum<<T as Mul>::Output>> Mul<Matrix<T>>
+        for Matrix<T>
     {
         type Output = Matrix<T>;
         fn mul(self, rhs: Matrix<T>) -> Self::Output {
@@ -2179,13 +2120,7 @@ mod matrix {
         }
     }
     impl<
-            T: Clone
-                + Copy
-                + Identity
-                + Add<Output = T>
-                + Sub<Output = T>
-                + Mul
-                + Sum<<T as Mul>::Output>,
+            T: Clone + Copy + One + Add<Output = T> + Sub<Output = T> + Mul + Sum<<T as Mul>::Output>,
         > Add<Matrix<T>> for Matrix<T>
     {
         type Output = Matrix<T>;
@@ -2199,7 +2134,7 @@ mod matrix {
             ret
         }
     }
-    impl<T: Clone + Copy + Identity + Sub<Output = T> + Mul + Sum<<T as Mul>::Output>>
+    impl<T: Clone + Copy + One + Sub<Output = T> + Mul + Sum<<T as Mul>::Output>>
         MulAssign<Matrix<T>> for Matrix<T>
     {
         fn mul_assign(&mut self, rhs: Matrix<T>) {
