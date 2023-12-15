@@ -704,6 +704,18 @@ mod modint {
             ModInt::new(self.x + rhs.x)
         }
     }
+    impl<const MOD: i64> Add<i64> for ModInt<MOD> {
+        type Output = ModInt<MOD>;
+        fn add(self, rhs: i64) -> Self::Output {
+            self + ModInt::new(rhs)
+        }
+    }
+    impl<const MOD: i64> Add<ModInt<MOD>> for i64 {
+        type Output = ModInt<MOD>;
+        fn add(self, rhs: ModInt<MOD>) -> Self::Output {
+            ModInt::new(self) + rhs
+        }
+    }
     impl<const MOD: i64> SubAssign<Self> for ModInt<MOD> {
         fn sub_assign(&mut self, rhs: Self) {
             *self = ModInt::new(self.x - rhs.x);
@@ -713,6 +725,18 @@ mod modint {
         type Output = ModInt<MOD>;
         fn sub(self, rhs: Self) -> Self::Output {
             ModInt::new(self.x - rhs.x)
+        }
+    }
+    impl<const MOD: i64> Sub<i64> for ModInt<MOD> {
+        type Output = ModInt<MOD>;
+        fn sub(self, rhs: i64) -> Self::Output {
+            self - ModInt::new(rhs)
+        }
+    }
+    impl<const MOD: i64> Sub<ModInt<MOD>> for i64 {
+        type Output = ModInt<MOD>;
+        fn sub(self, rhs: ModInt<MOD>) -> Self::Output {
+            ModInt::new(self) - rhs
         }
     }
     impl<const MOD: i64> MulAssign<Self> for ModInt<MOD> {
@@ -726,6 +750,18 @@ mod modint {
             ModInt::new(self.x * rhs.x)
         }
     }
+    impl<const MOD: i64> Mul<i64> for ModInt<MOD> {
+        type Output = ModInt<MOD>;
+        fn mul(self, rhs: i64) -> Self::Output {
+            self * ModInt::new(rhs)
+        }
+    }
+    impl<const MOD: i64> Mul<ModInt<MOD>> for i64 {
+        type Output = ModInt<MOD>;
+        fn mul(self, rhs: ModInt<MOD>) -> Self::Output {
+            ModInt::new(self) * rhs
+        }
+    }
     impl<const MOD: i64> DivAssign<Self> for ModInt<MOD> {
         fn div_assign(&mut self, rhs: Self) {
             *self = *self / rhs;
@@ -736,6 +772,18 @@ mod modint {
         fn div(self, rhs: Self) -> Self::Output {
             #[allow(clippy::suspicious_arithmetic_impl)]
             ModInt::new(self.x * rhs.inverse().x)
+        }
+    }
+    impl<const MOD: i64> Div<i64> for ModInt<MOD> {
+        type Output = ModInt<MOD>;
+        fn div(self, rhs: i64) -> Self::Output {
+            self / ModInt::new(rhs)
+        }
+    }
+    impl<const MOD: i64> Div<ModInt<MOD>> for i64 {
+        type Output = ModInt<MOD>;
+        fn div(self, rhs: ModInt<MOD>) -> Self::Output {
+            ModInt::new(self) / rhs
         }
     }
     impl<const MOD: i64> From<usize> for ModInt<MOD> {
@@ -1993,26 +2041,22 @@ mod matrix {
         w: usize,
         vals: Vec<Vec<T>>,
     }
-    impl<T: Clone + Copy + One + Sub<Output = T> + Mul + Sum<<T as Mul>::Output>> Matrix<T> {
+    impl<T: Clone + Copy + One + Sub<Output = T> + Mul + Sum<<T as Mul>::Output> + Zero + One>
+        Matrix<T>
+    {
         pub fn new(h: usize, w: usize) -> Self {
-            let v1 = T::one();
-            #[allow(clippy::eq_op)]
-            let v0 = v1 - v1;
             Self {
                 h,
                 w,
-                vals: vec![vec![v0; w]; h],
+                vals: vec![vec![T::zero(); w]; h],
             }
         }
         pub fn identity(h: usize, w: usize) -> Self {
             debug_assert!(h == w);
-            let v1 = T::one();
-            #[allow(clippy::eq_op)]
-            let v0 = v1 - v1;
-            let mut vals = vec![vec![v0; w]; h];
+            let mut vals = vec![vec![T::zero(); w]; h];
             for (y, line) in vals.iter_mut().enumerate() {
                 for (x, val) in line.iter_mut().enumerate() {
-                    *val = if y == x { v1 } else { v0 };
+                    *val = if y == x { T::one() } else { T::zero() };
                 }
             }
             Self { h, w, vals }
@@ -2041,8 +2085,8 @@ mod matrix {
             &mut self.vals[index]
         }
     }
-    impl<T: Clone + Copy + One + Sub<Output = T> + Mul + Sum<<T as Mul>::Output>> Mul<Matrix<T>>
-        for Matrix<T>
+    impl<T: Clone + Copy + One + Sub<Output = T> + Mul + Sum<<T as Mul>::Output> + Zero + One>
+        Mul<Matrix<T>> for Matrix<T>
     {
         type Output = Matrix<T>;
         fn mul(self, rhs: Matrix<T>) -> Self::Output {
@@ -2075,7 +2119,15 @@ mod matrix {
         }
     }
     impl<
-            T: Clone + Copy + One + Add<Output = T> + Sub<Output = T> + Mul + Sum<<T as Mul>::Output>,
+            T: Clone
+                + Copy
+                + One
+                + Add<Output = T>
+                + Sub<Output = T>
+                + Mul
+                + Sum<<T as Mul>::Output>
+                + Zero
+                + One,
         > Add<Matrix<T>> for Matrix<T>
     {
         type Output = Matrix<T>;
@@ -2089,7 +2141,7 @@ mod matrix {
             ret
         }
     }
-    impl<T: Clone + Copy + One + Sub<Output = T> + Mul + Sum<<T as Mul>::Output>>
+    impl<T: Clone + Copy + One + Sub<Output = T> + Mul + Sum<<T as Mul>::Output> + Zero + One>
         MulAssign<Matrix<T>> for Matrix<T>
     {
         fn mul_assign(&mut self, rhs: Matrix<T>) {
@@ -3698,6 +3750,103 @@ mod dynamic_connectivity {
 }
 use dynamic_connectivity::DynamicConnectivity;
 
+mod pair {
+    use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+    pub struct Pair<TA, TB> {
+        a: TA,
+        b: TB,
+    }
+    impl<TA: Clone + Copy, TB: Clone + Copy> Pair<TA, TB> {
+        pub fn from(a: TA, b: TB) -> Self {
+            Self { a, b }
+        }
+    }
+    impl<TA: AddAssign, TB: AddAssign> AddAssign for Pair<TA, TB> {
+        fn add_assign(&mut self, rhs: Self) {
+            self.a += rhs.a;
+            self.b += rhs.b;
+        }
+    }
+    impl<TA: Add<Output = TA>, TB: Add<Output = TB>> Add for Pair<TA, TB> {
+        type Output = Self;
+        fn add(self, rhs: Self) -> Self::Output {
+            Self {
+                a: self.a + rhs.a,
+                b: self.b + rhs.b,
+            }
+        }
+    }
+    impl<TA: SubAssign, TB: SubAssign> SubAssign for Pair<TA, TB> {
+        fn sub_assign(&mut self, rhs: Self) {
+            self.a -= rhs.a;
+            self.b -= rhs.b;
+        }
+    }
+    impl<TA: Sub<Output = TA>, TB: Sub<Output = TB>> Sub for Pair<TA, TB> {
+        type Output = Self;
+        fn sub(self, rhs: Self) -> Self::Output {
+            Self {
+                a: self.a - rhs.a,
+                b: self.b - rhs.b,
+            }
+        }
+    }
+    impl<TA: Neg<Output = TA>, TB: Neg<Output = TB>> Neg for Pair<TA, TB> {
+        type Output = Self;
+        fn neg(self) -> Self::Output {
+            Self {
+                a: -self.a,
+                b: -self.b,
+            }
+        }
+    }
+    impl<T: Clone + Copy, TA: MulAssign<T> + Clone + Copy, TB: MulAssign<T> + Clone + Copy>
+        MulAssign<T> for Pair<TA, TB>
+    {
+        fn mul_assign(&mut self, rhs: T) {
+            self.a *= rhs;
+            self.b *= rhs;
+        }
+    }
+    impl<
+            T: Clone + Copy,
+            TA: Mul<T, Output = TA> + Clone + Copy,
+            TB: Mul<T, Output = TB> + Clone + Copy,
+        > Mul<T> for Pair<TA, TB>
+    {
+        type Output = Self;
+        fn mul(self, rhs: T) -> Self::Output {
+            Self {
+                a: self.a * rhs,
+                b: self.b * rhs,
+            }
+        }
+    }
+    impl<T: Clone + Copy, TA: DivAssign<T> + Clone + Copy, TB: DivAssign<T> + Clone + Copy>
+        DivAssign<T> for Pair<TA, TB>
+    {
+        fn div_assign(&mut self, rhs: T) {
+            self.a /= rhs;
+            self.b /= rhs;
+        }
+    }
+    impl<
+            T: Clone + Copy,
+            TA: Div<T, Output = TA> + Clone + Copy,
+            TB: Div<T, Output = TB> + Clone + Copy,
+        > Div<T> for Pair<TA, TB>
+    {
+        type Output = Self;
+        fn div(self, rhs: T) -> Self::Output {
+            Self {
+                a: self.a / rhs,
+                b: self.b / rhs,
+            }
+        }
+    }
+}
+use pair::Pair;
+
 mod procon_reader {
     use std::fmt::Debug;
     use std::io::Read;
@@ -3746,5 +3895,5 @@ use procon_reader::*;
 //////////////////////////////////////////////////////////////////////////////////////
 
 fn main() {
-
+    read::<usize>();
 }
