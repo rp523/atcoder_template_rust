@@ -254,42 +254,49 @@ fn factorial_inv<
     unsafe { factorial_impl(p, &mut MEMO, |x: T, y: T| x / y) }
 }
 
-fn combination<const MOD: i64>(n: usize, k: usize) -> ModInt<MOD> {
+fn combination<
+    T: Clone
+        + Copy
+        + From<usize>
+        + Into<usize>
+        + Mul<Output = T>
+        + Div<Output = T>
+        + One
+        + Zero
+        + 'static,
+>(
+    n: usize,
+    k: usize,
+) -> T {
     if n < k {
-        return ModInt::<MOD>::from(0_usize);
+        return T::zero();
     }
     if k == 0 {
-        return ModInt::<MOD>::from(1_usize);
+        return T::one();
     } else if k == 1 {
-        return ModInt::<MOD>::from(n);
+        return T::from(n);
     } else if k == 2 {
-        return (ModInt::<MOD>::from(n) * ModInt::<MOD>::from(n - 1)) / ModInt::<MOD>::from(2);
+        return (T::from(n) * T::from(n - 1)) / T::from(2);
     }
 
-    if TypeId::of::<ModInt<MOD>>() == TypeId::of::<ModInt<MOD>>() {
-        factorial::<ModInt<MOD>>(n)
-            * factorial_inv::<ModInt<MOD>>(k)
-            * factorial_inv::<ModInt<MOD>>(n - k)
-    } else {
-        factorial::<ModInt<MOD>>(n)
-            / (factorial::<ModInt<MOD>>(k) * factorial::<ModInt<MOD>>(n - k))
-    }
+    factorial::<T>(n) * factorial_inv::<T>(k) * factorial_inv::<T>(n - k)
 }
 
-fn combination_with_overlap<const MOD: i64>(n: usize, k: usize) -> ModInt<MOD> {
-    combination::<MOD>(n + k - 1, k)
-}
-
-fn permutation<const MOD: i64>(n: usize, k: usize) -> ModInt<MOD> {
+fn permutation<
+    T: Clone + Copy + From<usize> + Into<usize> + Mul<Output = T> + Div<Output = T> + One + 'static,
+>(
+    n: usize,
+    k: usize,
+) -> T {
     if k == 0 {
-        return ModInt::<MOD>::one();
+        return T::one();
     } else if k == 1 {
-        return ModInt::<MOD>::from(n);
+        return T::from(n);
     } else if k == 2 {
-        return ModInt::<MOD>::from(n) * ModInt::<MOD>::from(n - 1);
+        return T::from(n) * T::from(n - 1);
     }
 
-    factorial::<ModInt<MOD>>(n) * factorial_inv::<ModInt<MOD>>(n - k)
+    factorial::<T>(n) * factorial_inv::<T>(n - k)
 }
 
 mod union_find {
@@ -676,7 +683,7 @@ mod modint {
             //ret
         }
         pub fn pow(self, mut p: usize) -> Self {
-            let mut ret = ModInt::from(1);
+            let mut ret = Self::one();
             let mut mul = self;
             while p > 0 {
                 if p & 1 != 0 {
@@ -691,6 +698,17 @@ mod modint {
     impl<const MOD: i64> One for ModInt<MOD> {
         fn one() -> Self {
             Self { x: 1 }
+        }
+    }
+    impl<const MOD: i64> Zero for ModInt<MOD> {
+        fn zero() -> Self {
+            Self { x: 0 }
+        }
+        fn is_zero(&self) -> bool {
+            self.x == 0
+        }
+        fn set_zero(&mut self) {
+            self.x = 0;
         }
     }
     impl<const MOD: i64> AddAssign<Self> for ModInt<MOD> {
@@ -812,7 +830,7 @@ mod modint {
     }
     impl<const MOD: i64> std::iter::Sum for ModInt<MOD> {
         fn sum<I: Iterator<Item = ModInt<MOD>>>(iter: I) -> Self {
-            let mut ret = ModInt::new(0);
+            let mut ret = Self::zero();
             for v in iter {
                 ret += v;
             }
@@ -831,6 +849,179 @@ mod modint {
         }
     }
     impl<const MOD: i64> fmt::Debug for ModInt<MOD> {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "{}", self.x)
+        }
+    }
+
+    static mut MOD: i64 = 2;
+    #[derive(Clone, Copy, Eq, Hash, PartialEq)]
+    pub struct DynModInt {
+        x: i64,
+    }
+    impl DynModInt {
+        pub fn set_mod(val: i64) {
+            unsafe {
+                MOD = val;
+            }
+        }
+        pub fn get_mod() -> i64 {
+            unsafe { MOD }
+        }
+        pub fn val(&self) -> i64 {
+            self.x
+        }
+        fn new(mut sig: i64) -> Self {
+            if sig < 0 {
+                let m = Self::get_mod();
+                let ab = (-sig + m - 1) / m;
+                sig += ab * m;
+                debug_assert!(sig >= 0);
+            }
+            Self {
+                x: sig % Self::get_mod(),
+            }
+        }
+        fn inverse(&self) -> Self {
+            // x * inv_x + M * _ = 1 (mod M)
+            Self::new(ext_gcd(self.x, Self::get_mod()).0)
+
+            // [Fermat's little theorem]
+            // if p is prime, for any integer a, a^p = a (mod p)
+            // especially when a and b is coprime, a^(p-1) = 1 (mod p).
+            // -> inverse of a is a^(p-2).
+
+            //let mut ret = Self { x: 1 };
+            //let mut mul: Self = *self;
+            //let mut p = Self::get_mod() - 2;
+            //while p > 0 {
+            //    if p & 1 != 0 {
+            //        ret *= mul;
+            //    }
+            //    p >>= 1;
+            //    mul *= mul;
+            //}
+            //ret
+        }
+        pub fn pow(self, mut p: usize) -> Self {
+            let mut ret = Self::one();
+            let mut mul = self;
+            while p > 0 {
+                if p & 1 != 0 {
+                    ret *= mul;
+                }
+                p >>= 1;
+                mul *= mul;
+            }
+            ret
+        }
+    }
+    impl One for DynModInt {
+        fn one() -> Self {
+            Self { x: 1 }
+        }
+    }
+    impl Zero for DynModInt {
+        fn zero() -> Self {
+            Self { x: 0 }
+        }
+        fn is_zero(&self) -> bool {
+            self.x == 0
+        }
+        fn set_zero(&mut self) {
+            self.x = 0;
+        }
+    }
+    impl AddAssign<Self> for DynModInt {
+        fn add_assign(&mut self, rhs: Self) {
+            *self = DynModInt::new(self.x + rhs.x);
+        }
+    }
+    impl Add<DynModInt> for DynModInt {
+        type Output = DynModInt;
+        fn add(self, rhs: Self) -> Self::Output {
+            DynModInt::new(self.x + rhs.x)
+        }
+    }
+    impl SubAssign<Self> for DynModInt {
+        fn sub_assign(&mut self, rhs: Self) {
+            *self = DynModInt::new(self.x - rhs.x);
+        }
+    }
+    impl Sub<DynModInt> for DynModInt {
+        type Output = DynModInt;
+        fn sub(self, rhs: Self) -> Self::Output {
+            DynModInt::new(self.x - rhs.x)
+        }
+    }
+    impl MulAssign<Self> for DynModInt {
+        fn mul_assign(&mut self, rhs: Self) {
+            *self = DynModInt::new(self.x * rhs.x);
+        }
+    }
+    impl Mul<DynModInt> for DynModInt {
+        type Output = DynModInt;
+        fn mul(self, rhs: Self) -> Self::Output {
+            DynModInt::new(self.x * rhs.x)
+        }
+    }
+    impl DivAssign<Self> for DynModInt {
+        fn div_assign(&mut self, rhs: Self) {
+            *self = *self / rhs;
+        }
+    }
+    impl Div<DynModInt> for DynModInt {
+        type Output = DynModInt;
+        fn div(self, rhs: Self) -> Self::Output {
+            #[allow(clippy::suspicious_arithmetic_impl)]
+            DynModInt::new(self.x * rhs.inverse().x)
+        }
+    }
+    impl From<usize> for DynModInt {
+        fn from(x: usize) -> Self {
+            DynModInt::new(x as i64)
+        }
+    }
+    impl From<i64> for DynModInt {
+        fn from(x: i64) -> Self {
+            DynModInt::new(x)
+        }
+    }
+    impl From<i32> for DynModInt {
+        fn from(x: i32) -> Self {
+            DynModInt::new(x as i64)
+        }
+    }
+    impl std::str::FromStr for DynModInt {
+        type Err = std::num::ParseIntError;
+        fn from_str(s: &str) -> Result<Self, Self::Err> {
+            match s.parse::<i64>() {
+                Ok(x) => Ok(DynModInt::from(x)),
+                Err(e) => Err(e),
+            }
+        }
+    }
+    impl std::iter::Sum for DynModInt {
+        fn sum<I: Iterator<Item = DynModInt>>(iter: I) -> Self {
+            let mut ret = Self::zero();
+            for v in iter {
+                ret += v;
+            }
+            ret
+        }
+    }
+    #[allow(clippy::from_over_into)]
+    impl Into<usize> for DynModInt {
+        fn into(self) -> usize {
+            self.x as usize
+        }
+    }
+    impl fmt::Display for DynModInt {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "{}", self.x)
+        }
+    }
+    impl fmt::Debug for DynModInt {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
             write!(f, "{}", self.x)
         }
@@ -3891,6 +4082,8 @@ mod procon_reader {
     }
 }
 use procon_reader::*;
+
+use crate::modint::DynModInt;
 //////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////
 
