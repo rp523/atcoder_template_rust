@@ -370,8 +370,7 @@ mod segment_tree {
     use std::ops::{Add, Sub};
     #[derive(Debug, Clone)]
     pub struct SegmentTree<T> {
-        n2: usize,   // implemented leaf num (2^n)
-        neff: usize, // effective vector length
+        n: usize,
         dat: Vec<T>,
         pair_op: fn(T, T) -> T,
     }
@@ -382,12 +381,10 @@ mod segment_tree {
                 n2 *= 2;
             }
             let mut s = Self {
-                n2,
-                neff: n,
+                n,
                 pair_op,
-                dat: vec![ini_val.clone(); 2 * n2 - 1],
+                dat: vec![ini_val.clone(); 2 * n2],
             };
-
             for i in 0..n {
                 s.set(i, ini_val.clone());
             }
@@ -400,52 +397,73 @@ mod segment_tree {
                 n2 *= 2;
             }
             let mut st = Self {
-                n2,
-                neff: n,
+                n,
                 pair_op,
-                dat: vec![ini_values[0].clone(); 2 * n2 - 1],
+                dat: vec![ini_values[0].clone(); 2 * n2],
             };
-
             for (i, ini_val) in ini_values.iter().enumerate() {
                 st.set(i, ini_val.clone());
             }
             st
         }
         pub fn set(&mut self, mut pos: usize, val: T) {
-            pos += self.n2 - 1;
+            pos += self.n;
             self.dat[pos] = val;
-            while pos > 0 {
-                pos = (pos - 1) / 2; // parent
-                self.dat[pos] =
-                    (self.pair_op)(self.dat[pos * 2 + 1].clone(), self.dat[pos * 2 + 2].clone());
+            let mut par = pos / 2;
+            while par >= 1 {
+                let l = par * 2;
+                let r = l + 1;
+                self.dat[par] = (self.pair_op)(self.dat[l].clone(), self.dat[r].clone());
+                par /= 2;
             }
         }
         pub fn get(&self, pos: usize) -> T {
-            self.dat[pos + self.n2 - 1].clone()
+            self.dat[pos + self.n].clone()
         }
         // get query value of [a, b]
-        pub fn query(&self, a: usize, b: usize) -> T {
-            self.query_sub(a, b + 1, 0, 0, self.n2)
+        pub fn query(&self, mut a: usize, mut b: usize) -> T {
+            a += self.n;
+            b += self.n + 1;
+            self.get_node(a, b)
         }
-        // get query value of [a, b)
-        fn query_sub(&self, a: usize, b: usize, node: usize, node_l: usize, node_r: usize) -> T {
-            if (node_r <= a) || (b <= node_l) {
-                panic!("invalid query range, ({a}, {b})");
-            } else if (a <= node_l) && (node_r <= b) {
-                // this not is covered by given interval.
-                self.dat[node].clone()
-            } else if a < (node_l + node_r) / 2 {
-                let vl = self.query_sub(a, b, node * 2 + 1, node_l, (node_l + node_r) / 2);
-                if (node_l + node_r) / 2 < b {
-                    let vr = self.query_sub(a, b, node * 2 + 2, (node_l + node_r) / 2, node_r);
-                    (self.pair_op)(vl, vr)
+        fn get_node(&self, a: usize, b: usize) -> T {
+            if a & 1 == 1 {
+                let pa = (a + 1) / 2;
+                if b & 1 == 1 {
+                    let pb = (b - 1) / 2;
+                    if pa < pb {
+                        (self.pair_op)(
+                            self.get_node(pa, pb),
+                            (self.pair_op)(self.dat[a].clone(), self.dat[b - 1].clone()),
+                        )
+                    } else {
+                        (self.pair_op)(self.dat[a].clone(), self.dat[b - 1].clone())
+                    }
                 } else {
-                    vl
+                    let pb = b / 2;
+                    if pa < pb {
+                        (self.pair_op)(self.get_node(pa, pb), self.dat[a].clone())
+                    } else {
+                        self.dat[a].clone()
+                    }
                 }
-            } else if (node_l + node_r) / 2 < b {
-                self.query_sub(a, b, node * 2 + 2, (node_l + node_r) / 2, node_r)
             } else {
-                panic!("invalid query range, ({a}, {b})");
+                let pa = a / 2;
+                if b & 1 == 1 {
+                    let pb = (b - 1) / 2;
+                    if pa < pb {
+                        (self.pair_op)(self.get_node(pa, pb), self.dat[b - 1].clone())
+                    } else {
+                        self.dat[b - 1].clone()
+                    }
+                } else {
+                    let pb = b / 2;
+                    if pa < pb {
+                        self.get_node(pa, pb)
+                    } else {
+                        unreachable!()
+                    }
+                }
             }
         }
     }
@@ -1027,7 +1045,7 @@ mod modint {
         }
     }
 }
-use modint::ModInt;
+use modint::{DynModInt, ModInt};
 
 pub trait IntegerOperation {
     fn into_primes(self) -> BTreeMap<Self, usize>
@@ -4082,8 +4100,6 @@ mod procon_reader {
     }
 }
 use procon_reader::*;
-
-use crate::modint::DynModInt;
 //////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////
 
