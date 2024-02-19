@@ -1,5 +1,5 @@
 [package]
-name = "start"
+name = "atcoder"
 version = "0.1.0"
 edition = "2021"
 
@@ -13,3 +13,8 @@ rand = "0.8.5"
 rand_chacha = "0.3.1"
 permutohedron = "0.2.4"
 num = "0.4.1"
+rand_pcg = "0.3.1"
+libm = "0.2.8"
+bitset-fixed = "0.1.0"
+rustc-hash = "1.1.0"
+rand_core = "0.6.4"
