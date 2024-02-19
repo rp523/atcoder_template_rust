@@ -7,15 +7,15 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug executable 'start'",
+            "name": "Debug executable 'atcoder'",
             "cargo": {
                 "args": [
                     "build",
-                    "--bin=start",
-                    "--package=start"
+                    "--bin=atcoder",
+                    "--package=atcoder"
                 ],
                 "filter": {
-                    "name": "start",
+                    "name": "atcoder",
                     "kind": "bin"
                 }
             },
@@ -25,16 +25,16 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in executable 'start'",
+            "name": "Debug unit tests in executable 'atcoder'",
             "cargo": {
                 "args": [
                     "test",
                     "--no-run",
-                    "--bin=start",
-                    "--package=start"
+                    "--bin=atcoder",
+                    "--package=atcoder"
                 ],
                 "filter": {
-                    "name": "start",
+                    "name": "atcoder",
                     "kind": "bin"
                 }
             },
