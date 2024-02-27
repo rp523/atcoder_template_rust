@@ -4056,6 +4056,54 @@ mod pair {
 }
 use pair::Pair;
 
+mod deletable_binary_heap {
+    use std::collections::BinaryHeap;
+    #[derive(Clone)]
+    pub struct DeletableBinaryHeap<T> {
+        que: BinaryHeap<T>,
+        del_rsv: BinaryHeap<T>,
+    }
+    impl<T: Clone + PartialOrd + Ord> DeletableBinaryHeap<T> {
+        pub fn new() -> Self {
+            Self {
+                que: BinaryHeap::<T>::new(),
+                del_rsv: BinaryHeap::<T>::new(),
+            }
+        }
+        pub fn pop(&mut self) -> Option<T> {
+            self.lazy_eval();
+            self.que.pop()
+        }
+        pub fn push(&mut self, v: T) {
+            self.lazy_eval();
+            self.que.push(v)
+        }
+        pub fn peek(&mut self) -> Option<&T> {
+            self.lazy_eval();
+            self.que.peek()
+        }
+        pub fn remove(&mut self, del_v: &T) {
+            self.del_rsv.push(del_v.clone());
+            debug_assert!(self.que.iter().any(|v| v == del_v));
+        }
+        fn lazy_eval(&mut self) {
+            while let Some(del_v) = self.del_rsv.peek() {
+                if let Some(v) = self.que.peek() {
+                    if del_v == v {
+                        self.que.pop();
+                        self.del_rsv.pop();
+                    } else {
+                        break;
+                    }
+                } else {
+                    unreachable!()
+                }
+            }
+        }
+    }
+}
+use deletable_binary_heap::DeletableBinaryHeap;
+
 mod procon_reader {
     use std::fmt::Debug;
     use std::io::Read;
