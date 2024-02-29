@@ -2414,14 +2414,14 @@ use suffix_array::ToSuffixArray;
 mod flow {
     use crate::change_min_max::ChangeMinMax;
     use std::cmp::Reverse;
-    use std::collections::BinaryHeap;
+    use std::collections::{BinaryHeap, VecDeque};
     #[derive(Clone, Copy)]
     pub struct Edge {
         pub to: usize,
-        pub rev_idx: usize,  // index of paired edge at node "to".
-        pub cap_remain: i64, // flow <= cap_remain
-        pub flow: i64,       // flow can be negative.
-        pub cost: i64,       // for min-cost flow
+        pub rev_idx: usize, // index of paired edge at node "to".
+        pub cap: i64,       // immutable capacity, s.t. flow <= cap
+        pub flow: i64,      // flow can be negative.
+        pub cost: i64,      // for min-cost flow
     }
     pub struct Flow {
         pub g: Vec<Vec<Edge>>,
@@ -2464,7 +2464,7 @@ mod flow {
             self.g[from].push(Edge {
                 to,
                 rev_idx,
-                cap_remain: cap,
+                cap,
                 flow: 0,
                 cost,
             });
@@ -2472,7 +2472,7 @@ mod flow {
             self.g[to].push(Edge {
                 to: from,
                 rev_idx,
-                cap_remain: 0,
+                cap: 0,
                 flow: 0,
                 cost: -cost,
             });
@@ -2488,7 +2488,7 @@ mod flow {
             while let Some(v) = que.pop_front() {
                 let nxt_level = level[v].unwrap() + 1;
                 for edge in g[v].iter().copied() {
-                    if level[edge.to].is_none() && (edge.cap_remain > edge.flow) {
+                    if level[edge.to].is_none() && (edge.flow < edge.cap) {
                         level[edge.to] = Some(nxt_level);
                         que.push_back(edge.to);
                     }
@@ -2510,7 +2510,7 @@ mod flow {
             while search_cnt[v] < g[v].len() {
                 let (to, rev_idx, remain_capacity) = {
                     let edge = g[v][search_cnt[v]];
-                    (edge.to, edge.rev_idx, edge.cap_remain - edge.flow)
+                    (edge.to, edge.rev_idx, edge.cap - edge.flow)
                 };
                 if let Some(nxt_level) = level[to] {
                     if (level[v].unwrap() < nxt_level) && (remain_capacity > 0) {
@@ -2545,6 +2545,22 @@ mod flow {
                 return None;
             }
             Some(self.max_flow_impl(src, dst))
+        }
+        pub fn min_cut_split(&self, src: usize) -> Vec<bool> {
+            let nm = self.g.len() - 2;
+            let mut split = vec![false; nm];
+            let mut que = VecDeque::new();
+            que.push_back(src);
+            while let Some(v) = que.pop_front() {
+                for e in self.g[v].iter() {
+                    if e.flow >= e.cap || split[e.to] {
+                        continue;
+                    }
+                    split[e.to] = true;
+                    que.push_back(e.to);
+                }
+            }
+            split
         }
         fn max_flow_impl(&mut self, source: usize, sink: usize) -> i64 {
             let inf = 1i64 << 60;
@@ -2651,7 +2667,7 @@ mod flow {
                             continue;
                         }
                         for (ei, e) in to.iter().enumerate() {
-                            if e.flow >= e.cap_remain {
+                            if e.flow >= e.cap {
                                 continue;
                             }
                             let nd = dist[v].unwrap() + e.cost;
@@ -2672,7 +2688,7 @@ mod flow {
                         let mut v = sink;
                         while let Some((pv, pei)) = prev[v] {
                             let e = &self.g[pv][pei];
-                            delta_flow.chmin(e.cap_remain - e.flow);
+                            delta_flow.chmin(e.cap - e.flow);
                             v = pv;
                         }
                     }
@@ -2721,7 +2737,7 @@ mod flow {
                         continue;
                     }
                     for (ei, e) in self.g[v].iter().enumerate() {
-                        if e.flow >= e.cap_remain {
+                        if e.flow >= e.cap {
                             continue;
                         }
                         let nd = d + e.cost + h[v] - h[e.to];
@@ -2744,7 +2760,7 @@ mod flow {
                     let mut v = sink;
                     while let Some((pv, pei)) = prev[v] {
                         let e = &self.g[pv][pei];
-                        delta_flow.chmin(e.cap_remain - e.flow);
+                        delta_flow.chmin(e.cap - e.flow);
                         v = pv;
                     }
                 }
