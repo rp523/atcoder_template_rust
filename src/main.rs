@@ -376,14 +376,10 @@ mod segment_tree {
     }
     impl<T: Clone> SegmentTree<T> {
         pub fn new(n: usize, pair_op: fn(T, T) -> T, ini_val: T) -> Self {
-            let mut n2 = 1_usize;
-            while n > n2 {
-                n2 *= 2;
-            }
             let mut s = Self {
                 n,
                 pair_op,
-                dat: vec![ini_val.clone(); 2 * n2],
+                dat: vec![ini_val.clone(); 2 * n],
             };
             for i in 0..n {
                 s.set(i, ini_val.clone());
@@ -392,14 +388,10 @@ mod segment_tree {
         }
         pub fn from_vec(pair_op: fn(T, T) -> T, ini_values: Vec<T>) -> Self {
             let n = ini_values.len();
-            let mut n2 = 1_usize;
-            while n > n2 {
-                n2 *= 2;
-            }
             let mut st = Self {
                 n,
                 pair_op,
-                dat: vec![ini_values[0].clone(); 2 * n2],
+                dat: vec![ini_values[0].clone(); 2 * n],
             };
             for (i, ini_val) in ini_values.iter().enumerate() {
                 st.set(i, ini_val.clone());
@@ -424,47 +416,40 @@ mod segment_tree {
         pub fn query(&self, mut a: usize, mut b: usize) -> T {
             a += self.n;
             b += self.n + 1;
-            self.get_node(a, b)
-        }
-        fn get_node(&self, a: usize, b: usize) -> T {
-            if a & 1 == 1 {
-                let pa = (a + 1) / 2;
-                if b & 1 == 1 {
-                    let pb = (b - 1) / 2;
-                    if pa < pb {
-                        (self.pair_op)(
-                            self.get_node(pa, pb),
-                            (self.pair_op)(self.dat[a].clone(), self.dat[b - 1].clone()),
-                        )
-                    } else {
-                        (self.pair_op)(self.dat[a].clone(), self.dat[b - 1].clone())
-                    }
+            while a % 2 == 0 && b % 2 == 0 {
+                a /= 2;
+                b /= 2;
+            }
+            let mut ret;
+            if a % 2 == 1 {
+                if b % 2 == 1 {
+                    b -= 1;
+                    ret = (self.pair_op)(self.dat[a].clone(), self.dat[b].clone());
+                    a += 1;
                 } else {
-                    let pb = b / 2;
-                    if pa < pb {
-                        (self.pair_op)(self.get_node(pa, pb), self.dat[a].clone())
-                    } else {
-                        self.dat[a].clone()
-                    }
+                    ret = self.dat[a].clone();
+                    a += 1;
                 }
             } else {
-                let pa = a / 2;
-                if b & 1 == 1 {
-                    let pb = (b - 1) / 2;
-                    if pa < pb {
-                        (self.pair_op)(self.get_node(pa, pb), self.dat[b - 1].clone())
-                    } else {
-                        self.dat[b - 1].clone()
-                    }
-                } else {
-                    let pb = b / 2;
-                    if pa < pb {
-                        self.get_node(pa, pb)
-                    } else {
-                        unreachable!()
-                    }
+                debug_assert!(b % 2 == 1);
+                b -= 1;
+                ret = self.dat[b].clone();
+            };
+            a /= 2;
+            b /= 2;
+            while a < b {
+                if a % 2 == 1 {
+                    ret = (self.pair_op)(ret, self.dat[a].clone());
+                    a += 1;
                 }
+                if b % 2 == 1 {
+                    b -= 1;
+                    ret = (self.pair_op)(ret, self.dat[b].clone());
+                }
+                a /= 2;
+                b /= 2;
             }
+            ret
         }
     }
     impl<T: Copy + Add<Output = T> + Sub<Output = T>> SegmentTree<T> {
