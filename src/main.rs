@@ -2179,50 +2179,90 @@ fn z_algo(s: &[usize]) -> Vec<usize> {
     ret
 }
 
-fn convex_hull<
-    T: Copy
-        + PartialOrd<T>
-        + Add<Output = T>
-        + Sub<Output = T>
-        + Div<Output = T>
-        + Mul<Output = T>
-        + Zero,
->(
-    points: &[(T, T)],
-) -> Vec<(T, T)> {
-    fn outer_product<T: Copy + Add<Output = T> + Sub<Output = T> + Mul<Output = T>>(
-        origin: (T, T),
-        end0: (T, T),
-        end1: (T, T),
-    ) -> T {
-        (end0.0 - origin.0) * (end1.1 - origin.1) - (end0.1 - origin.1) * (end1.0 - origin.0)
+mod convex_hull {
+    use super::{ChangeMinMax, Rational};
+    use std::collections::{BTreeMap, BTreeSet, VecDeque};
+    pub struct ConvexHull {
+        x_ys: BTreeMap<i64, Vec<i64>>,
     }
-
-    #[allow(clippy::eq_op)]
-    let mut points = points.to_vec();
-    points.sort_by(|x, y| x.partial_cmp(y).unwrap());
-    let mut ret = vec![];
-    for &p in points.iter() {
-        while ret.len() >= 2 {
-            if outer_product(ret[ret.len() - 1], ret[ret.len() - 2], p) < T::zero() {
-                break;
+    impl ConvexHull {
+        pub fn new() -> Self {
+            Self {
+                x_ys: BTreeMap::new(),
             }
-            ret.pop();
         }
-        ret.push(p);
-    }
-    let t = ret.len();
-    for p in points.into_iter().rev().skip(1) {
-        while ret.len() > t {
-            if outer_product(ret[ret.len() - 1], ret[ret.len() - 2], p) < T::zero() {
-                break;
+        pub fn add(&mut self, y: i64, x: i64) {
+            self.x_ys.entry(x).or_insert(vec![]).push(y);
+        }
+        pub fn convex_hull(&self) -> Vec<(i64, i64)> {
+            let mut x_ys = self
+                .x_ys
+                .iter()
+                .map(|(x, ys)| (*x, ys.clone()))
+                .collect::<Vec<_>>();
+            // lower
+            x_ys.iter_mut().for_each(|(_x, ys)| {
+                ys.sort();
+            });
+            let lower_yx = Self::weakly_monotone_tangents(&x_ys);
+            // upper
+            x_ys.iter_mut().for_each(|(_x, ys)| {
+                ys.reverse();
+            });
+            x_ys.reverse();
+            let upper_yx = Self::weakly_monotone_tangents(&x_ys);
+            let mut ret = vec![];
+            let mut seen = BTreeSet::new();
+            for (y, x) in lower_yx.into_iter().chain(upper_yx.into_iter()) {
+                if seen.contains(&(y, x)) {
+                    continue;
+                }
+                ret.push((y, x));
+                seen.insert((y, x));
             }
-            ret.pop();
+            ret
         }
-        ret.push(p);
+        fn weakly_monotone_tangents(x_ys: &[(i64, Vec<i64>)]) -> VecDeque<(i64, i64)> {
+            let mut vs = VecDeque::new();
+            for (x, ys) in x_ys.iter() {
+                let x = *x;
+                let y = ys[0];
+                if vs.is_empty() {
+                    vs.push_back((y, x));
+                    continue;
+                }
+                while vs.len() >= 2 {
+                    let (y0, x0) = vs.pop_back().unwrap();
+                    let (y1, x1) = vs.pop_back().unwrap();
+                    let t0 = Rational::new(y0 - y, x0 - x);
+                    let t1 = Rational::new(y1 - y, x1 - x);
+                    if t0 < t1 {
+                        vs.push_back((y1, x1));
+                    } else {
+                        vs.push_back((y1, x1));
+                        vs.push_back((y0, x0));
+                        break;
+                    }
+                }
+                vs.push_back((y, x));
+            }
+            if let Some((x, ys)) = x_ys.last() {
+                let x = *x;
+                for &y in ys.iter().skip(1) {
+                    vs.push_back((y, x))
+                }
+            }
+            if let Some((x, ys)) = x_ys.first() {
+                let x = *x;
+                for &y in ys.iter().skip(1) {
+                    vs.push_front((y, x))
+                }
+            }
+            vs
+        }
     }
-    ret
 }
+use convex_hull::ConvexHull;
 
 mod matrix {
     use num::{One, Zero};
