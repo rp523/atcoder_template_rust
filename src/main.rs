@@ -4145,6 +4145,68 @@ mod deletable_binary_heap {
 }
 use deletable_binary_heap::DeletableBinaryHeap;
 
+mod point {
+    use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+    #[derive(Clone, Copy)]
+    pub struct Point<T> {
+        pub y: T,
+        pub x: T,
+    }
+    impl<T: Clone> Point<T> {
+        pub fn new(y: T, x: T) -> Self {
+            Self { y, x }
+        }
+    }
+    impl<T: Add<Output = T>> Add for Point<T> {
+        type Output = Point<T>;
+        fn add(self, rhs: Self) -> Self::Output {
+            Self {
+                y: self.y.add(rhs.y),
+                x: self.x.add(rhs.x),
+            }
+        }
+    }
+    impl<T: AddAssign> AddAssign for Point<T> {
+        fn add_assign(&mut self, rhs: Self) {
+            self.y.add_assign(rhs.y);
+            self.x.add_assign(rhs.x);
+        }
+    }
+    impl<T: Sub<Output = T>> Sub for Point<T> {
+        type Output = Point<T>;
+        fn sub(self, rhs: Self) -> Self::Output {
+            Self {
+                y: self.y.sub(rhs.y),
+                x: self.x.sub(rhs.x),
+            }
+        }
+    }
+    impl<T: SubAssign> SubAssign for Point<T> {
+        fn sub_assign(&mut self, rhs: Self) {
+            self.y.sub_assign(rhs.y);
+            self.x.sub_assign(rhs.x);
+        }
+    }
+    impl<T: Clone + Mul<Output = T>> Mul<T> for Point<T> {
+        type Output = Self;
+        fn mul(self, rhs: T) -> Self::Output {
+            Self {
+                y: self.y.mul(rhs.clone()),
+                x: self.x.mul(rhs.clone()),
+            }
+        }
+    }
+    impl<T: Clone + Div<Output = T>> Div<T> for Point<T> {
+        type Output = Self;
+        fn div(self, rhs: T) -> Self::Output {
+            Self {
+                y: self.y.div(rhs.clone()),
+                x: self.x.div(rhs.clone()),
+            }
+        }
+    }
+}
+
 mod procon_reader {
     use std::fmt::Debug;
     use std::io::Read;
@@ -4192,6 +4254,7 @@ use procon_reader::*;
 //////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////
 
+use point::Point;
 fn main() {
     read::<usize>();
 }
