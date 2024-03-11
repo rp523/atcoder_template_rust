@@ -416,40 +416,37 @@ mod segment_tree {
         pub fn query(&self, mut a: usize, mut b: usize) -> T {
             a += self.n;
             b += self.n + 1;
-            while a % 2 == 0 && b % 2 == 0 {
-                a /= 2;
-                b /= 2;
-            }
-            let mut ret;
-            if a % 2 == 1 {
-                if b % 2 == 1 {
-                    b -= 1;
-                    ret = (self.pair_op)(self.dat[a].clone(), self.dat[b].clone());
-                    a += 1;
-                } else {
-                    ret = self.dat[a].clone();
-                    a += 1;
-                }
-            } else {
-                debug_assert!(b % 2 == 1);
-                b -= 1;
-                ret = self.dat[b].clone();
-            };
-            a /= 2;
-            b /= 2;
+            let mut aval = None;
+            let mut bval = None;
             while a < b {
                 if a % 2 == 1 {
-                    ret = (self.pair_op)(ret, self.dat[a].clone());
+                    aval = if let Some(aval0) = aval {
+                        Some((self.pair_op)(aval0, self.dat[a].clone()))
+                    } else {
+                        Some(self.dat[a].clone())
+                    };
                     a += 1;
                 }
                 if b % 2 == 1 {
                     b -= 1;
-                    ret = (self.pair_op)(ret, self.dat[b].clone());
+                    bval = if let Some(bval0) = bval {
+                        Some((self.pair_op)(self.dat[b].clone(), bval0))
+                    } else {
+                        Some(self.dat[b].clone())
+                    };
                 }
                 a /= 2;
                 b /= 2;
             }
-            ret
+            if let Some(aval) = aval {
+                if let Some(bval) = bval {
+                    (self.pair_op)(aval, bval)
+                } else {
+                    aval
+                }
+            } else {
+                bval.unwrap()
+            }
         }
     }
     impl<T: Copy + Add<Output = T> + Sub<Output = T>> SegmentTree<T> {
