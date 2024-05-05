@@ -3901,6 +3901,7 @@ mod dynamic_connectivity {
         n: usize,
         trees: Vec<EulerTour>,
         useless_edges: Vec<Vec<HashSet<usize>>>,
+        grp_num: usize,
     }
     impl DynamicConnectivity {
         pub fn new(n: usize) -> Self {
@@ -3908,6 +3909,7 @@ mod dynamic_connectivity {
                 n,
                 trees: vec![EulerTour::new(n)],
                 useless_edges: vec![vec![HashSet::new(); n]],
+                grp_num: n,
             }
         }
         pub fn unite(&mut self, a: usize, b: usize) -> bool {
@@ -3915,6 +3917,7 @@ mod dynamic_connectivity {
                 return false;
             }
             if self.trees[0].unite(a, b) {
+                self.grp_num -= 1;
                 return true;
             }
             assert!(self.useless_edges[0][a].insert(b));
@@ -3956,7 +3959,11 @@ mod dynamic_connectivity {
                     self.trees.iter_mut().take(level).for_each(|tree| {
                         tree.cut(a, b);
                     });
-                    return !self.reconstruct_connectivity(a, b, level);
+                    let reconstruct = self.reconstruct_connectivity(a, b, level);
+                    if !reconstruct {
+                        self.grp_num += 1;
+                    }
+                    return !reconstruct;
                 }
             }
             false
@@ -4009,6 +4016,12 @@ mod dynamic_connectivity {
         pub fn get_value(&self, x: usize) -> i64 {
             self.trees[0].get_value(x)
         }
+        pub fn group_size(&mut self, x: usize) -> usize {
+            self.trees[0].get_size(x)
+        }
+        pub fn group_num(&self) -> usize {
+            self.grp_num
+        }
         pub fn get_sum(&mut self, x: usize) -> i64 {
             self.trees[0].get_sum(x)
         }
@@ -4023,37 +4036,13 @@ mod dynamic_connectivity {
         use super::DynamicConnectivity;
         use rand::{Rng, SeedableRng};
         use rand_chacha::ChaChaRng;
-        use std::collections::{BTreeSet, VecDeque};
-        fn assign_group_ids(g: &[BTreeSet<usize>]) -> Vec<usize> {
-            let n = g.len();
-            let mut ids = vec![0; n];
-            let mut id_cnt = 0;
-            for i in 0..n {
-                if ids[i] > 0 {
-                    continue;
-                }
-                id_cnt += 1;
-                let id = id_cnt;
-                let mut que = VecDeque::new();
-                que.push_back(i);
-                while let Some(v) = que.pop_front() {
-                    ids[v] = id;
-                    for nv in g[v].iter().copied() {
-                        if ids[nv] > 0 {
-                            assert!(ids[nv] == id);
-                            continue;
-                        }
-                        que.push_back(nv);
-                    }
-                }
-            }
-            ids
-        }
-        fn trial(n: usize, ques: Vec<(usize, usize, usize)>) {
-            let mut dc = DynamicConnectivity::new(n);
-            let mut g = vec![BTreeSet::new(); n];
+        use std::collections::BTreeSet;
+        const N: usize = 10;
+        fn trial(ques: Vec<(usize, usize, usize)>) {
+            let mut dc = DynamicConnectivity::new(N);
+            let mut g = vec![BTreeSet::new(); N];
             let mut log_n = 1usize;
-            while 2usize.pow(log_n as u32) < n {
+            while (1usize << log_n) < N {
                 log_n += 1;
             }
             for (t, a, b) in ques {
@@ -4070,43 +4059,50 @@ mod dynamic_connectivity {
                     }
                     _ => unreachable!(),
                 }
-                let ids = assign_group_ids(&g);
-                for j in 0..n {
-                    for i in 0..j {
-                        assert_eq!(dc.same(i, j), ids[i] == ids[j]);
+                let mut uf = super::super::UnionFind::new(N);
+                for a in 0..N {
+                    for b in g[a].iter().copied() {
+                        uf.unite(a, b);
                     }
+                }
+                assert_eq!(uf.group_num(), dc.group_num());
+                for j in 0..N {
+                    for i in 0..N {
+                        assert_eq!(dc.same(i, j), uf.same(i, j));
+                    }
+                    assert_eq!(uf.group_size(j), dc.group_size(j));
                 }
                 assert!(get_level_num(&dc) <= log_n);
             }
         }
         #[test]
-        fn random_test() {
-            let n = 10;
+        fn random_operation() {
             let mut rng = ChaChaRng::from_seed([0; 32]);
             for _ in 0..1000 {
                 let ques = {
-                    let mut es = BTreeSet::new();
+                    let mut es = vec![BTreeSet::new(); N];
                     let mut ques = vec![];
-                    while ques.len() < n * n {
+                    while ques.len() < N * N {
                         let t = rng.gen::<usize>() % 2;
-                        let mut a = rng.gen::<usize>() % n;
-                        let mut b = (a + 1 + rng.gen::<usize>() % (n - 1)) % n;
-                        if a > b {
-                            std::mem::swap(&mut a, &mut b);
-                        }
+                        let a = rng.gen::<usize>() % N;
+                        let b = (a + 1 + rng.gen::<usize>() % (N - 1)) % N;
                         match t {
                             0 => {
-                                if es.contains(&(a, b)) {
+                                // unite
+                                if es[a].contains(&b) {
                                     continue;
                                 }
-                                es.insert((a, b));
+                                es[a].insert(b);
+                                es[b].insert(a);
                                 ques.push((t, a, b));
                             }
                             1 => {
-                                if !es.contains(&(a, b)) {
+                                // cut
+                                if !es[a].contains(&b) {
                                     continue;
                                 }
-                                es.remove(&(a, b));
+                                es[a].remove(&b);
+                                es[b].remove(&a);
                                 ques.push((t, a, b));
                             }
                             _ => unreachable!(),
@@ -4114,7 +4110,7 @@ mod dynamic_connectivity {
                     }
                     ques
                 };
-                trial(n, ques);
+                trial(ques);
             }
         }
     }
