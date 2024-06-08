@@ -4478,6 +4478,110 @@ mod procon_reader {
 use procon_reader::*;
 //////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////
+mod wavelet_matrix {
+    #[inline(always)]
+    fn unsigned_encode(x: i64) -> usize {
+        if x < 0 {
+            (x + (1i64 << 63)) as usize
+        } else {
+            x as usize + (1usize << 63)
+        }
+    }
+    #[inline(always)]
+    fn signed_decode(x: usize) -> i64 {
+        if x < (1usize << 63) {
+            x as i64 - (1i64 << 63)
+        } else {
+            (x - (1usize << 63)) as i64
+        }
+    }
+    const D: usize = 64;
+    pub struct WaveletMatrix {
+        bit_vector: Vec<Vec<usize>>,
+        cum0: Vec<Vec<usize>>,
+    }
+    impl WaveletMatrix {
+        pub fn new(a: Vec<i64>) -> Self {
+            let n = a.len();
+            let mut a = a.into_iter().map(unsigned_encode).collect::<Vec<_>>();
+            let mut bit_vector = vec![];
+            let mut cum0 = vec![];
+            for di in (0..D).rev() {
+                // calc
+                let bv = a.iter().map(|&a| ((a >> di) & 1)).collect::<Vec<_>>();
+                let mut c0 = vec![0; n];
+                if bv[0] == 0 {
+                    c0[0] = 1;
+                }
+                for i in 1..n {
+                    c0[i] = if bv[i] == 0 { c0[i - 1] + 1 } else { c0[i - 1] };
+                }
+                // sort a
+                a = a
+                    .iter()
+                    .zip(bv.iter())
+                    .filter(|(_a, b)| **b == 0)
+                    .map(|(a, _b)| *a)
+                    .chain(
+                        a.iter()
+                            .zip(bv.iter())
+                            .filter(|(_a, b)| **b == 1)
+                            .map(|(a, _b)| *a),
+                    )
+                    .collect::<Vec<_>>();
+                // record
+                bit_vector.push(bv);
+                cum0.push(c0);
+            }
+            bit_vector.reverse();
+            cum0.reverse();
+            Self { bit_vector, cum0 }
+        }
+        pub fn get(&self, mut i: usize) -> i64 {
+            let mut x = 0;
+            let n = self.bit_vector[0].len();
+            for (di, (bit_vector, cum0)) in self
+                .bit_vector
+                .iter()
+                .zip(self.cum0.iter())
+                .enumerate()
+                .rev()
+            {
+                let bv = bit_vector[i];
+                if bv == 0 {
+                    let c0 = cum0[i];
+                    i = c0 - 1;
+                } else {
+                    let c0 = cum0[n - 1];
+                    let c1 = i + 1 - cum0[i];
+                    i = c0 + c1 - 1;
+                    x += 1usize << di;
+                }
+            }
+            signed_decode(x)
+        }
+    }
+    mod text {
+        use super::super::*;
+        use super::*;
+        #[test]
+        fn random() {
+            const N: usize = 10;
+            const V: i64 = 10;
+            let mut r = XorShift64::new();
+            for _ in 0..100 {
+                let a = (0..N)
+                    .map(|_| r.next_usize() as i64 % V - V)
+                    .collect::<Vec<_>>();
+                let wm = WaveletMatrix::new(a.clone());
+                for (i, a) in a.into_iter().enumerate() {
+                    let chk = wm.get(i);
+                    assert_eq!(a, chk);
+                }
+            }
+        }
+    }
+}
 
 fn main() {
     read::<usize>();
