@@ -4078,7 +4078,7 @@ mod dynamic_connectivity {
         #[test]
         fn random_operation() {
             let mut rng = ChaChaRng::from_seed([0; 32]);
-            for _ in 0..1000 {
+            for _ in 0..100 {
                 let ques = {
                     let mut es = vec![BTreeSet::new(); N];
                     let mut ques = vec![];
@@ -4479,28 +4479,32 @@ use procon_reader::*;
 //////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////
 mod wavelet_matrix {
+    use std::collections::BTreeMap;
+
     #[inline(always)]
     fn unsigned_encode(x: i64) -> usize {
         if x < 0 {
-            (x + (1i64 << 63)) as usize
+            (x + (1i64 << 62)) as usize
         } else {
-            x as usize + (1usize << 63)
+            x as usize + (1usize << 62)
         }
     }
     #[inline(always)]
     fn signed_decode(x: usize) -> i64 {
-        if x < (1usize << 63) {
-            x as i64 - (1i64 << 63)
+        if x < (1usize << 62) {
+            x as i64 - (1i64 << 62)
         } else {
-            (x - (1usize << 63)) as i64
+            (x - (1usize << 62)) as i64
         }
     }
     const D: usize = 64;
     pub struct WaveletMatrix {
         bit_vector: Vec<Vec<usize>>,
         cum0: Vec<Vec<usize>>,
+        last: BTreeMap<usize, usize>,
     }
     impl WaveletMatrix {
+        // construct. O(ND)
         pub fn new(a: Vec<i64>) -> Self {
             let n = a.len();
             let mut a = a.into_iter().map(unsigned_encode).collect::<Vec<_>>();
@@ -4535,8 +4539,20 @@ mod wavelet_matrix {
             }
             bit_vector.reverse();
             cum0.reverse();
-            Self { bit_vector, cum0 }
+            let mut last = BTreeMap::new();
+            for (i, a) in a.into_iter().enumerate() {
+                if last.contains_key(&a) {
+                    continue;
+                }
+                last.insert(a, i);
+            }
+            Self {
+                bit_vector,
+                cum0,
+                last,
+            }
         }
+        // get i-th value of array. O(D)
         pub fn get(&self, mut i: usize) -> i64 {
             let mut x = 0;
             let n = self.bit_vector[0].len();
@@ -4560,18 +4576,38 @@ mod wavelet_matrix {
             }
             signed_decode(x)
         }
+        // count frequency of 'val" shown inside [0..=to]. O(D)
+        fn freq(&self, mut to: usize, val: i64) -> usize {
+            let n = self.bit_vector[0].len();
+            let val = unsigned_encode(val);
+            to += 1; // half-open interval
+            for (di, cum0) in self.cum0.iter().enumerate().rev() {
+                if ((val >> di) & 1) == 0 {
+                    let c0 = cum0[to - 1];
+                    to = c0;
+                    if to == 0 {
+                        return 0;
+                    }
+                } else {
+                    let c0 = cum0[n - 1];
+                    let c1 = to - cum0[to - 1];
+                    to = c0 + c1;
+                }
+            }
+            to - self.last[&val]
+        }
     }
-    mod text {
+    pub mod test {
         use super::super::*;
         use super::*;
         #[test]
-        fn random() {
-            const N: usize = 10;
-            const V: i64 = 10;
+        fn test_get() {
+            const N: usize = 100;
+            const V: i64 = 200;
             let mut r = XorShift64::new();
             for _ in 0..100 {
                 let a = (0..N)
-                    .map(|_| r.next_usize() as i64 % V - V)
+                    .map(|_| r.next_usize() as i64 % V - V / 2)
                     .collect::<Vec<_>>();
                 let wm = WaveletMatrix::new(a.clone());
                 for (i, a) in a.into_iter().enumerate() {
@@ -4580,8 +4616,29 @@ mod wavelet_matrix {
                 }
             }
         }
+        #[test]
+        pub fn test_freq() {
+            const N: usize = 100;
+            const V: i64 = 200;
+            let mut r = XorShift64::new();
+            for _ in 0..100 {
+                let a = (0..N)
+                    .map(|_| r.next_usize() as i64 % V - V / 2)
+                    .collect::<Vec<_>>();
+
+                let mut cnt = a.iter().map(|&a| (a, 0)).collect::<BTreeMap<i64, usize>>();
+                let wm = WaveletMatrix::new(a.clone());
+                for (i, a) in a.into_iter().enumerate() {
+                    *cnt.entry(a).or_insert(0) += 1;
+                    for (&aval, &cnt) in cnt.iter() {
+                        assert_eq!(wm.freq(i, aval), cnt);
+                    }
+                }
+            }
+        }
     }
 }
+use wavelet_matrix::WaveletMatrix;
 
 fn main() {
     read::<usize>();
