@@ -4621,15 +4621,44 @@ mod wavelet_matrix {
             at
         }
         // count value s.t. minv <= value <= maxv, in [0..=to]. O(D)
-        fn low_freq(&self, mut maxv: i64, l: usize, r: usize) {
-            for di in (0..D).rev() {}
+        fn low_freq(&self, maxv: i64, mut l: usize, mut r: usize) -> usize {
+            let n = self.cum0[0].len();
+            let upper = unsigned_encode(maxv + 1);
+            let mut lows = 0;
+            for (di, cum0) in self.cum0.iter().enumerate().rev() {
+                let c0_left = if l == 0 { 0 } else { cum0[l - 1] };
+                let c1_left = l - c0_left;
+                let c0_in = if l == 0 {
+                    cum0[r]
+                } else {
+                    cum0[r] - cum0[l - 1]
+                };
+                let c1_in = (r - l + 1) - c0_in;
+                if ((upper >> di) & 1) == 0 {
+                    // next0
+                    if c0_left + 1 > c0_left + c0_in {
+                        break;
+                    }
+                    l = c0_left;
+                    r = c0_left + c0_in - 1;
+                } else {
+                    lows += c0_in;
+                    // next 1
+                    if cum0[n - 1] + c1_left + 1 > cum0[n - 1] + c1_left + c1_in {
+                        break;
+                    }
+                    l = cum0[n - 1] + c1_left;
+                    r = cum0[n - 1] + c1_left + c1_in - 1;
+                }
+            }
+            lows
         }
     }
     pub mod test {
         use super::super::*;
         use super::*;
-        const N: usize = 100;
-        const V: i64 = 200;
+        const N: usize = 20;
+        const V: i64 = 20;
         #[test]
         fn get() {
             let mut r = XorShift64::new();
@@ -4682,14 +4711,19 @@ mod wavelet_matrix {
         }
         #[test]
         pub fn low_freq() {
-            let a = vec![1, 4, 2, 7, 5, 3, 6, 2, 0];
-            let wm = WaveletMatrix::new(a.clone());
-            for l in 0..N {
-                for r in l..N {
-                    for &maxv in a.iter() {
-                        let exp = a.iter().take(r + 1).skip(l).filter(|&&a| a <= maxv).count();
-                        let act = wm.low_freq(maxv, l, r);
-                        assert_eq!(act, exp);
+            let mut r = XorShift64::new();
+            for _ in 0..100 {
+                let a = (0..N)
+                    .map(|_| r.next_usize() as i64 % V - V / 2)
+                    .collect::<Vec<_>>();
+                let wm = WaveletMatrix::new(a.clone());
+                for l in 0..N {
+                    for r in l..N {
+                        for &maxv in a.iter() {
+                            let exp = (l..=r).map(|i| a[i]).filter(|&a| a <= maxv).count();
+                            let act = wm.low_freq(maxv, l, r);
+                            assert_eq!(act, exp);
+                        }
                     }
                 }
             }
