@@ -4432,52 +4432,6 @@ mod transpose {
 }
 use transpose::Transpose;
 
-mod procon_reader {
-    use std::fmt::Debug;
-    use std::io::Read;
-    use std::str::FromStr;
-    pub fn read<T: FromStr>() -> T
-    where
-        <T as FromStr>::Err: Debug,
-    {
-        let stdin = std::io::stdin();
-        let mut stdin_lock = stdin.lock();
-        let mut u8b: [u8; 1] = [0];
-        loop {
-            let mut buf: Vec<u8> = Vec::with_capacity(16);
-            loop {
-                let res = stdin_lock.read(&mut u8b);
-                if res.unwrap_or(0) == 0 || u8b[0] <= b' ' {
-                    break;
-                } else {
-                    buf.push(u8b[0]);
-                }
-            }
-            if !buf.is_empty() {
-                let ret = String::from_utf8(buf).unwrap();
-                return ret.parse().unwrap();
-            }
-        }
-    }
-    pub fn read_vec<T: std::str::FromStr>(n: usize) -> Vec<T>
-    where
-        <T as FromStr>::Err: Debug,
-    {
-        (0..n).map(|_| read::<T>()).collect::<Vec<T>>()
-    }
-    pub fn read_vec_sub1(n: usize) -> Vec<usize> {
-        (0..n).map(|_| read::<usize>() - 1).collect::<Vec<usize>>()
-    }
-    pub fn read_mat<T: std::str::FromStr>(h: usize, w: usize) -> Vec<Vec<T>>
-    where
-        <T as FromStr>::Err: Debug,
-    {
-        (0..h).map(|_| read_vec::<T>(w)).collect::<Vec<Vec<T>>>()
-    }
-}
-use procon_reader::*;
-//////////////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////////////
 mod wavelet_matrix {
     use std::collections::BTreeMap;
 
@@ -4606,7 +4560,7 @@ mod wavelet_matrix {
             to - self.last[&val]
         }
         // value's i-th shown position
-        fn at(&self, val: i64, ith: usize) -> usize {
+        pub fn at(&self, val: i64, ith: usize) -> usize {
             let n = self.bit_vector[0].len();
             let val = unsigned_encode(val);
             let mut at = self.last[&val] + ith;
@@ -4621,7 +4575,7 @@ mod wavelet_matrix {
             at
         }
         // count value s.t. minv <= value <= maxv, in [l..=r]. O(D)
-        fn range_freq(&self, minv: i64, maxv: i64, l: usize, r: usize) -> usize {
+        pub fn range_freq(&self, minv: i64, maxv: i64, l: usize, r: usize) -> usize {
             self.low_freq(maxv, l, r) - self.low_freq(minv - 1, l, r)
         }
         // count value s.t. value <= maxv, in [l..=r]. O(D)
@@ -4656,6 +4610,33 @@ mod wavelet_matrix {
                 }
             }
             lows
+        }
+        // get k-th smallest value in subarray a[l..=r]. O(D)
+        pub fn range_kth_smallest(&self, mut l: usize, mut r: usize, mut k: usize) -> i64 {
+            let n = self.cum0[0].len();
+            let mut val = 0;
+            for (di, cum0) in self.cum0.iter().enumerate().rev() {
+                let c0_left = if l == 0 { 0 } else { cum0[l - 1] };
+                let c1_left = l - c0_left;
+                let c0_in = if l == 0 {
+                    cum0[r]
+                } else {
+                    cum0[r] - cum0[l - 1]
+                };
+                let c1_in = (r - l + 1) - c0_in;
+                if c0_in > k {
+                    // next0
+                    l = c0_left;
+                    r = c0_left + c0_in - 1;
+                } else {
+                    // next 1
+                    l = cum0[n - 1] + c1_left;
+                    r = cum0[n - 1] + c1_left + c1_in - 1;
+                    k -= c0_in;
+                    val += 1usize << di;
+                }
+            }
+            signed_decode(val)
         }
     }
     pub mod test {
@@ -4714,7 +4695,7 @@ mod wavelet_matrix {
             }
         }
         #[test]
-        pub fn low_freq() {
+        fn low_freq() {
             let mut r = XorShift64::new();
             for _ in 0..100 {
                 let a = (0..N)
@@ -4733,7 +4714,7 @@ mod wavelet_matrix {
             }
         }
         #[test]
-        pub fn range_freq() {
+        fn range_freq() {
             let mut r = XorShift64::new();
             for _ in 0..100 {
                 let a = (0..N)
@@ -4756,9 +4737,76 @@ mod wavelet_matrix {
                 }
             }
         }
+        #[test]
+        pub fn range_kth_smallest() {
+            let mut r = XorShift64::new();
+            for _ in 0..100 {
+                let a = (0..N)
+                    .map(|_| r.next_usize() as i64 % V - V / 2)
+                    .collect::<Vec<_>>();
+                let wm = WaveletMatrix::new(a.clone());
+                for l in 0..N {
+                    for r in l..N {
+                        let mut sub = (l..=r).map(|i| a[i]).collect::<Vec<_>>();
+                        sub.sort();
+                        for (k, exp) in sub.into_iter().enumerate() {
+                            let act = wm.range_kth_smallest(l, r, k);
+                            assert_eq!(act, exp);
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 use wavelet_matrix::WaveletMatrix;
+
+mod procon_reader {
+    use std::fmt::Debug;
+    use std::io::Read;
+    use std::str::FromStr;
+    pub fn read<T: FromStr>() -> T
+    where
+        <T as FromStr>::Err: Debug,
+    {
+        let stdin = std::io::stdin();
+        let mut stdin_lock = stdin.lock();
+        let mut u8b: [u8; 1] = [0];
+        loop {
+            let mut buf: Vec<u8> = Vec::with_capacity(16);
+            loop {
+                let res = stdin_lock.read(&mut u8b);
+                if res.unwrap_or(0) == 0 || u8b[0] <= b' ' {
+                    break;
+                } else {
+                    buf.push(u8b[0]);
+                }
+            }
+            if !buf.is_empty() {
+                let ret = String::from_utf8(buf).unwrap();
+                return ret.parse().unwrap();
+            }
+        }
+    }
+    pub fn read_vec<T: std::str::FromStr>(n: usize) -> Vec<T>
+    where
+        <T as FromStr>::Err: Debug,
+    {
+        (0..n).map(|_| read::<T>()).collect::<Vec<T>>()
+    }
+    pub fn read_vec_sub1(n: usize) -> Vec<usize> {
+        (0..n).map(|_| read::<usize>() - 1).collect::<Vec<usize>>()
+    }
+    pub fn read_mat<T: std::str::FromStr>(h: usize, w: usize) -> Vec<Vec<T>>
+    where
+        <T as FromStr>::Err: Debug,
+    {
+        (0..h).map(|_| read_vec::<T>(w)).collect::<Vec<Vec<T>>>()
+    }
+}
+use procon_reader::*;
+//////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////
 
 fn main() {
     read::<usize>();
