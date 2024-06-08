@@ -4620,6 +4620,10 @@ mod wavelet_matrix {
             }
             at
         }
+        // count value s.t. minv <= value <= maxv, in [0..=to]. O(D)
+        fn low_freq(&self, mut maxv: i64, l: usize, r: usize) {
+            for di in (0..D).rev() {}
+        }
     }
     pub mod test {
         use super::super::*;
@@ -4658,7 +4662,7 @@ mod wavelet_matrix {
             }
         }
         #[test]
-        pub fn at() {
+        fn at() {
             let mut r = XorShift64::new();
             for _ in 0..100 {
                 let a = (0..N)
@@ -4672,6 +4676,20 @@ mod wavelet_matrix {
                 for (val, pos) in pos {
                     for (ith, pos) in pos.into_iter().enumerate() {
                         assert_eq!(wm.at(val, ith), pos);
+                    }
+                }
+            }
+        }
+        #[test]
+        pub fn low_freq() {
+            let a = vec![1, 4, 2, 7, 5, 3, 6, 2, 0];
+            let wm = WaveletMatrix::new(a.clone());
+            for l in 0..N {
+                for r in l..N {
+                    for &maxv in a.iter() {
+                        let exp = a.iter().take(r + 1).skip(l).filter(|&&a| a <= maxv).count();
+                        let act = wm.low_freq(maxv, l, r);
+                        assert_eq!(act, exp);
                     }
                 }
             }
