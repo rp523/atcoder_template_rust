@@ -4620,7 +4620,11 @@ mod wavelet_matrix {
             }
             at
         }
-        // count value s.t. minv <= value <= maxv, in [0..=to]. O(D)
+        // count value s.t. minv <= value <= maxv, in [l..=r]. O(D)
+        fn range_freq(&self, minv: i64, maxv: i64, l: usize, r: usize) -> usize {
+            self.low_freq(maxv, l, r) - self.low_freq(minv - 1, l, r)
+        }
+        // count value s.t. value <= maxv, in [l..=r]. O(D)
         fn low_freq(&self, maxv: i64, mut l: usize, mut r: usize) -> usize {
             let n = self.cum0[0].len();
             let upper = unsigned_encode(maxv + 1);
@@ -4719,10 +4723,34 @@ mod wavelet_matrix {
                 let wm = WaveletMatrix::new(a.clone());
                 for l in 0..N {
                     for r in l..N {
-                        for &maxv in a.iter() {
+                        for maxv in -V / 2..=V / 2 {
                             let exp = (l..=r).map(|i| a[i]).filter(|&a| a <= maxv).count();
                             let act = wm.low_freq(maxv, l, r);
                             assert_eq!(act, exp);
+                        }
+                    }
+                }
+            }
+        }
+        #[test]
+        pub fn range_freq() {
+            let mut r = XorShift64::new();
+            for _ in 0..100 {
+                let a = (0..N)
+                    .map(|_| r.next_usize() as i64 % V - V / 2)
+                    .collect::<Vec<_>>();
+                let wm = WaveletMatrix::new(a.clone());
+                for l in 0..N {
+                    for r in l..N {
+                        for minv in -V / 2..=V / 2 {
+                            for maxv in minv..=V / 2 {
+                                let exp = (l..=r)
+                                    .map(|i| a[i])
+                                    .filter(|&a| minv <= a && a <= maxv)
+                                    .count();
+                                let act = wm.range_freq(minv, maxv, l, r);
+                                assert_eq!(act, exp);
+                            }
                         }
                     }
                 }
