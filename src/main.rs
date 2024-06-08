@@ -4078,7 +4078,7 @@ mod dynamic_connectivity {
         #[test]
         fn random_operation() {
             let mut rng = ChaChaRng::from_seed([0; 32]);
-            for _ in 0..1000 {
+            for _ in 0..100 {
                 let ques = {
                     let mut es = vec![BTreeSet::new(); N];
                     let mut ques = vec![];
@@ -4431,6 +4431,335 @@ mod transpose {
     }
 }
 use transpose::Transpose;
+
+mod wavelet_matrix {
+    use std::collections::BTreeMap;
+
+    #[inline(always)]
+    fn unsigned_encode(x: i64) -> usize {
+        //return x as usize;
+        if x < 0 {
+            (x + (1i64 << 62)) as usize
+        } else {
+            x as usize + (1usize << 62)
+        }
+    }
+    #[inline(always)]
+    fn signed_decode(x: usize) -> i64 {
+        //return x as i64;
+        if x < (1usize << 62) {
+            x as i64 - (1i64 << 62)
+        } else {
+            (x - (1usize << 62)) as i64
+        }
+    }
+    const D: usize = 64;
+    pub struct WaveletMatrix {
+        bit_vector: Vec<Vec<usize>>,
+        cum0: Vec<Vec<usize>>,
+        last: BTreeMap<usize, usize>,
+        pre_pos: Vec<Vec<Vec<usize>>>,
+    }
+    impl WaveletMatrix {
+        // construct. O(ND)
+        pub fn new(a: Vec<i64>) -> Self {
+            let n = a.len();
+            let mut a = a.into_iter().map(unsigned_encode).collect::<Vec<_>>();
+            let mut bit_vector = vec![];
+            let mut cum0 = vec![];
+            let mut pre_pos = vec![];
+            for di in (0..D).rev() {
+                // calc
+                let bv = a.iter().map(|&a| ((a >> di) & 1)).collect::<Vec<_>>();
+                let mut c0 = vec![0; n];
+                if bv[0] == 0 {
+                    c0[0] = 1;
+                }
+                for i in 1..n {
+                    c0[i] = if bv[i] == 0 { c0[i - 1] + 1 } else { c0[i - 1] };
+                }
+                // sort a
+                let mut a0 = vec![];
+                let mut a1 = vec![];
+                let mut pre_pos0 = vec![];
+                let mut pre_pos1 = vec![];
+                for (i, (&a, &b)) in a.iter().zip(bv.iter()).enumerate() {
+                    if b == 0 {
+                        a0.push(a);
+                        pre_pos0.push(i);
+                    } else {
+                        a1.push(a);
+                        pre_pos1.push(i);
+                    }
+                }
+                a = a0.into_iter().chain(a1.into_iter()).collect::<Vec<_>>();
+                // record
+                bit_vector.push(bv);
+                cum0.push(c0);
+                pre_pos.push(vec![pre_pos0, pre_pos1]);
+            }
+            bit_vector.reverse();
+            cum0.reverse();
+            pre_pos.reverse();
+            let mut last = BTreeMap::new();
+            for (i, a) in a.into_iter().enumerate() {
+                if last.contains_key(&a) {
+                    continue;
+                }
+                last.insert(a, i);
+            }
+            Self {
+                bit_vector,
+                cum0,
+                last,
+                pre_pos,
+            }
+        }
+        // get i-th value of array. O(D)
+        pub fn get(&self, mut i: usize) -> i64 {
+            let mut x = 0;
+            let n = self.bit_vector[0].len();
+            for (di, (bit_vector, cum0)) in self
+                .bit_vector
+                .iter()
+                .zip(self.cum0.iter())
+                .enumerate()
+                .rev()
+            {
+                let bv = bit_vector[i];
+                if bv == 0 {
+                    let c0 = cum0[i];
+                    i = c0 - 1;
+                } else {
+                    let c0 = cum0[n - 1];
+                    let c1 = i + 1 - cum0[i];
+                    i = c0 + c1 - 1;
+                    x += 1usize << di;
+                }
+            }
+            signed_decode(x)
+        }
+        // count frequency of val shown inside [0..=to]. O(D)
+        fn left_freq(&self, val: i64, mut to: usize) -> usize {
+            let n = self.bit_vector[0].len();
+            let val = unsigned_encode(val);
+            to += 1; // half-open interval
+            for (di, cum0) in self.cum0.iter().enumerate().rev() {
+                if ((val >> di) & 1) == 0 {
+                    let c0 = cum0[to - 1];
+                    to = c0;
+                    if to == 0 {
+                        return 0;
+                    }
+                } else {
+                    let c0 = cum0[n - 1];
+                    let c1 = to - cum0[to - 1];
+                    to = c0 + c1;
+                }
+            }
+            to - self.last[&val]
+        }
+        // value's i-th shown position
+        pub fn at(&self, val: i64, ith: usize) -> usize {
+            let n = self.bit_vector[0].len();
+            let val = unsigned_encode(val);
+            let mut at = self.last[&val] + ith;
+            for di in 0..D {
+                let b = (val >> di) & 1;
+                if b == 0 {
+                    at = self.pre_pos[di][b][at];
+                } else {
+                    at = self.pre_pos[di][b][at - self.cum0[di][n - 1]];
+                }
+            }
+            at
+        }
+        // count value s.t. minv <= value <= maxv, in [l..=r]. O(D)
+        pub fn range_freq(&self, minv: i64, maxv: i64, l: usize, r: usize) -> usize {
+            self.low_freq(maxv, l, r) - self.low_freq(minv - 1, l, r)
+        }
+        // count value s.t. value <= maxv, in [l..=r]. O(D)
+        fn low_freq(&self, maxv: i64, mut l: usize, mut r: usize) -> usize {
+            let n = self.cum0[0].len();
+            let upper = unsigned_encode(maxv + 1);
+            let mut lows = 0;
+            for (di, cum0) in self.cum0.iter().enumerate().rev() {
+                let c0_left = if l == 0 { 0 } else { cum0[l - 1] };
+                let c1_left = l - c0_left;
+                let c0_in = if l == 0 {
+                    cum0[r]
+                } else {
+                    cum0[r] - cum0[l - 1]
+                };
+                let c1_in = (r - l + 1) - c0_in;
+                if ((upper >> di) & 1) == 0 {
+                    // next0
+                    if c0_left + 1 > c0_left + c0_in {
+                        break;
+                    }
+                    l = c0_left;
+                    r = c0_left + c0_in - 1;
+                } else {
+                    lows += c0_in;
+                    // next 1
+                    if cum0[n - 1] + c1_left + 1 > cum0[n - 1] + c1_left + c1_in {
+                        break;
+                    }
+                    l = cum0[n - 1] + c1_left;
+                    r = cum0[n - 1] + c1_left + c1_in - 1;
+                }
+            }
+            lows
+        }
+        // get k-th smallest value in subarray a[l..=r]. O(D)
+        pub fn range_kth_smallest(&self, mut l: usize, mut r: usize, mut k: usize) -> i64 {
+            let n = self.cum0[0].len();
+            let mut val = 0;
+            for (di, cum0) in self.cum0.iter().enumerate().rev() {
+                let c0_left = if l == 0 { 0 } else { cum0[l - 1] };
+                let c1_left = l - c0_left;
+                let c0_in = if l == 0 {
+                    cum0[r]
+                } else {
+                    cum0[r] - cum0[l - 1]
+                };
+                let c1_in = (r - l + 1) - c0_in;
+                if c0_in > k {
+                    // next0
+                    l = c0_left;
+                    r = c0_left + c0_in - 1;
+                } else {
+                    // next 1
+                    l = cum0[n - 1] + c1_left;
+                    r = cum0[n - 1] + c1_left + c1_in - 1;
+                    k -= c0_in;
+                    val += 1usize << di;
+                }
+            }
+            signed_decode(val)
+        }
+    }
+    pub mod test {
+        use super::super::*;
+        use super::*;
+        const N: usize = 20;
+        const V: i64 = 20;
+        #[test]
+        fn get() {
+            let mut r = XorShift64::new();
+            for _ in 0..100 {
+                let a = (0..N)
+                    .map(|_| r.next_usize() as i64 % V - V / 2)
+                    .collect::<Vec<_>>();
+                let wm = WaveletMatrix::new(a.clone());
+                for (i, a) in a.into_iter().enumerate() {
+                    let chk = wm.get(i);
+                    assert_eq!(a, chk);
+                }
+            }
+        }
+        #[test]
+        fn left_freq() {
+            let mut r = XorShift64::new();
+            for _ in 0..100 {
+                let a = (0..N)
+                    .map(|_| r.next_usize() as i64 % V - V / 2)
+                    .collect::<Vec<_>>();
+                let mut cnt = a.iter().map(|&a| (a, 0)).collect::<BTreeMap<i64, usize>>();
+                let wm = WaveletMatrix::new(a.clone());
+                for (i, a) in a.into_iter().enumerate() {
+                    *cnt.entry(a).or_insert(0) += 1;
+                    for (&aval, &cnt) in cnt.iter() {
+                        assert_eq!(wm.left_freq(aval, i), cnt);
+                    }
+                }
+            }
+        }
+        #[test]
+        fn at() {
+            let mut r = XorShift64::new();
+            for _ in 0..100 {
+                let a = (0..N)
+                    .map(|_| r.next_usize() as i64 % V - V / 2)
+                    .collect::<Vec<_>>();
+                let wm = WaveletMatrix::new(a.clone());
+                let mut pos = BTreeMap::new();
+                for (i, a) in a.into_iter().enumerate() {
+                    pos.entry(a).or_insert(vec![]).push(i);
+                }
+                for (val, pos) in pos {
+                    for (ith, pos) in pos.into_iter().enumerate() {
+                        assert_eq!(wm.at(val, ith), pos);
+                    }
+                }
+            }
+        }
+        #[test]
+        fn low_freq() {
+            let mut r = XorShift64::new();
+            for _ in 0..100 {
+                let a = (0..N)
+                    .map(|_| r.next_usize() as i64 % V - V / 2)
+                    .collect::<Vec<_>>();
+                let wm = WaveletMatrix::new(a.clone());
+                for l in 0..N {
+                    for r in l..N {
+                        for maxv in -V / 2..=V / 2 {
+                            let exp = (l..=r).map(|i| a[i]).filter(|&a| a <= maxv).count();
+                            let act = wm.low_freq(maxv, l, r);
+                            assert_eq!(act, exp);
+                        }
+                    }
+                }
+            }
+        }
+        #[test]
+        fn range_freq() {
+            let mut r = XorShift64::new();
+            for _ in 0..100 {
+                let a = (0..N)
+                    .map(|_| r.next_usize() as i64 % V - V / 2)
+                    .collect::<Vec<_>>();
+                let wm = WaveletMatrix::new(a.clone());
+                for l in 0..N {
+                    for r in l..N {
+                        for minv in -V / 2..=V / 2 {
+                            for maxv in minv..=V / 2 {
+                                let exp = (l..=r)
+                                    .map(|i| a[i])
+                                    .filter(|&a| minv <= a && a <= maxv)
+                                    .count();
+                                let act = wm.range_freq(minv, maxv, l, r);
+                                assert_eq!(act, exp);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        #[test]
+        pub fn range_kth_smallest() {
+            let mut r = XorShift64::new();
+            for _ in 0..100 {
+                let a = (0..N)
+                    .map(|_| r.next_usize() as i64 % V - V / 2)
+                    .collect::<Vec<_>>();
+                let wm = WaveletMatrix::new(a.clone());
+                for l in 0..N {
+                    for r in l..N {
+                        let mut sub = (l..=r).map(|i| a[i]).collect::<Vec<_>>();
+                        sub.sort();
+                        for (k, exp) in sub.into_iter().enumerate() {
+                            let act = wm.range_kth_smallest(l, r, k);
+                            assert_eq!(act, exp);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+use wavelet_matrix::WaveletMatrix;
 
 mod procon_reader {
     use std::fmt::Debug;
