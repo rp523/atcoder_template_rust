@@ -4539,7 +4539,11 @@ mod wavelet_matrix {
         }
         // count value s.t. minv <= value <= maxv, in [l..=r]. O(D)
         pub fn range_freq(&self, minv: u64, maxv: u64, l: usize, r: usize) -> usize {
-            self.low_freq(maxv, l, r) - self.low_freq(minv - 1, l, r)
+            if minv > 0 {
+                self.low_freq(maxv, l, r) - self.low_freq(minv - 1, l, r)
+            } else {
+                self.low_freq(maxv, l, r)
+            }
         }
         // count value s.t. value <= maxv, in [l..=r]. O(D)
         fn low_freq(&self, maxv: u64, mut l: usize, mut r: usize) -> usize {
@@ -4602,7 +4606,7 @@ mod wavelet_matrix {
             val
         }
     }
-    pub mod test {
+    mod test {
         use super::super::*;
         use super::*;
         const T: usize = 300;
