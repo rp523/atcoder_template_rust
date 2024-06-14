@@ -4435,40 +4435,26 @@ use transpose::Transpose;
 mod wavelet_matrix {
     use std::collections::BTreeMap;
 
-    #[inline(always)]
-    fn unsigned_encode(x: i64) -> usize {
-        //return x as usize;
-        if x < 0 {
-            (x + (1i64 << 62)) as usize
-        } else {
-            x as usize + (1usize << 62)
-        }
-    }
-    #[inline(always)]
-    fn signed_decode(x: usize) -> i64 {
-        //return x as i64;
-        if x < (1usize << 62) {
-            x as i64 - (1i64 << 62)
-        } else {
-            (x - (1usize << 62)) as i64
-        }
-    }
-    const D: usize = 64;
     pub struct WaveletMatrix {
-        bit_vector: Vec<Vec<usize>>,
+        org: Vec<u64>,
         cum0: Vec<Vec<usize>>,
-        last: BTreeMap<usize, usize>,
+        last: BTreeMap<u64, usize>,
         pre_pos: Vec<Vec<Vec<usize>>>,
+        d: usize,
     }
     impl WaveletMatrix {
         // construct. O(ND)
-        pub fn new(a: Vec<i64>) -> Self {
+        pub fn new(mut a: Vec<u64>) -> Self {
+            let org = a.clone();
             let n = a.len();
-            let mut a = a.into_iter().map(unsigned_encode).collect::<Vec<_>>();
-            let mut bit_vector = vec![];
+            let &mx = a.iter().max().unwrap();
+            let mut d = 0;
+            while mx & !((1u64 << d) - 1) != 0 {
+                d += 1;
+            }
             let mut cum0 = vec![];
             let mut pre_pos = vec![];
-            for di in (0..D).rev() {
+            for di in (0..d).rev() {
                 // calc
                 let bv = a.iter().map(|&a| ((a >> di) & 1)).collect::<Vec<_>>();
                 let mut c0 = vec![0; n];
@@ -4494,55 +4480,33 @@ mod wavelet_matrix {
                 }
                 a = a0.into_iter().chain(a1.into_iter()).collect::<Vec<_>>();
                 // record
-                bit_vector.push(bv);
                 cum0.push(c0);
                 pre_pos.push(vec![pre_pos0, pre_pos1]);
             }
-            bit_vector.reverse();
             cum0.reverse();
             pre_pos.reverse();
             let mut last = BTreeMap::new();
-            for (i, a) in a.into_iter().enumerate() {
+            for (i, &a) in a.iter().enumerate() {
                 if last.contains_key(&a) {
                     continue;
                 }
                 last.insert(a, i);
             }
             Self {
-                bit_vector,
+                org,
                 cum0,
                 last,
                 pre_pos,
+                d,
             }
         }
         // get i-th value of array. O(D)
-        pub fn get(&self, mut i: usize) -> i64 {
-            let mut x = 0;
-            let n = self.bit_vector[0].len();
-            for (di, (bit_vector, cum0)) in self
-                .bit_vector
-                .iter()
-                .zip(self.cum0.iter())
-                .enumerate()
-                .rev()
-            {
-                let bv = bit_vector[i];
-                if bv == 0 {
-                    let c0 = cum0[i];
-                    i = c0 - 1;
-                } else {
-                    let c0 = cum0[n - 1];
-                    let c1 = i + 1 - cum0[i];
-                    i = c0 + c1 - 1;
-                    x += 1usize << di;
-                }
-            }
-            signed_decode(x)
+        pub fn get(&self, i: usize) -> u64 {
+            self.org[i]
         }
         // count frequency of val shown inside [0..=to]. O(D)
-        fn left_freq(&self, val: i64, mut to: usize) -> usize {
-            let n = self.bit_vector[0].len();
-            let val = unsigned_encode(val);
+        fn left_freq(&self, val: u64, mut to: usize) -> usize {
+            let n = self.cum0[0].len();
             to += 1; // half-open interval
             for (di, cum0) in self.cum0.iter().enumerate().rev() {
                 if ((val >> di) & 1) == 0 {
@@ -4560,12 +4524,11 @@ mod wavelet_matrix {
             to - self.last[&val]
         }
         // value's i-th shown position
-        pub fn at(&self, val: i64, ith: usize) -> usize {
-            let n = self.bit_vector[0].len();
-            let val = unsigned_encode(val);
+        pub fn at(&self, val: u64, ith: usize) -> usize {
+            let n = self.cum0[0].len();
             let mut at = self.last[&val] + ith;
-            for di in 0..D {
-                let b = (val >> di) & 1;
+            for di in 0..self.d {
+                let b = ((val >> di) & 1) as usize;
                 if b == 0 {
                     at = self.pre_pos[di][b][at];
                 } else {
@@ -4575,13 +4538,13 @@ mod wavelet_matrix {
             at
         }
         // count value s.t. minv <= value <= maxv, in [l..=r]. O(D)
-        pub fn range_freq(&self, minv: i64, maxv: i64, l: usize, r: usize) -> usize {
+        pub fn range_freq(&self, minv: u64, maxv: u64, l: usize, r: usize) -> usize {
             self.low_freq(maxv, l, r) - self.low_freq(minv - 1, l, r)
         }
         // count value s.t. value <= maxv, in [l..=r]. O(D)
-        fn low_freq(&self, maxv: i64, mut l: usize, mut r: usize) -> usize {
+        fn low_freq(&self, maxv: u64, mut l: usize, mut r: usize) -> usize {
             let n = self.cum0[0].len();
-            let upper = unsigned_encode(maxv + 1);
+            let upper = maxv + 1;
             let mut lows = 0;
             for (di, cum0) in self.cum0.iter().enumerate().rev() {
                 let c0_left = if l == 0 { 0 } else { cum0[l - 1] };
@@ -4612,7 +4575,7 @@ mod wavelet_matrix {
             lows
         }
         // get k-th smallest value in subarray a[l..=r]. O(D)
-        pub fn range_kth_smallest(&self, mut l: usize, mut r: usize, mut k: usize) -> i64 {
+        pub fn range_kth_smallest(&self, mut l: usize, mut r: usize, mut k: usize) -> u64 {
             let n = self.cum0[0].len();
             let mut val = 0;
             for (di, cum0) in self.cum0.iter().enumerate().rev() {
@@ -4633,23 +4596,24 @@ mod wavelet_matrix {
                     l = cum0[n - 1] + c1_left;
                     r = cum0[n - 1] + c1_left + c1_in - 1;
                     k -= c0_in;
-                    val += 1usize << di;
+                    val += 1u64 << di;
                 }
             }
-            signed_decode(val)
+            val
         }
     }
     pub mod test {
         use super::super::*;
         use super::*;
-        const N: usize = 20;
-        const V: i64 = 20;
+        const T: usize = 300;
+        const N: usize = 30;
+        const V: u64 = 30;
         #[test]
         fn get() {
             let mut r = XorShift64::new();
-            for _ in 0..100 {
+            for _ in 0..T {
                 let a = (0..N)
-                    .map(|_| r.next_usize() as i64 % V - V / 2)
+                    .map(|_| r.next_usize() as u64 % V)
                     .collect::<Vec<_>>();
                 let wm = WaveletMatrix::new(a.clone());
                 for (i, a) in a.into_iter().enumerate() {
@@ -4661,11 +4625,11 @@ mod wavelet_matrix {
         #[test]
         fn left_freq() {
             let mut r = XorShift64::new();
-            for _ in 0..100 {
+            for _ in 0..T {
                 let a = (0..N)
-                    .map(|_| r.next_usize() as i64 % V - V / 2)
+                    .map(|_| r.next_usize() as u64 % V)
                     .collect::<Vec<_>>();
-                let mut cnt = a.iter().map(|&a| (a, 0)).collect::<BTreeMap<i64, usize>>();
+                let mut cnt = a.iter().map(|&a| (a, 0)).collect::<BTreeMap<u64, usize>>();
                 let wm = WaveletMatrix::new(a.clone());
                 for (i, a) in a.into_iter().enumerate() {
                     *cnt.entry(a).or_insert(0) += 1;
@@ -4678,9 +4642,9 @@ mod wavelet_matrix {
         #[test]
         fn at() {
             let mut r = XorShift64::new();
-            for _ in 0..100 {
+            for _ in 0..T {
                 let a = (0..N)
-                    .map(|_| r.next_usize() as i64 % V - V / 2)
+                    .map(|_| r.next_usize() as u64 % V)
                     .collect::<Vec<_>>();
                 let wm = WaveletMatrix::new(a.clone());
                 let mut pos = BTreeMap::new();
@@ -4697,14 +4661,14 @@ mod wavelet_matrix {
         #[test]
         fn low_freq() {
             let mut r = XorShift64::new();
-            for _ in 0..100 {
+            for _ in 0..T {
                 let a = (0..N)
-                    .map(|_| r.next_usize() as i64 % V - V / 2)
+                    .map(|_| r.next_usize() as u64 % V)
                     .collect::<Vec<_>>();
                 let wm = WaveletMatrix::new(a.clone());
                 for l in 0..N {
                     for r in l..N {
-                        for maxv in -V / 2..=V / 2 {
+                        for maxv in 0..V {
                             let exp = (l..=r).map(|i| a[i]).filter(|&a| a <= maxv).count();
                             let act = wm.low_freq(maxv, l, r);
                             assert_eq!(act, exp);
@@ -4716,15 +4680,15 @@ mod wavelet_matrix {
         #[test]
         fn range_freq() {
             let mut r = XorShift64::new();
-            for _ in 0..100 {
+            for _ in 0..T {
                 let a = (0..N)
-                    .map(|_| r.next_usize() as i64 % V - V / 2)
+                    .map(|_| r.next_usize() as u64 % V)
                     .collect::<Vec<_>>();
                 let wm = WaveletMatrix::new(a.clone());
                 for l in 0..N {
                     for r in l..N {
-                        for minv in -V / 2..=V / 2 {
-                            for maxv in minv..=V / 2 {
+                        for minv in 0..V {
+                            for maxv in minv..V {
                                 let exp = (l..=r)
                                     .map(|i| a[i])
                                     .filter(|&a| minv <= a && a <= maxv)
@@ -4738,11 +4702,11 @@ mod wavelet_matrix {
             }
         }
         #[test]
-        pub fn range_kth_smallest() {
+        fn range_kth_smallest() {
             let mut r = XorShift64::new();
-            for _ in 0..100 {
+            for _ in 0..T {
                 let a = (0..N)
-                    .map(|_| r.next_usize() as i64 % V - V / 2)
+                    .map(|_| r.next_usize() as u64 % V)
                     .collect::<Vec<_>>();
                 let wm = WaveletMatrix::new(a.clone());
                 for l in 0..N {
