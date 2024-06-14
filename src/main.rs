@@ -4486,7 +4486,7 @@ mod wavelet_matrix {
             cum0.reverse();
             pre_pos.reverse();
             let mut last = BTreeMap::new();
-            for (i, &a) in a.iter().enumerate() {
+            for (i, a) in a.into_iter().enumerate() {
                 if last.contains_key(&a) {
                     continue;
                 }
