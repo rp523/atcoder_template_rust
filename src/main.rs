@@ -4439,6 +4439,7 @@ mod wavelet_matrix {
         pub struct BitVector {
             bits: Vec<u64>,
             cum_ones: Vec<u32>,
+            zero_num: usize,
         }
         impl BitVector {
             pub fn from_vec(a: &[u64], di: usize) -> Self {
@@ -4457,7 +4458,12 @@ mod wavelet_matrix {
                         Some(*cum)
                     })
                     .collect::<Vec<_>>();
-                Self { bits, cum_ones }
+                let zero_num = a.len() - cum_ones[ln - 1] as usize;
+                Self {
+                    bits,
+                    cum_ones,
+                    zero_num,
+                }
             }
             // count 1 in 0..i
             #[inline(always)]
@@ -4469,6 +4475,10 @@ mod wavelet_matrix {
                 } else {
                     self.cum_ones[d - 1] + (self.bits[d] & ((1u64 << r) - 1)).count_ones()
                 }) as usize
+            }
+            #[inline(always)]
+            pub fn zero_num(&self) -> usize {
+                self.zero_num
             }
             // count 0 in 0..i
             #[inline(always)]
@@ -4522,7 +4532,7 @@ mod wavelet_matrix {
 
     pub struct WaveletMatrix {
         org: Vec<u64>,
-        cum0: Vec<Vec<usize>>,
+        bit_vectors: Vec<BitVector>,
         last: BTreeMap<u64, usize>,
         pre_pos: Vec<Vec<Vec<usize>>>,
         d: usize,
@@ -4531,44 +4541,36 @@ mod wavelet_matrix {
         // construct. O(ND)
         pub fn new(mut a: Vec<u64>) -> Self {
             let org = a.clone();
-            let n = a.len();
             let &mx = a.iter().max().unwrap();
             let mut d = 0;
             while mx & !((1u64 << d) - 1) != 0 {
                 d += 1;
             }
-            let mut cum0 = vec![];
             let mut pre_pos = vec![];
+            let mut bit_vectors = vec![];
             for di in (0..d).rev() {
                 // calc
-                let bv = a.iter().map(|&a| ((a >> di) & 1)).collect::<Vec<_>>();
-                let mut c0 = vec![0; n];
-                if bv[0] == 0 {
-                    c0[0] = 1;
-                }
-                for i in 1..n {
-                    c0[i] = if bv[i] == 0 { c0[i - 1] + 1 } else { c0[i - 1] };
-                }
+                let bit_vector = BitVector::from_vec(&a, di);
                 // sort a
                 let mut a0 = vec![];
                 let mut a1 = vec![];
                 let mut pre_pos0 = vec![];
                 let mut pre_pos1 = vec![];
-                for (i, (&a, &b)) in a.iter().zip(bv.iter()).enumerate() {
-                    if b == 0 {
-                        a0.push(a);
-                        pre_pos0.push(i);
-                    } else {
+                for (i, &a) in a.iter().enumerate() {
+                    if bit_vector.get(i) {
                         a1.push(a);
                         pre_pos1.push(i);
+                    } else {
+                        a0.push(a);
+                        pre_pos0.push(i);
                     }
                 }
                 a = a0.into_iter().chain(a1.into_iter()).collect::<Vec<_>>();
                 // record
-                cum0.push(c0);
+                bit_vectors.push(bit_vector);
                 pre_pos.push(vec![pre_pos0, pre_pos1]);
             }
-            cum0.reverse();
+            bit_vectors.reverse();
             pre_pos.reverse();
             let mut last = BTreeMap::new();
             for (i, a) in a.into_iter().enumerate() {
@@ -4579,7 +4581,7 @@ mod wavelet_matrix {
             }
             Self {
                 org,
-                cum0,
+                bit_vectors,
                 last,
                 pre_pos,
                 d,
@@ -4590,19 +4592,21 @@ mod wavelet_matrix {
             self.org[i]
         }
         // count frequency of val shown inside [0..=to]. O(D)
-        fn left_freq(&self, val: u64, mut to: usize) -> usize {
-            let n = self.cum0[0].len();
-            to += 1; // half-open interval
-            for (di, cum0) in self.cum0.iter().enumerate().rev() {
+        fn left_freq(&self, val: u64, to: usize) -> usize {
+            self.left_freq_impl(val, to + 1)
+        }
+        // count frequency of val shown inside [0..to]. O(D)
+        fn left_freq_impl(&self, val: u64, mut to: usize) -> usize {
+            for (di, bit_vector) in self.bit_vectors.iter().enumerate().rev() {
                 if ((val >> di) & 1) == 0 {
-                    let c0 = cum0[to - 1];
+                    let c0 = bit_vector.rank0(to);
                     to = c0;
                     if to == 0 {
                         return 0;
                     }
                 } else {
-                    let c0 = cum0[n - 1];
-                    let c1 = to - cum0[to - 1];
+                    let c0 = bit_vector.zero_num();
+                    let c1 = bit_vector.rank1(to);
                     to = c0 + c1;
                 }
             }
@@ -4610,82 +4614,68 @@ mod wavelet_matrix {
         }
         // value's i-th shown position
         pub fn at(&self, val: u64, ith: usize) -> usize {
-            let n = self.cum0[0].len();
             let mut at = self.last[&val] + ith;
             for di in 0..self.d {
                 let b = ((val >> di) & 1) as usize;
                 if b == 0 {
                     at = self.pre_pos[di][b][at];
                 } else {
-                    at = self.pre_pos[di][b][at - self.cum0[di][n - 1]];
+                    at = self.pre_pos[di][b][at - self.bit_vectors[di].zero_num()];
                 }
             }
             at
         }
         // count value s.t. minv <= value <= maxv, in [l..=r]. O(D)
         pub fn range_freq(&self, minv: u64, maxv: u64, l: usize, r: usize) -> usize {
-            if minv > 0 {
-                self.low_freq(maxv, l, r) - self.low_freq(minv - 1, l, r)
-            } else {
-                self.low_freq(maxv, l, r)
-            }
+            self.low_freq(maxv + 1, l, r + 1) - self.low_freq(minv, l, r + 1)
         }
-        // count value s.t. value <= maxv, in [l..=r]. O(D)
-        fn low_freq(&self, maxv: u64, mut l: usize, mut r: usize) -> usize {
-            let n = self.cum0[0].len();
-            let upper = maxv + 1;
+        // count value s.t. value < upper, in [l..=r]. O(D)
+        fn low_freq(&self, upper: u64, mut l: usize, mut r: usize) -> usize {
             let mut lows = 0;
-            for (di, cum0) in self.cum0.iter().enumerate().rev() {
-                let c0_left = if l == 0 { 0 } else { cum0[l - 1] };
-                let c1_left = l - c0_left;
-                let c0_in = if l == 0 {
-                    cum0[r]
-                } else {
-                    cum0[r] - cum0[l - 1]
-                };
-                let c1_in = (r - l + 1) - c0_in;
+            for (di, bit_vector) in self.bit_vectors.iter().enumerate().rev() {
+                let c0_left = bit_vector.rank0(l);
+                let c1_left = bit_vector.rank1(l);
+                let c0_in = bit_vector.rank0(r) - c0_left;
+                let c1_in = bit_vector.rank1(r) - c1_left;
                 if ((upper >> di) & 1) == 0 {
                     // next0
-                    if c0_left + 1 > c0_left + c0_in {
-                        break;
-                    }
                     l = c0_left;
-                    r = c0_left + c0_in - 1;
+                    r = c0_left + c0_in;
                 } else {
                     lows += c0_in;
                     // next 1
-                    if cum0[n - 1] + c1_left + 1 > cum0[n - 1] + c1_left + c1_in {
-                        break;
-                    }
-                    l = cum0[n - 1] + c1_left;
-                    r = cum0[n - 1] + c1_left + c1_in - 1;
+                    let zero_num = bit_vector.zero_num();
+                    l = zero_num + c1_left;
+                    r = zero_num + c1_left + c1_in;
+                }
+                if l >= r {
+                    break;
                 }
             }
             lows
         }
         // get k-th smallest value in subarray a[l..=r]. O(D)
-        pub fn range_kth_smallest(&self, mut l: usize, mut r: usize, mut k: usize) -> u64 {
-            let n = self.cum0[0].len();
+        pub fn range_kth_smallest(&self, l: usize, r: usize, k: usize) -> u64 {
+            self.range_kth_smallest_impl(l, r + 1, k)
+        }
+        // get k-th smallest value in subarray a[l..r]. O(D)
+        fn range_kth_smallest_impl(&self, mut l: usize, mut r: usize, mut k: usize) -> u64 {
             let mut val = 0;
-            for (di, cum0) in self.cum0.iter().enumerate().rev() {
-                let c0_left = if l == 0 { 0 } else { cum0[l - 1] };
-                let c1_left = l - c0_left;
-                let c0_in = if l == 0 {
-                    cum0[r]
-                } else {
-                    cum0[r] - cum0[l - 1]
-                };
-                let c1_in = (r - l + 1) - c0_in;
+            for (di, bit_vector) in self.bit_vectors.iter().enumerate().rev() {
+                let c0_left = bit_vector.rank0(l);
+                let c1_left = bit_vector.rank1(l);
+                let c0_in = bit_vector.rank0(r) - c0_left;
+                let c1_in = bit_vector.rank1(r) - c1_left;
                 if c0_in > k {
                     // next0
                     l = c0_left;
-                    r = c0_left + c0_in - 1;
+                    r = c0_left + c0_in;
                 } else {
                     // next 1
-                    l = cum0[n - 1] + c1_left;
-                    r = cum0[n - 1] + c1_left + c1_in - 1;
+                    l = bit_vector.zero_num() + c1_left;
+                    r = bit_vector.zero_num() + c1_left + c1_in;
                     k -= c0_in;
-                    val += 1u64 << di;
+                    val |= 1u64 << di;
                 }
             }
             val
@@ -4759,7 +4749,7 @@ mod wavelet_matrix {
                     for r in l..N {
                         for maxv in 0..V {
                             let exp = (l..=r).map(|i| a[i]).filter(|&a| a <= maxv).count();
-                            let act = wm.low_freq(maxv, l, r);
+                            let act = wm.low_freq(maxv + 1, l, r + 1);
                             assert_eq!(act, exp);
                         }
                     }
