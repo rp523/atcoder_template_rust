@@ -4434,6 +4434,91 @@ use transpose::Transpose;
 
 mod wavelet_matrix {
     use std::collections::BTreeMap;
+    mod bit_vector {
+        const W: usize = 64;
+        pub struct BitVector {
+            bits: Vec<u64>,
+            cum_ones: Vec<u32>,
+        }
+        impl BitVector {
+            pub fn from_vec(a: &[u64], di: usize) -> Self {
+                let ln = a.len() / W + 1;
+                let mut bits = vec![0; ln];
+                for (i, &a) in a.iter().enumerate() {
+                    let d = i / W;
+                    let r = i % W;
+                    bits[d] |= ((a >> di) & 1) << r;
+                }
+                let cum_ones = bits
+                    .iter()
+                    .map(|&bit| bit.count_ones())
+                    .scan(0, |cum: &mut u32, x: u32| {
+                        *cum += x;
+                        Some(*cum)
+                    })
+                    .collect::<Vec<_>>();
+                Self { bits, cum_ones }
+            }
+            // count 1 in 0..i
+            #[inline(always)]
+            pub fn rank1(&self, i: usize) -> usize {
+                let d = i / W;
+                let r = i % W;
+                (if d == 0 {
+                    (self.bits[d] & ((1u64 << r) - 1)).count_ones()
+                } else {
+                    self.cum_ones[d - 1] + (self.bits[d] & ((1u64 << r) - 1)).count_ones()
+                }) as usize
+            }
+            // count 0 in 0..i
+            #[inline(always)]
+            pub fn rank0(&self, i: usize) -> usize {
+                i - self.rank1(i)
+            }
+            #[inline(always)]
+            pub fn get(&self, i: usize) -> bool {
+                let d = i / W;
+                let r = i % W;
+                (self.bits[d] >> r) & 1 != 0
+            }
+        }
+        mod test {
+            use super::super::super::XorShift64;
+            use super::BitVector;
+            use super::W;
+            #[test]
+            fn random_test() {
+                let mut rand = XorShift64::new();
+                const N: usize = W * 3;
+                const D: usize = 10;
+                for n in 1..W * 5 {
+                    let a = (0..n)
+                        .map(|_| rand.next_u64() % (1u64 << D))
+                        .collect::<Vec<_>>();
+                    let bit_vectors = (0..D)
+                        .map(|di| BitVector::from_vec(&a, di))
+                        .collect::<Vec<_>>();
+                    let mut rank0 = vec![0; D];
+                    let mut rank1 = vec![0; D];
+                    for i in 0..n {
+                        for di in 0..D {
+                            if ((a[i] >> di) & 1) != 0 {
+                                rank1[di] += 1;
+                            } else {
+                                rank0[di] += 1;
+                            }
+                            assert_eq!(((a[i] >> di) & 1) != 0, bit_vectors[di].get(i));
+                            assert_eq!(0, bit_vectors[di].rank0(0));
+                            assert_eq!(0, bit_vectors[di].rank1(0));
+                            assert_eq!(rank0[di], bit_vectors[di].rank0(i + 1));
+                            assert_eq!(rank1[di], bit_vectors[di].rank1(i + 1));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    use bit_vector::BitVector;
 
     pub struct WaveletMatrix {
         org: Vec<u64>,
