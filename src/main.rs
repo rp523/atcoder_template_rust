@@ -4732,34 +4732,28 @@ mod wavelet_matrix {
 
     #[derive(Clone)]
     pub struct WaveletMatrix2D {
+        h: usize,
         w: usize,
-        bit_vectors: Vec<BitVector>,
-        pos: Vec<WaveletMatrix>,
+        pos_vectors: Vec<WaveletMatrix>,
     }
     impl WaveletMatrix2D {
-        pub fn new(org: Vec<Vec<u64>>) -> Self {
-            let w = org[0].len();
-            let &mx = org
-                .iter()
-                .map(|org| org.iter().max().unwrap())
-                .max()
-                .unwrap();
+        pub fn new(a: Vec<Vec<u64>>) -> Self {
+            let h = a.len();
+            let w = a[0].len();
+            let &mx = a.iter().map(|org| org.iter().max().unwrap()).max().unwrap();
             let mut d = 0;
             while mx & !((1u64 << d) - 1) != 0 {
                 d += 1;
             }
             let mut xa = vec![];
-            for org in org {
-                for (x1, val) in org.into_iter().enumerate() {
+            for a in a {
+                for (x1, val) in a.into_iter().enumerate() {
                     xa.push((x1, val));
                 }
             }
-            let mut bit_vectors = vec![];
-            let mut pos = vec![];
+            let mut pos_vectors = vec![];
             for di in (0..d).rev() {
                 // calc
-                let bit_vector =
-                    BitVector::from_vec(&xa.iter().map(|(_x, a)| *a).collect::<Vec<u64>>(), di);
                 let wm1 = WaveletMatrix::new(
                     xa.iter()
                         .map(|&(x, a)| if ((a >> di) & 1) == 0 { x } else { w } as u64)
@@ -4773,16 +4767,10 @@ mod wavelet_matrix {
                     .chain(xa.iter().filter(|(_x, a)| ((a >> di) & 1) != 0).copied())
                     .collect::<Vec<_>>();
                 // record
-                bit_vectors.push(bit_vector);
-                pos.push(wm1);
+                pos_vectors.push(wm1);
             }
-            bit_vectors.reverse();
-            pos.reverse();
-            Self {
-                w,
-                bit_vectors,
-                pos,
-            }
+            pos_vectors.reverse();
+            Self { h, w, pos_vectors }
         }
         // get k-th smallest value in subarray a[y0..=y1][x0..=x1]. O(D)
         fn range_kth_smallest(
@@ -4796,25 +4784,20 @@ mod wavelet_matrix {
             let mut val = 0;
             let mut l = y0 * self.w;
             let mut r = (y1 + 1) * self.w;
-            for (di, (bit_vector, pos)) in self
-                .bit_vectors
-                .iter()
-                .zip(self.pos.iter())
-                .enumerate()
-                .rev()
-            {
-                let c0_left = bit_vector.rank0(l);
-                let c0val_left = if l == 0 {
-                    0
-                } else {
-                    pos.range_freq(x0 as u64, x1 as u64, 0, l - 1)
+            for (di, pos_vector) in self.pos_vectors.iter().enumerate().rev() {
+                let mut c0_left = 0;
+                let mut c0val_left = 0;
+                let mut c1_left = 0;
+                if l > 0 {
+                    c0_left = pos_vector.range_freq(0, self.w as u64 - 1, 0, l - 1);
+                    c0val_left = pos_vector.range_freq(x0 as u64, x1 as u64, 0, l - 1);
+                    c1_left = l - c0_left;
                 };
                 debug_assert!(c0val_left <= c0_left);
-                let c1_left = bit_vector.rank1(l);
-                let c0_in = bit_vector.rank0(r) - c0_left;
-                let c0val_in = pos.range_freq(x0 as u64, x1 as u64, l, r - 1);
+                let c0_in = pos_vector.range_freq(0, self.w as u64 - 1, l, r - 1);
+                let c0val_in = pos_vector.range_freq(x0 as u64, x1 as u64, l, r - 1);
                 debug_assert!(c0val_in <= c0_in);
-                let c1_in = bit_vector.rank1(r) - c1_left;
+                let c1_in = (r - l) - c0_in;
                 if c0val_in > k {
                     // next0
                     l = c0_left;
@@ -4822,8 +4805,10 @@ mod wavelet_matrix {
                 } else {
                     // next 1
                     k -= c0val_in;
-                    l = bit_vector.zero_num() + c1_left;
-                    r = bit_vector.zero_num() + c1_left + c1_in;
+                    let zero_num =
+                        pos_vector.range_freq(0, self.w as u64 - 1, 0, self.h * self.w - 1);
+                    l = zero_num + c1_left;
+                    r = zero_num + c1_left + c1_in;
                     val |= 1u64 << di;
                 }
                 if l >= r {
