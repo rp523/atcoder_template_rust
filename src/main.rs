@@ -4433,9 +4433,9 @@ mod transpose {
 use transpose::Transpose;
 
 mod wavelet_matrix {
-    use std::collections::BTreeMap;
     mod bit_vector {
         const W: usize = 64;
+        #[derive(Clone)]
         pub struct BitVector {
             bits: Vec<u64>,
             cum_ones: Vec<u32>,
@@ -4530,9 +4530,9 @@ mod wavelet_matrix {
     }
     use bit_vector::BitVector;
 
+    #[derive(Clone)]
     pub struct WaveletMatrix {
         bit_vectors: Vec<BitVector>,
-        d: usize,
     }
     impl WaveletMatrix {
         // construct. O(ND)
@@ -4547,28 +4547,17 @@ mod wavelet_matrix {
                 // calc
                 let bit_vector = BitVector::from_vec(&a, di);
                 // sort a
-                let mut a0 = vec![];
-                let mut a1 = vec![];
-                for (i, &a) in a.iter().enumerate() {
-                    if bit_vector.get(i) {
-                        a1.push(a);
-                    } else {
-                        a0.push(a);
-                    }
-                }
-                a = a0.into_iter().chain(a1.into_iter()).collect::<Vec<_>>();
+                a = a
+                    .iter()
+                    .filter(|&a| ((a >> di) & 1) == 0)
+                    .copied()
+                    .chain(a.iter().filter(|&a| ((a >> di) & 1) != 0).copied())
+                    .collect::<Vec<_>>();
                 // record
                 bit_vectors.push(bit_vector);
             }
             bit_vectors.reverse();
-            let mut last = BTreeMap::new();
-            for (i, a) in a.into_iter().enumerate() {
-                if last.contains_key(&a) {
-                    continue;
-                }
-                last.insert(a, i);
-            }
-            Self { bit_vectors, d }
+            Self { bit_vectors }
         }
         // get i-th value of array. O(D)
         pub fn get(&self, mut i: usize) -> u64 {
@@ -4589,6 +4578,9 @@ mod wavelet_matrix {
         }
         // count value s.t. value < upper, in [l..=r]. O(D)
         fn low_freq(&self, upper: u64, mut l: usize, mut r: usize) -> usize {
+            if upper & !((1u64 << self.bit_vectors.len()) - 1) != 0 {
+                return r - l;
+            }
             let mut lows = 0;
             for (di, bit_vector) in self.bit_vectors.iter().enumerate().rev() {
                 let c0_left = bit_vector.rank0(l);
@@ -4613,11 +4605,8 @@ mod wavelet_matrix {
             lows
         }
         // get k-th smallest value in subarray a[l..=r]. O(D)
-        pub fn range_kth_smallest(&self, l: usize, r: usize, k: usize) -> u64 {
-            self.range_kth_smallest_impl(l, r + 1, k)
-        }
-        // get k-th smallest value in subarray a[l..r]. O(D)
-        fn range_kth_smallest_impl(&self, mut l: usize, mut r: usize, mut k: usize) -> u64 {
+        fn range_kth_smallest(&self, mut l: usize, mut r: usize, mut k: usize) -> u64 {
+            r += 1;
             let mut val = 0;
             for (di, bit_vector) in self.bit_vectors.iter().enumerate().rev() {
                 let c0_left = bit_vector.rank0(l);
@@ -4639,7 +4628,7 @@ mod wavelet_matrix {
             val
         }
     }
-    mod test {
+    mod wavelet_matrix_test {
         use super::super::*;
         use super::*;
         const T: usize = 300;
@@ -4734,6 +4723,152 @@ mod wavelet_matrix {
                         for (k, exp) in sub.into_iter().enumerate() {
                             let act = wm.range_kth_smallest(l, r, k);
                             assert_eq!(act, exp);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[derive(Clone)]
+    pub struct WaveletMatrix2D {
+        w: usize,
+        bit_vectors: Vec<BitVector>,
+        pos: Vec<WaveletMatrix>,
+    }
+    impl WaveletMatrix2D {
+        pub fn new(org: Vec<Vec<u64>>) -> Self {
+            let w = org[0].len();
+            let &mx = org
+                .iter()
+                .map(|org| org.iter().max().unwrap())
+                .max()
+                .unwrap();
+            let mut d = 0;
+            while mx & !((1u64 << d) - 1) != 0 {
+                d += 1;
+            }
+            let mut xa = vec![];
+            for org in org {
+                for (x1, val) in org.into_iter().enumerate() {
+                    xa.push((x1, val));
+                }
+            }
+            let mut bit_vectors = vec![];
+            let mut pos = vec![];
+            for di in (0..d).rev() {
+                // calc
+                let bit_vector =
+                    BitVector::from_vec(&xa.iter().map(|(_x, a)| *a).collect::<Vec<u64>>(), di);
+                let wm1 = WaveletMatrix::new(
+                    xa.iter()
+                        .map(|&(x, a)| if ((a >> di) & 1) == 0 { x } else { w } as u64)
+                        .collect::<Vec<_>>(),
+                );
+                // sort a
+                xa = xa
+                    .iter()
+                    .filter(|(_x, a)| ((a >> di) & 1) == 0)
+                    .copied()
+                    .chain(xa.iter().filter(|(_x, a)| ((a >> di) & 1) != 0).copied())
+                    .collect::<Vec<_>>();
+                // record
+                bit_vectors.push(bit_vector);
+                pos.push(wm1);
+            }
+            bit_vectors.reverse();
+            pos.reverse();
+            Self {
+                w,
+                bit_vectors,
+                pos,
+            }
+        }
+        // get k-th smallest value in subarray a[y0..=y1][x0..=x1]. O(D)
+        fn range_kth_smallest(
+            &self,
+            y0: usize,
+            y1: usize,
+            x0: usize,
+            x1: usize,
+            mut k: usize,
+        ) -> u64 {
+            let mut val = 0;
+            let mut l = y0 * self.w;
+            let mut r = (y1 + 1) * self.w;
+            for (di, (bit_vector, pos)) in self
+                .bit_vectors
+                .iter()
+                .zip(self.pos.iter())
+                .enumerate()
+                .rev()
+            {
+                let c0_left = bit_vector.rank0(l);
+                let c0val_left = if l == 0 {
+                    0
+                } else {
+                    pos.range_freq(x0 as u64, x1 as u64, 0, l - 1)
+                };
+                debug_assert!(c0val_left <= c0_left);
+                let c1_left = bit_vector.rank1(l);
+                let c0_in = bit_vector.rank0(r) - c0_left;
+                let c0val_in = pos.range_freq(x0 as u64, x1 as u64, l, r - 1);
+                debug_assert!(c0val_in <= c0_in);
+                let c1_in = bit_vector.rank1(r) - c1_left;
+                if c0val_in > k {
+                    // next0
+                    l = c0_left;
+                    r = c0_left + c0_in;
+                } else {
+                    // next 1
+                    k -= c0val_in;
+                    l = bit_vector.zero_num() + c1_left;
+                    r = bit_vector.zero_num() + c1_left + c1_in;
+                    val |= 1u64 << di;
+                }
+                if l >= r {
+                    break;
+                }
+            }
+            val
+        }
+    }
+    pub mod wavelet_matrix_2d_test {
+        use super::super::XorShift64;
+        use super::WaveletMatrix2D;
+        const HMAX: usize = 16;
+        const WMAX: usize = 16;
+        const VMAX: u64 = 32;
+        #[test]
+        pub fn range_kth_smallest() {
+            let mut r = XorShift64::new();
+            for h in 1..=HMAX {
+                for w in 1..=WMAX {
+                    let a = (0..h)
+                        .map(|_| {
+                            (0..w)
+                                .map(|_| r.next_usize() as u64 % VMAX)
+                                .collect::<Vec<_>>()
+                        })
+                        .collect::<Vec<_>>();
+                    let wm = WaveletMatrix2D::new(a.clone());
+                    for y0 in 0..h {
+                        for y1 in y0..h {
+                            for x0 in 0..w {
+                                for x1 in 0..w {
+                                    let mut v = vec![];
+                                    for y in y0..=y1 {
+                                        for x in x0..=x1 {
+                                            v.push(a[y][x]);
+                                        }
+                                    }
+                                    v.sort();
+                                    for (k, expected) in v.into_iter().enumerate() {
+                                        let actual = wm.range_kth_smallest(y0, y1, x0, x1, k);
+                                        assert_eq!(expected, actual);
+                                    }
+                                }
+                            }
                         }
                     }
                 }
