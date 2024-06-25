@@ -4531,22 +4531,17 @@ mod wavelet_matrix {
     use bit_vector::BitVector;
 
     pub struct WaveletMatrix {
-        org: Vec<u64>,
         bit_vectors: Vec<BitVector>,
-        last: BTreeMap<u64, usize>,
-        pre_pos: Vec<Vec<Vec<usize>>>,
         d: usize,
     }
     impl WaveletMatrix {
         // construct. O(ND)
         pub fn new(mut a: Vec<u64>) -> Self {
-            let org = a.clone();
             let &mx = a.iter().max().unwrap();
             let mut d = 0;
             while mx & !((1u64 << d) - 1) != 0 {
                 d += 1;
             }
-            let mut pre_pos = vec![];
             let mut bit_vectors = vec![];
             for di in (0..d).rev() {
                 // calc
@@ -4554,24 +4549,18 @@ mod wavelet_matrix {
                 // sort a
                 let mut a0 = vec![];
                 let mut a1 = vec![];
-                let mut pre_pos0 = vec![];
-                let mut pre_pos1 = vec![];
                 for (i, &a) in a.iter().enumerate() {
                     if bit_vector.get(i) {
                         a1.push(a);
-                        pre_pos1.push(i);
                     } else {
                         a0.push(a);
-                        pre_pos0.push(i);
                     }
                 }
                 a = a0.into_iter().chain(a1.into_iter()).collect::<Vec<_>>();
                 // record
                 bit_vectors.push(bit_vector);
-                pre_pos.push(vec![pre_pos0, pre_pos1]);
             }
             bit_vectors.reverse();
-            pre_pos.reverse();
             let mut last = BTreeMap::new();
             for (i, a) in a.into_iter().enumerate() {
                 if last.contains_key(&a) {
@@ -4579,51 +4568,20 @@ mod wavelet_matrix {
                 }
                 last.insert(a, i);
             }
-            Self {
-                org,
-                bit_vectors,
-                last,
-                pre_pos,
-                d,
-            }
+            Self { bit_vectors, d }
         }
         // get i-th value of array. O(D)
-        pub fn get(&self, i: usize) -> u64 {
-            self.org[i]
-        }
-        // count frequency of val shown inside [0..=to]. O(D)
-        fn left_freq(&self, val: u64, to: usize) -> usize {
-            self.left_freq_impl(val, to + 1)
-        }
-        // count frequency of val shown inside [0..to]. O(D)
-        fn left_freq_impl(&self, val: u64, mut to: usize) -> usize {
+        pub fn get(&self, mut i: usize) -> u64 {
+            let mut val = 0;
             for (di, bit_vector) in self.bit_vectors.iter().enumerate().rev() {
-                if ((val >> di) & 1) == 0 {
-                    let c0 = bit_vector.rank0(to);
-                    to = c0;
-                    if to == 0 {
-                        return 0;
-                    }
+                if bit_vector.get(i) {
+                    val |= 1u64 << di;
+                    i = bit_vector.zero_num() + bit_vector.rank1(i);
                 } else {
-                    let c0 = bit_vector.zero_num();
-                    let c1 = bit_vector.rank1(to);
-                    to = c0 + c1;
+                    i = bit_vector.rank0(i);
                 }
             }
-            to - self.last[&val]
-        }
-        // value's i-th shown position
-        pub fn at(&self, val: u64, ith: usize) -> usize {
-            let mut at = self.last[&val] + ith;
-            for di in 0..self.d {
-                let b = ((val >> di) & 1) as usize;
-                if b == 0 {
-                    at = self.pre_pos[di][b][at];
-                } else {
-                    at = self.pre_pos[di][b][at - self.bit_vectors[di].zero_num()];
-                }
-            }
-            at
+            val
         }
         // count value s.t. minv <= value <= maxv, in [l..=r]. O(D)
         pub fn range_freq(&self, minv: u64, maxv: u64, l: usize, r: usize) -> usize {
@@ -4713,26 +4671,7 @@ mod wavelet_matrix {
                 for (i, a) in a.into_iter().enumerate() {
                     *cnt.entry(a).or_insert(0) += 1;
                     for (&aval, &cnt) in cnt.iter() {
-                        assert_eq!(wm.left_freq(aval, i), cnt);
-                    }
-                }
-            }
-        }
-        #[test]
-        fn at() {
-            let mut r = XorShift64::new();
-            for _ in 0..T {
-                let a = (0..N)
-                    .map(|_| r.next_usize() as u64 % V)
-                    .collect::<Vec<_>>();
-                let wm = WaveletMatrix::new(a.clone());
-                let mut pos = BTreeMap::new();
-                for (i, a) in a.into_iter().enumerate() {
-                    pos.entry(a).or_insert(vec![]).push(i);
-                }
-                for (val, pos) in pos {
-                    for (ith, pos) in pos.into_iter().enumerate() {
-                        assert_eq!(wm.at(val, ith), pos);
+                        assert_eq!(wm.range_freq(aval, aval, 0, i), cnt);
                     }
                 }
             }
