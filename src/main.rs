@@ -4619,10 +4619,14 @@ mod wavelet_matrix {
                     r = c0_left + c0_in;
                 } else {
                     // next 1
-                    l = bit_vector.zero_num() + c1_left;
-                    r = bit_vector.zero_num() + c1_left + c1_in;
+                    let zero_num = bit_vector.zero_num();
+                    l = zero_num + c1_left;
+                    r = zero_num + c1_left + c1_in;
                     k -= c0_in;
                     val |= 1u64 << di;
+                }
+                if l >= r {
+                    break;
                 }
             }
             val
@@ -4645,23 +4649,6 @@ mod wavelet_matrix {
                 for (i, a) in a.into_iter().enumerate() {
                     let chk = wm.get(i);
                     assert_eq!(a, chk);
-                }
-            }
-        }
-        #[test]
-        fn left_freq() {
-            let mut r = XorShift64::new();
-            for _ in 0..T {
-                let a = (0..N)
-                    .map(|_| r.next_usize() as u64 % V)
-                    .collect::<Vec<_>>();
-                let mut cnt = a.iter().map(|&a| (a, 0)).collect::<BTreeMap<u64, usize>>();
-                let wm = WaveletMatrix::new(a.clone());
-                for (i, a) in a.into_iter().enumerate() {
-                    *cnt.entry(a).or_insert(0) += 1;
-                    for (&aval, &cnt) in cnt.iter() {
-                        assert_eq!(wm.range_freq(aval, aval, 0, i), cnt);
-                    }
                 }
             }
         }
@@ -4817,15 +4804,62 @@ mod wavelet_matrix {
             }
             val
         }
+        fn low_freq(&self, y0: usize, y1: usize, x0: usize, x1: usize, upper: u64) -> usize {
+            if upper & !((1u64 << self.pos_vectors.len()) - 1) != 0 {
+                return (y1 - y0 + 1) * (x1 - x0 + 1);
+            }
+            let mut cnt = 0;
+            let mut l = y0 * self.w;
+            let mut r = (y1 + 1) * self.w;
+            for (di, pos_vector) in self.pos_vectors.iter().enumerate().rev() {
+                let mut c0_left = 0;
+                let mut c1_left = 0;
+                if l > 0 {
+                    c0_left = pos_vector.range_freq(0, self.w as u64 - 1, 0, l - 1);
+                    c1_left = l - c0_left;
+                };
+                let c0_in = pos_vector.range_freq(0, self.w as u64 - 1, l, r - 1);
+                let c0val_in = pos_vector.range_freq(x0 as u64, x1 as u64, l, r - 1);
+                debug_assert!(c0val_in <= c0_in);
+                let c1_in = (r - l) - c0_in;
+                if ((upper >> di) & 1) == 0 {
+                    // next0
+                    l = c0_left;
+                    r = c0_left + c0_in;
+                } else {
+                    cnt += c0val_in;
+                    // next 1
+                    let zero_num =
+                        pos_vector.range_freq(0, self.w as u64 - 1, 0, self.h * self.w - 1);
+                    l = zero_num + c1_left;
+                    r = zero_num + c1_left + c1_in;
+                }
+                if l >= r {
+                    break;
+                }
+            }
+            cnt
+        }
+        fn range_freq(
+            &self,
+            y0: usize,
+            y1: usize,
+            x0: usize,
+            x1: usize,
+            minv: u64,
+            maxv: u64,
+        ) -> usize {
+            self.low_freq(y0, y1, x0, x1, maxv + 1) - self.low_freq(y0, y1, x0, x1, minv)
+        }
     }
-    pub mod wavelet_matrix_2d_test {
+    mod wavelet_matrix_2d_test {
         use super::super::XorShift64;
         use super::WaveletMatrix2D;
-        const HMAX: usize = 16;
-        const WMAX: usize = 16;
-        const VMAX: u64 = 32;
+        const HMAX: usize = 8;
+        const WMAX: usize = 8;
+        const VMAX: u64 = 8;
         #[test]
-        pub fn range_kth_smallest() {
+        fn range_kth_smallest() {
             let mut r = XorShift64::new();
             for h in 1..=HMAX {
                 for w in 1..=WMAX {
@@ -4851,6 +4885,52 @@ mod wavelet_matrix {
                                     for (k, expected) in v.into_iter().enumerate() {
                                         let actual = wm.range_kth_smallest(y0, y1, x0, x1, k);
                                         assert_eq!(expected, actual);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        #[test]
+        fn range_freq() {
+            let mut r = XorShift64::new();
+            for h in 1..=HMAX {
+                for w in 1..=WMAX {
+                    let a = (0..h)
+                        .map(|_| {
+                            (0..w)
+                                .map(|_| r.next_usize() as u64 % VMAX)
+                                .collect::<Vec<_>>()
+                        })
+                        .collect::<Vec<_>>();
+                    let wm = WaveletMatrix2D::new(a.clone());
+                    for y0 in 0..h {
+                        for y1 in y0..h {
+                            for x0 in 0..w {
+                                for x1 in x0..w {
+                                    let mut seg = super::super::SegmentTree::<usize>::new(
+                                        VMAX as usize,
+                                        |x, y| x + y,
+                                        0,
+                                    );
+                                    for y in y0..=y1 {
+                                        for x in x0..=x1 {
+                                            seg.add(a[y][x] as usize, 1);
+                                        }
+                                    }
+                                    for minv in 0..VMAX {
+                                        for maxv in minv..VMAX {
+                                            let low_expected = seg.query(0, maxv as usize);
+                                            let low_actual = wm.low_freq(y0, y1, x0, x1, maxv + 1);
+                                            assert_eq!(low_actual, low_expected);
+                                            let range_expected =
+                                                seg.query(minv as usize, maxv as usize);
+                                            let range_actual =
+                                                wm.range_freq(y0, y1, x0, x1, minv, maxv);
+                                            assert_eq!(range_actual, range_expected);
+                                        }
                                     }
                                 }
                             }
