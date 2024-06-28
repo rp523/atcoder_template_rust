@@ -4535,7 +4535,7 @@ mod wavelet_matrix {
         bit_vectors: Vec<BitVector>,
     }
     impl WaveletMatrix {
-        // construct. O(ND)
+        // construct. O(N * log(ValueMax))
         pub fn new(mut a: Vec<u64>) -> Self {
             let &mx = a.iter().max().unwrap();
             let mut d = 0;
@@ -4559,7 +4559,7 @@ mod wavelet_matrix {
             bit_vectors.reverse();
             Self { bit_vectors }
         }
-        // get i-th value of array. O(D)
+        // get a[i]. O(log(ValueMax))
         pub fn get(&self, mut i: usize) -> u64 {
             let mut val = 0;
             for (di, bit_vector) in self.bit_vectors.iter().enumerate().rev() {
@@ -4572,11 +4572,11 @@ mod wavelet_matrix {
             }
             val
         }
-        // count value s.t. minv <= value <= maxv, in [l..=r]. O(D)
-        pub fn range_freq(&self, minv: u64, maxv: u64, l: usize, r: usize) -> usize {
-            self.low_freq(maxv + 1, l, r + 1) - self.low_freq(minv, l, r + 1)
+        // count value s.t. lower <= value < upper, in a[l..r]. O(log(ValueMax))
+        pub fn range_freq(&self, lower: u64, upper: u64, l: usize, r: usize) -> usize {
+            self.low_freq(upper, l, r) - self.low_freq(lower, l, r)
         }
-        // count value s.t. value < upper, in [l..=r]. O(D)
+        // count value s.t. value < upper, in a[l..r]. O(log(ValueMax))
         fn low_freq(&self, upper: u64, mut l: usize, mut r: usize) -> usize {
             if upper & !((1u64 << self.bit_vectors.len()) - 1) != 0 {
                 return r - l;
@@ -4604,9 +4604,8 @@ mod wavelet_matrix {
             }
             lows
         }
-        // get k-th smallest value in subarray a[l..=r]. O(D)
+        // get k-th smallest value in a[l..r]. O(log(ValueMax))
         fn range_kth_smallest(&self, mut l: usize, mut r: usize, mut k: usize) -> u64 {
-            r += 1;
             let mut val = 0;
             for (di, bit_vector) in self.bit_vectors.iter().enumerate().rev() {
                 let c0_left = bit_vector.rank0(l);
@@ -4637,13 +4636,13 @@ mod wavelet_matrix {
         use super::*;
         const T: usize = 300;
         const N: usize = 30;
-        const V: u64 = 30;
+        const UPPER: u64 = 30;
         #[test]
         fn get() {
             let mut r = XorShift64::new();
             for _ in 0..T {
                 let a = (0..N)
-                    .map(|_| r.next_usize() as u64 % V)
+                    .map(|_| r.next_usize() as u64 % UPPER)
                     .collect::<Vec<_>>();
                 let wm = WaveletMatrix::new(a.clone());
                 for (i, a) in a.into_iter().enumerate() {
@@ -4657,14 +4656,14 @@ mod wavelet_matrix {
             let mut r = XorShift64::new();
             for _ in 0..T {
                 let a = (0..N)
-                    .map(|_| r.next_usize() as u64 % V)
+                    .map(|_| r.next_usize() as u64 % UPPER)
                     .collect::<Vec<_>>();
                 let wm = WaveletMatrix::new(a.clone());
                 for l in 0..N {
-                    for r in l..N {
-                        for maxv in 0..V {
-                            let exp = (l..=r).map(|i| a[i]).filter(|&a| a <= maxv).count();
-                            let act = wm.low_freq(maxv + 1, l, r + 1);
+                    for r in l..=N {
+                        for upper in 0..=UPPER {
+                            let exp = (l..r).map(|i| a[i]).filter(|&a| a < upper).count();
+                            let act = wm.low_freq(upper, l, r);
                             assert_eq!(act, exp);
                         }
                     }
@@ -4676,18 +4675,18 @@ mod wavelet_matrix {
             let mut r = XorShift64::new();
             for _ in 0..T {
                 let a = (0..N)
-                    .map(|_| r.next_usize() as u64 % V)
+                    .map(|_| r.next_usize() as u64 % UPPER)
                     .collect::<Vec<_>>();
                 let wm = WaveletMatrix::new(a.clone());
                 for l in 0..N {
                     for r in l..N {
-                        for minv in 0..V {
-                            for maxv in minv..V {
-                                let exp = (l..=r)
+                        for lower in 0..UPPER {
+                            for upper in lower..=UPPER {
+                                let exp = (l..r)
                                     .map(|i| a[i])
-                                    .filter(|&a| minv <= a && a <= maxv)
+                                    .filter(|&a| lower <= a && a < upper)
                                     .count();
-                                let act = wm.range_freq(minv, maxv, l, r);
+                                let act = wm.range_freq(lower, upper, l, r);
                                 assert_eq!(act, exp);
                             }
                         }
@@ -4700,12 +4699,12 @@ mod wavelet_matrix {
             let mut r = XorShift64::new();
             for _ in 0..T {
                 let a = (0..N)
-                    .map(|_| r.next_usize() as u64 % V)
+                    .map(|_| r.next_usize() as u64 % UPPER)
                     .collect::<Vec<_>>();
                 let wm = WaveletMatrix::new(a.clone());
                 for l in 0..N {
-                    for r in l..N {
-                        let mut sub = (l..=r).map(|i| a[i]).collect::<Vec<_>>();
+                    for r in l..=N {
+                        let mut sub = (l..r).map(|i| a[i]).collect::<Vec<_>>();
                         sub.sort();
                         for (k, exp) in sub.into_iter().enumerate() {
                             let act = wm.range_kth_smallest(l, r, k);
@@ -4759,7 +4758,7 @@ mod wavelet_matrix {
             pos_vectors.reverse();
             Self { h, w, pos_vectors }
         }
-        // get k-th smallest value in subarray a[y0..=y1][x0..=x1]. O(D)
+        // get k-th smallest value in a[y0..y1][x0..x1]. O(log(ValueMax) * log(W))
         fn range_kth_smallest(
             &self,
             y0: usize,
@@ -4770,19 +4769,14 @@ mod wavelet_matrix {
         ) -> u64 {
             let mut val = 0;
             let mut l = y0 * self.w;
-            let mut r = (y1 + 1) * self.w;
+            let mut r = y1 * self.w;
             for (di, pos_vector) in self.pos_vectors.iter().enumerate().rev() {
-                let mut c0_left = 0;
-                let mut c0val_left = 0;
-                let mut c1_left = 0;
-                if l > 0 {
-                    c0_left = pos_vector.range_freq(0, self.w as u64 - 1, 0, l - 1);
-                    c0val_left = pos_vector.range_freq(x0 as u64, x1 as u64, 0, l - 1);
-                    c1_left = l - c0_left;
-                };
+                let c0_left = pos_vector.range_freq(0, self.w as u64, 0, l);
+                let c0val_left = pos_vector.range_freq(x0 as u64, x1 as u64, 0, l);
+                let c1_left = l - c0_left;
                 debug_assert!(c0val_left <= c0_left);
-                let c0_in = pos_vector.range_freq(0, self.w as u64 - 1, l, r - 1);
-                let c0val_in = pos_vector.range_freq(x0 as u64, x1 as u64, l, r - 1);
+                let c0_in = pos_vector.range_freq(0, self.w as u64, l, r);
+                let c0val_in = pos_vector.range_freq(x0 as u64, x1 as u64, l, r);
                 debug_assert!(c0val_in <= c0_in);
                 let c1_in = (r - l) - c0_in;
                 if c0val_in > k {
@@ -4792,8 +4786,7 @@ mod wavelet_matrix {
                 } else {
                     // next 1
                     k -= c0val_in;
-                    let zero_num =
-                        pos_vector.range_freq(0, self.w as u64 - 1, 0, self.h * self.w - 1);
+                    let zero_num = pos_vector.range_freq(0, self.w as u64, 0, self.h * self.w);
                     l = zero_num + c1_left;
                     r = zero_num + c1_left + c1_in;
                     val |= 1u64 << di;
@@ -4804,22 +4797,32 @@ mod wavelet_matrix {
             }
             val
         }
+        // count value s.t. lower <= value < upper, in a[y0..y1][x0..x1]. O(log(ValueMax) * log(W))
+        fn range_freq(
+            &self,
+            y0: usize,
+            y1: usize,
+            x0: usize,
+            x1: usize,
+            lower: u64,
+            upper: u64,
+        ) -> usize {
+            self.low_freq(y0, y1, x0, x1, upper) - self.low_freq(y0, y1, x0, x1, lower)
+        }
+        // count value s.t. value < upper, in a[y0..y1][x0..x1]. O(log(ValueMax) * log(W))
         fn low_freq(&self, y0: usize, y1: usize, x0: usize, x1: usize, upper: u64) -> usize {
             if upper & !((1u64 << self.pos_vectors.len()) - 1) != 0 {
-                return (y1 - y0 + 1) * (x1 - x0 + 1);
+                return (y1 - y0) * (x1 - x0);
             }
+            let area = self.h * self.w;
             let mut cnt = 0;
             let mut l = y0 * self.w;
-            let mut r = (y1 + 1) * self.w;
+            let mut r = y1 * self.w;
             for (di, pos_vector) in self.pos_vectors.iter().enumerate().rev() {
-                let mut c0_left = 0;
-                let mut c1_left = 0;
-                if l > 0 {
-                    c0_left = pos_vector.range_freq(0, self.w as u64 - 1, 0, l - 1);
-                    c1_left = l - c0_left;
-                };
-                let c0_in = pos_vector.range_freq(0, self.w as u64 - 1, l, r - 1);
-                let c0val_in = pos_vector.range_freq(x0 as u64, x1 as u64, l, r - 1);
+                let c0_left = pos_vector.range_freq(0, self.w as u64, 0, l);
+                let c1_left = l - c0_left;
+                let c0_in = pos_vector.range_freq(0, self.w as u64, l, r);
+                let c0val_in = pos_vector.range_freq(x0 as u64, x1 as u64, l, r);
                 debug_assert!(c0val_in <= c0_in);
                 let c1_in = (r - l) - c0_in;
                 if ((upper >> di) & 1) == 0 {
@@ -4829,8 +4832,7 @@ mod wavelet_matrix {
                 } else {
                     cnt += c0val_in;
                     // next 1
-                    let zero_num =
-                        pos_vector.range_freq(0, self.w as u64 - 1, 0, self.h * self.w - 1);
+                    let zero_num = pos_vector.range_freq(0, self.w as u64, 0, area);
                     l = zero_num + c1_left;
                     r = zero_num + c1_left + c1_in;
                 }
@@ -4840,24 +4842,13 @@ mod wavelet_matrix {
             }
             cnt
         }
-        fn range_freq(
-            &self,
-            y0: usize,
-            y1: usize,
-            x0: usize,
-            x1: usize,
-            minv: u64,
-            maxv: u64,
-        ) -> usize {
-            self.low_freq(y0, y1, x0, x1, maxv + 1) - self.low_freq(y0, y1, x0, x1, minv)
-        }
     }
     mod wavelet_matrix_2d_test {
         use super::super::XorShift64;
         use super::WaveletMatrix2D;
         const HMAX: usize = 8;
         const WMAX: usize = 8;
-        const VMAX: u64 = 8;
+        const UPPER: u64 = 8;
         #[test]
         fn range_kth_smallest() {
             let mut r = XorShift64::new();
@@ -4866,18 +4857,18 @@ mod wavelet_matrix {
                     let a = (0..h)
                         .map(|_| {
                             (0..w)
-                                .map(|_| r.next_usize() as u64 % VMAX)
+                                .map(|_| r.next_usize() as u64 % UPPER)
                                 .collect::<Vec<_>>()
                         })
                         .collect::<Vec<_>>();
                     let wm = WaveletMatrix2D::new(a.clone());
                     for y0 in 0..h {
-                        for y1 in y0..h {
+                        for y1 in y0..=h {
                             for x0 in 0..w {
-                                for x1 in 0..w {
+                                for x1 in x0..=w {
                                     let mut v = vec![];
-                                    for y in y0..=y1 {
-                                        for x in x0..=x1 {
+                                    for y in y0..y1 {
+                                        for x in x0..x1 {
                                             v.push(a[y][x]);
                                         }
                                     }
@@ -4901,34 +4892,41 @@ mod wavelet_matrix {
                     let a = (0..h)
                         .map(|_| {
                             (0..w)
-                                .map(|_| r.next_usize() as u64 % VMAX)
+                                .map(|_| r.next_usize() as u64 % UPPER)
                                 .collect::<Vec<_>>()
                         })
                         .collect::<Vec<_>>();
                     let wm = WaveletMatrix2D::new(a.clone());
                     for y0 in 0..h {
-                        for y1 in y0..h {
+                        for y1 in y0..=h {
                             for x0 in 0..w {
-                                for x1 in x0..w {
+                                for x1 in x0..=w {
                                     let mut seg = super::super::SegmentTree::<usize>::new(
-                                        VMAX as usize,
+                                        UPPER as usize,
                                         |x, y| x + y,
                                         0,
                                     );
-                                    for y in y0..=y1 {
-                                        for x in x0..=x1 {
+                                    for y in y0..y1 {
+                                        for x in x0..x1 {
                                             seg.add(a[y][x] as usize, 1);
                                         }
                                     }
-                                    for minv in 0..VMAX {
-                                        for maxv in minv..VMAX {
-                                            let low_expected = seg.query(0, maxv as usize);
-                                            let low_actual = wm.low_freq(y0, y1, x0, x1, maxv + 1);
+                                    for lower in 0..UPPER {
+                                        for upper in lower..=UPPER {
+                                            let low_expected = if upper == 0 {
+                                                0
+                                            } else {
+                                                seg.query(0, upper as usize - 1)
+                                            };
+                                            let low_actual = wm.low_freq(y0, y1, x0, x1, upper);
                                             assert_eq!(low_actual, low_expected);
-                                            let range_expected =
-                                                seg.query(minv as usize, maxv as usize);
+                                            let range_expected = if lower == upper {
+                                                0
+                                            } else {
+                                                seg.query(lower as usize, upper as usize - 1)
+                                            };
                                             let range_actual =
-                                                wm.range_freq(y0, y1, x0, x1, minv, maxv);
+                                                wm.range_freq(y0, y1, x0, x1, lower, upper);
                                             assert_eq!(range_actual, range_expected);
                                         }
                                     }
