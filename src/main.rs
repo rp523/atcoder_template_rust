@@ -223,17 +223,19 @@ fn factorial_impl<
     T: Clone + Copy + From<usize> + Into<usize> + Mul<Output = T> + Div<Output = T>,
 >(
     p: usize,
-    memo: &mut Vec<usize>,
+    memo: *mut Vec<usize>,
     update_op: fn(T, T) -> T,
 ) -> T {
-    while memo.len() < 2_usize {
-        memo.push(1_usize);
+    unsafe {
+        while (*memo).len() < 2_usize {
+            (*memo).push(1_usize);
+        }
+        while (*memo).len() <= p + 1 {
+            let last_val: T = T::from(*(*memo).last().unwrap());
+            (*memo).push(update_op(last_val, T::from((*memo).len())).into());
+        }
+        T::from((*memo)[p])
     }
-    while memo.len() <= p + 1 {
-        let last_val: T = T::from(*memo.last().unwrap());
-        memo.push(update_op(last_val, T::from(memo.len())).into());
-    }
-    T::from(memo[p])
 }
 
 fn factorial<
@@ -242,7 +244,9 @@ fn factorial<
     p: usize,
 ) -> T {
     static mut MEMO: Vec<usize> = Vec::<usize>::new();
-    unsafe { factorial_impl(p, &mut MEMO, |x: T, y: T| x * y) }
+    factorial_impl(p, unsafe { std::ptr::addr_of_mut!(MEMO) }, |x: T, y: T| {
+        x * y
+    })
 }
 
 fn factorial_inv<
@@ -251,7 +255,9 @@ fn factorial_inv<
     p: usize,
 ) -> T {
     static mut MEMO: Vec<usize> = Vec::<usize>::new();
-    unsafe { factorial_impl(p, &mut MEMO, |x: T, y: T| x / y) }
+    factorial_impl(p, unsafe { std::ptr::addr_of_mut!(MEMO) }, |x: T, y: T| {
+        x / y
+    })
 }
 
 fn combination<
@@ -1515,7 +1521,7 @@ mod sort_vec_binary_search {
     static mut VEC_IS_SORTED_ONCE: bool = false;
     #[allow(clippy::type_complexity)]
     fn sorted_binary_search<'a, T: PartialOrd>(
-        vec: &'a Vec<T>,
+        vec: &'a [T],
         key: &T,
         earlier: fn(&T, &T) -> bool,
     ) -> (Option<(usize, &'a T)>, Option<(usize, &'a T)>) {
@@ -2046,7 +2052,7 @@ mod rolling_hash {
         }
     }
     impl RollingHash {
-        pub fn new(values: &Vec<usize>, base: usize) -> RollingHash {
+        pub fn new(values: &[usize], base: usize) -> RollingHash {
             let n = values.len();
 
             let mut base_powers = vec![vec![1; n]; 2];
@@ -2237,7 +2243,10 @@ mod rational {
     }
     impl PartialOrd for Rational {
         fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-            i64::partial_cmp(&(self.num * other.denom), &(self.denom * other.num))
+            Some(i64::cmp(
+                &(self.num * other.denom),
+                &(self.denom * other.num),
+            ))
         }
     }
     impl Ord for Rational {
@@ -2313,7 +2322,7 @@ mod convex_hull {
             }
         }
         pub fn add(&mut self, y: i64, x: i64) {
-            self.x_ys.entry(x).or_insert(vec![]).push(y);
+            self.x_ys.entry(x).or_default().push(y);
         }
         pub fn convex_hull(&self) -> Vec<(i64, i64)> {
             let mut x_ys = self
@@ -2772,7 +2781,7 @@ mod flow {
             let s2t_cost_flow = self.min_cost_slope_impl(src, dst, flow_lb, flow_ub);
             s2t_cost_flow
                 .into_iter()
-                .zip(ds2dt_cost_flow.into_iter())
+                .zip(ds2dt_cost_flow)
                 .map(|((ds2dt_cost, _ds2dt_flow), (s2t_cost, s2t_flow))| {
                     (ds2dt_cost + s2t_cost, s2t_flow)
                 })
@@ -3984,7 +3993,7 @@ mod dynamic_connectivity {
                     // try_reconnect in euler tour
                     while let Some(x) = EulerTour::extract_useless_connected(node_a) {
                         while let Some(&y) = self.useless_edges[i][x].iter().next() {
-                            for (x, y) in vec![(x, y), (y, x)].iter().copied() {
+                            for (x, y) in [(x, y), (y, x)].iter().copied() {
                                 assert!(self.useless_edges[i][x].remove(&y));
                                 if self.useless_edges[i][x].is_empty() {
                                     self.trees[i].update_useless_connected(x, false);
@@ -4356,7 +4365,7 @@ mod bit_set {
                 x: self
                     .x
                     .into_iter()
-                    .zip(rhs.x.into_iter())
+                    .zip(rhs.x)
                     .map(|(x, y)| x & y)
                     .collect::<Vec<_>>(),
             }
@@ -4364,10 +4373,7 @@ mod bit_set {
     }
     impl std::ops::BitAndAssign for BitSet {
         fn bitand_assign(&mut self, rhs: Self) {
-            self.x
-                .iter_mut()
-                .zip(rhs.x.into_iter())
-                .for_each(|(x, y)| *x &= y);
+            self.x.iter_mut().zip(rhs.x).for_each(|(x, y)| *x &= y);
         }
     }
     impl std::ops::BitOr for BitSet {
@@ -4377,7 +4383,7 @@ mod bit_set {
                 x: self
                     .x
                     .into_iter()
-                    .zip(rhs.x.into_iter())
+                    .zip(rhs.x)
                     .map(|(x, y)| x | y)
                     .collect::<Vec<_>>(),
             }
@@ -4385,10 +4391,7 @@ mod bit_set {
     }
     impl std::ops::BitOrAssign for BitSet {
         fn bitor_assign(&mut self, rhs: Self) {
-            self.x
-                .iter_mut()
-                .zip(rhs.x.into_iter())
-                .for_each(|(x, y)| *x |= y);
+            self.x.iter_mut().zip(rhs.x).for_each(|(x, y)| *x |= y);
         }
     }
     impl std::ops::BitXor for BitSet {
@@ -4398,7 +4401,7 @@ mod bit_set {
                 x: self
                     .x
                     .into_iter()
-                    .zip(rhs.x.into_iter())
+                    .zip(rhs.x)
                     .map(|(x, y)| x ^ y)
                     .collect::<Vec<_>>(),
             }
@@ -4406,10 +4409,7 @@ mod bit_set {
     }
     impl std::ops::BitXorAssign for BitSet {
         fn bitxor_assign(&mut self, rhs: Self) {
-            self.x
-                .iter_mut()
-                .zip(rhs.x.into_iter())
-                .for_each(|(x, y)| *x ^= y);
+            self.x.iter_mut().zip(rhs.x).for_each(|(x, y)| *x ^= y);
         }
     }
 }
