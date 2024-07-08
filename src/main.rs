@@ -454,6 +454,49 @@ mod segment_tree {
                 bval.unwrap()
             }
         }
+        pub fn right_cliff(&self, l: usize, jdg: impl Fn(T) -> bool) -> Option<usize> {
+            let mut v = l + self.n;
+            if !jdg(self.dat[v].clone()) {
+                return None;
+            }
+            if jdg(self.query(l, self.n - 1)) {
+                return Some(self.n - 1);
+            }
+            let mut true_fix = None;
+            loop {
+                let ev = if let Some(true_fix) = true_fix.clone() {
+                    (self.pair_op)(true_fix, self.dat[v].clone())
+                } else {
+                    self.dat[v].clone()
+                };
+                if jdg(ev.clone()) {
+                    if v & 1 == 0 {
+                        v = v / 2;
+                    } else {
+                        v = v / 2 + 1;
+                        true_fix = Some(ev);
+                    }
+                } else {
+                    break;
+                }
+            }
+            while v < self.n {
+                let lc = v * 2;
+                let rc = lc + 1;
+                let ev_lc = if let Some(true_fix) = true_fix.clone() {
+                    (self.pair_op)(true_fix, self.dat[lc].clone())
+                } else {
+                    self.dat[lc].clone()
+                };
+                if !jdg(ev_lc.clone()) {
+                    v = lc;
+                } else {
+                    v = rc;
+                    true_fix = Some(ev_lc);
+                }
+            }
+            Some(v - 1 - self.n)
+        }
     }
     impl<T: Copy + Add<Output = T> + Sub<Output = T>> SegmentTree<T> {
         pub fn add(&mut self, pos: usize, add_val: T) {
@@ -461,6 +504,41 @@ mod segment_tree {
         }
         pub fn sub(&mut self, pos: usize, sub_val: T) {
             self.set(pos, self.get(pos) - sub_val);
+        }
+    }
+    mod test {
+        use super::super::XorShift64;
+        use super::SegmentTree;
+        #[test]
+        fn right_cliff() {
+            let mut rand = XorShift64::new();
+            const T: usize = 100;
+            const N: usize = 100;
+            const V: usize = 50;
+            for _ in 0..T {
+                for n in 1..=N {
+                    let a = (0..n).map(|_| rand.next_usize() % V).collect::<Vec<_>>();
+                    let seg = SegmentTree::<usize>::from_vec(std::cmp::max, a.clone());
+                    for v in 0..=V {
+                        for l in 0..n {
+                            let jdg = |x| x < v;
+                            let actural = seg.right_cliff(l, jdg);
+                            let mut expected = None;
+                            for r in l..n {
+                                if jdg(seg.query(l, r)) {
+                                    expected = Some(r);
+                                } else {
+                                    break;
+                                }
+                            }
+                            if expected != actural {
+                                let _ = seg.right_cliff(l, jdg);
+                                assert_eq!(expected, actural);
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
