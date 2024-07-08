@@ -454,13 +454,16 @@ mod segment_tree {
                 bval.unwrap()
             }
         }
-        pub fn right_cliff(&self, l: usize, jdg: impl Fn(T) -> bool) -> Option<usize> {
+        pub fn right_rise(&self, l: usize, jdg: impl Fn(T) -> bool) -> Option<usize> {
+            self.right_fall(l, |x| !jdg(x))
+        }
+        pub fn right_fall(&self, l: usize, jdg: impl Fn(T) -> bool) -> Option<usize> {
             let mut v = l + self.n;
             if !jdg(self.dat[v].clone()) {
-                return None;
+                return Some(l);
             }
             if jdg(self.query(l, self.n - 1)) {
-                return Some(self.n - 1);
+                return None;
             }
             let mut true_fix = None;
             loop {
@@ -470,12 +473,11 @@ mod segment_tree {
                     self.dat[v].clone()
                 };
                 if jdg(ev.clone()) {
-                    if v & 1 == 0 {
-                        v = v / 2;
-                    } else {
-                        v = v / 2 + 1;
+                    if v & 1 != 0 {
+                        v += 1;
                         true_fix = Some(ev);
                     }
+                    v /= 2;
                 } else {
                     break;
                 }
@@ -495,7 +497,7 @@ mod segment_tree {
                     true_fix = Some(ev_lc);
                 }
             }
-            Some(v - 1 - self.n)
+            Some(v - self.n)
         }
     }
     impl<T: Copy + Add<Output = T> + Sub<Output = T>> SegmentTree<T> {
@@ -510,7 +512,7 @@ mod segment_tree {
         use super::super::XorShift64;
         use super::SegmentTree;
         #[test]
-        fn right_cliff() {
+        fn binary_search() {
             let mut rand = XorShift64::new();
             const T: usize = 100;
             const N: usize = 100;
@@ -520,22 +522,33 @@ mod segment_tree {
                     let a = (0..n).map(|_| rand.next_usize() % V).collect::<Vec<_>>();
                     let seg = SegmentTree::<usize>::from_vec(std::cmp::max, a.clone());
                     for v in 0..=V {
+                        let lower = |x| x < v;
+                        let upper = |x| x >= v;
                         for l in 0..n {
-                            let jdg = |x| x < v;
-                            let actural = seg.right_cliff(l, jdg);
+                            let actural = seg.right_fall(l, lower);
+                            assert_eq!(actural, seg.right_rise(l, upper));
                             let mut expected = None;
                             for r in l..n {
-                                if jdg(seg.query(l, r)) {
+                                if upper(seg.query(l, r)) {
                                     expected = Some(r);
-                                } else {
                                     break;
                                 }
                             }
-                            if expected != actural {
-                                let _ = seg.right_cliff(l, jdg);
-                                assert_eq!(expected, actural);
-                            }
+                            assert_eq!(expected, actural);
                         }
+                        /*
+                        for r in 0..n {
+                            let actural = seg.left_fall(r, lower);
+                            let mut expected = None;
+                            for l in (0..=r).rev() {
+                                if upper(seg.query(l, r)) {
+                                    expected = Some(r);
+                                    break;
+                                }
+                            }
+                            assert_eq!(expected, actural);
+                        }
+                         */
                     }
                 }
             }
