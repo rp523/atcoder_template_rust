@@ -481,6 +481,11 @@ mod segment_tree {
                 } else {
                     break;
                 }
+                if v == 0 {
+                    v = 1;
+                    true_fix = None;
+                    break;
+                }
             }
             while v < self.n {
                 let lc = v * 2;
@@ -499,6 +504,57 @@ mod segment_tree {
             }
             Some(v - self.n)
         }
+        pub fn left_rise(&self, r: usize, jdg: impl Fn(T) -> bool) -> Option<usize> {
+            self.left_fall(r, |x| !jdg(x))
+        }
+        pub fn left_fall(&self, r: usize, jdg: impl Fn(T) -> bool) -> Option<usize> {
+            let mut v = r + self.n + 1;
+            if !jdg(self.dat[v - 1].clone()) {
+                return Some(r);
+            }
+            if jdg(self.query(0, r)) {
+                return None;
+            }
+            let mut true_fix = None;
+            loop {
+                let ev = if let Some(true_fix) = true_fix.clone() {
+                    (self.pair_op)(self.dat[v - 1].clone(), true_fix)
+                } else {
+                    self.dat[v - 1].clone()
+                };
+                if jdg(ev.clone()) {
+                    if v & 1 != 0 {
+                        v -= 1;
+                        true_fix = Some(ev);
+                    }
+                    v /= 2;
+                } else {
+                    break;
+                }
+                if v == 0 {
+                    v = 1;
+                    true_fix = None;
+                    break;
+                }
+            }
+            v -= 1;
+            while v < self.n {
+                let lc = v * 2;
+                let rc = lc + 1;
+                let ev_rc = if let Some(true_fix) = true_fix.clone() {
+                    (self.pair_op)(self.dat[rc].clone(), true_fix)
+                } else {
+                    self.dat[rc].clone()
+                };
+                if !jdg(ev_rc.clone()) {
+                    v = rc;
+                } else {
+                    v = lc;
+                    true_fix = Some(ev_rc);
+                }
+            }
+            Some(v - self.n)
+        }
     }
     impl<T: Copy + Add<Output = T> + Sub<Output = T>> SegmentTree<T> {
         pub fn add(&mut self, pos: usize, add_val: T) {
@@ -508,20 +564,23 @@ mod segment_tree {
             self.set(pos, self.get(pos) - sub_val);
         }
     }
-    mod test {
+    pub mod test {
         use super::super::XorShift64;
         use super::SegmentTree;
         #[test]
-        fn binary_search() {
-            let mut rand = XorShift64::new();
+        pub fn binary_search() {
             const T: usize = 100;
             const N: usize = 100;
-            const V: usize = 50;
-            for _ in 0..T {
-                for n in 1..=N {
-                    let a = (0..n).map(|_| rand.next_usize() % V).collect::<Vec<_>>();
-                    let seg = SegmentTree::<usize>::from_vec(std::cmp::max, a.clone());
-                    for v in 0..=V {
+            let mut rand = XorShift64::new();
+            for n in 1..=N {
+                let mut a = vec![0; n];
+                let mut seg = SegmentTree::<usize>::from_vec(std::cmp::max, a.clone());
+                for _ in 0..T {
+                    a.iter_mut().enumerate().for_each(|(i, a)| {
+                        *a = rand.next_usize() % N;
+                        seg.set(i, *a);
+                    });
+                    for v in 0..=N {
                         let lower = |x| x < v;
                         let upper = |x| x >= v;
                         for l in 0..n {
@@ -536,19 +595,18 @@ mod segment_tree {
                             }
                             assert_eq!(expected, actural);
                         }
-                        /*
                         for r in 0..n {
                             let actural = seg.left_fall(r, lower);
+                            assert_eq!(actural, seg.left_rise(r, upper));
                             let mut expected = None;
                             for l in (0..=r).rev() {
                                 if upper(seg.query(l, r)) {
-                                    expected = Some(r);
+                                    expected = Some(l);
                                     break;
                                 }
                             }
                             assert_eq!(expected, actural);
                         }
-                         */
                     }
                 }
             }
