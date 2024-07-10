@@ -377,89 +377,135 @@ mod segment_tree {
     #[derive(Debug, Clone)]
     pub struct SegmentTree<T> {
         n: usize,
-        dat: Vec<T>,
+        n2: usize,
+        dat: Vec<Option<T>>,
         pair_op: fn(T, T) -> T,
     }
     impl<T: Clone> SegmentTree<T> {
-        pub fn new(n: usize, pair_op: fn(T, T) -> T, ini_val: T) -> Self {
-            let mut s = Self {
-                n,
-                pair_op,
-                dat: vec![ini_val.clone(); 2 * n],
-            };
-            for i in 0..n {
-                s.set(i, ini_val.clone());
+        fn calc_n2(n: usize) -> usize {
+            let mut n2 = 1;
+            while n2 < n {
+                n2 *= 2;
             }
-            s
+            n2
+        }
+        fn build(&mut self) {
+            for i in (0..self.n2).rev() {
+                let l = i * 2;
+                let r = l + 1;
+                self.dat[i] = if let Some(lv) = self.dat[l].clone() {
+                    if let Some(rv) = self.dat[r].clone() {
+                        Some((self.pair_op)(lv, rv))
+                    } else {
+                        Some(lv)
+                    }
+                } else {
+                    if let Some(rv) = self.dat[r].clone() {
+                        Some(rv)
+                    } else {
+                        None
+                    }
+                };
+            }
+        }
+        pub fn new(n: usize, pair_op: fn(T, T) -> T, ini_val: T) -> Self {
+            Self::from_vec(pair_op, vec![ini_val; n])
         }
         pub fn from_vec(pair_op: fn(T, T) -> T, ini_values: Vec<T>) -> Self {
             let n = ini_values.len();
-            let mut st = Self {
+            let n2 = Self::calc_n2(n);
+            let mut dat = vec![None; n2 * 2];
+            dat.iter_mut()
+                .skip(n2)
+                .zip(ini_values.into_iter())
+                .for_each(|(dat, ini)| {
+                    *dat = Some(ini);
+                });
+            let mut slf = Self {
                 n,
+                n2,
                 pair_op,
-                dat: vec![ini_values[0].clone(); 2 * n],
+                dat,
             };
-            for (i, ini_val) in ini_values.iter().enumerate() {
-                st.set(i, ini_val.clone());
-            }
-            st
+            slf.build();
+            slf
         }
-        pub fn set(&mut self, mut pos: usize, val: T) {
-            pos += self.n;
-            self.dat[pos] = val;
-            let mut par = pos / 2;
-            while par >= 1 {
-                let l = par * 2;
+        pub fn set(&mut self, mut i: usize, val: T) {
+            i += self.n2;
+            self.dat[i] = Some(val);
+            let mut p = i / 2;
+            while p >= 1 {
+                let l = p * 2;
                 let r = l + 1;
-                self.dat[par] = (self.pair_op)(self.dat[l].clone(), self.dat[r].clone());
-                par /= 2;
+                self.dat[p] = if let Some(lv) = self.dat[l].clone() {
+                    if let Some(rv) = self.dat[r].clone() {
+                        Some((self.pair_op)(lv, rv))
+                    } else {
+                        Some(lv)
+                    }
+                } else {
+                    if let Some(rv) = self.dat[r].clone() {
+                        Some(rv)
+                    } else {
+                        None
+                    }
+                };
+                p /= 2;
             }
         }
         pub fn get(&self, pos: usize) -> T {
-            self.dat[pos + self.n].clone()
+            self.dat[pos + self.n2].clone().unwrap()
         }
         // get query value of [a, b]
-        pub fn query(&self, mut a: usize, mut b: usize) -> T {
-            a += self.n;
-            b += self.n + 1;
-            let mut aval = None;
-            let mut bval = None;
-            while a < b {
-                if a % 2 == 1 {
-                    aval = if let Some(aval0) = aval {
-                        Some((self.pair_op)(aval0, self.dat[a].clone()))
+        pub fn query(&self, mut l: usize, mut r: usize) -> T {
+            l += self.n2;
+            r += self.n2 + 1;
+            let mut lcum = None;
+            let mut rcum = None;
+            while l < r {
+                if l % 2 == 1 {
+                    lcum = if let Some(lv) = lcum {
+                        if let Some(v) = self.dat[l].clone() {
+                            Some((self.pair_op)(lv, v))
+                        } else {
+                            Some(lv)
+                        }
                     } else {
-                        Some(self.dat[a].clone())
+                        self.dat[l].clone()
                     };
-                    a += 1;
+                    l += 1;
                 }
-                if b % 2 == 1 {
-                    b -= 1;
-                    bval = if let Some(bval0) = bval {
-                        Some((self.pair_op)(self.dat[b].clone(), bval0))
+                if r % 2 == 1 {
+                    r -= 1;
+                    rcum = if let Some(rv) = rcum {
+                        if let Some(v) = self.dat[r].clone() {
+                            Some((self.pair_op)(v, rv))
+                        } else {
+                            Some(rv)
+                        }
                     } else {
-                        Some(self.dat[b].clone())
+                        self.dat[r].clone()
                     };
                 }
-                a /= 2;
-                b /= 2;
+                l /= 2;
+                r /= 2;
             }
-            if let Some(aval) = aval {
-                if let Some(bval) = bval {
-                    (self.pair_op)(aval, bval)
+            if let Some(lcum) = lcum {
+                if let Some(rcum) = rcum {
+                    (self.pair_op)(lcum, rcum)
                 } else {
-                    aval
+                    lcum
                 }
             } else {
-                bval.unwrap()
+                rcum.unwrap()
             }
         }
         pub fn right_rise(&self, l: usize, jdg: impl Fn(T) -> bool) -> Option<usize> {
             self.right_fall(l, |x| !jdg(x))
         }
         pub fn right_fall(&self, l: usize, jdg: impl Fn(T) -> bool) -> Option<usize> {
-            let mut v = l + self.n;
-            if !jdg(self.dat[v].clone()) {
+            let mut v = l + self.n2;
+            if !jdg(self.dat[v].clone().unwrap()) {
                 return Some(l);
             }
             if jdg(self.query(l, self.n - 1)) {
@@ -468,9 +514,9 @@ mod segment_tree {
             let mut true_fix = None;
             loop {
                 let ev = if let Some(true_fix) = true_fix.clone() {
-                    (self.pair_op)(true_fix, self.dat[v].clone())
+                    (self.pair_op)(true_fix, self.dat[v].clone().unwrap())
                 } else {
-                    self.dat[v].clone()
+                    self.dat[v].clone().unwrap()
                 };
                 if jdg(ev.clone()) {
                     if v & 1 != 0 {
@@ -481,19 +527,14 @@ mod segment_tree {
                 } else {
                     break;
                 }
-                if v == 0 {
-                    v = 1;
-                    true_fix = None;
-                    break;
-                }
             }
-            while v < self.n {
+            while v < self.n2 {
                 let lc = v * 2;
                 let rc = lc + 1;
                 let ev_lc = if let Some(true_fix) = true_fix.clone() {
-                    (self.pair_op)(true_fix, self.dat[lc].clone())
+                    (self.pair_op)(true_fix, self.dat[lc].clone().unwrap())
                 } else {
-                    self.dat[lc].clone()
+                    self.dat[lc].clone().unwrap()
                 };
                 if !jdg(ev_lc.clone()) {
                     v = lc;
@@ -502,14 +543,14 @@ mod segment_tree {
                     true_fix = Some(ev_lc);
                 }
             }
-            Some(v - self.n)
+            Some(v - self.n2)
         }
         pub fn left_rise(&self, r: usize, jdg: impl Fn(T) -> bool) -> Option<usize> {
             self.left_fall(r, |x| !jdg(x))
         }
         pub fn left_fall(&self, r: usize, jdg: impl Fn(T) -> bool) -> Option<usize> {
-            let mut v = r + self.n + 1;
-            if !jdg(self.dat[v - 1].clone()) {
+            let mut v = r + self.n2 + 1;
+            if !jdg(self.dat[v - 1].clone().unwrap()) {
                 return Some(r);
             }
             if jdg(self.query(0, r)) {
@@ -518,9 +559,9 @@ mod segment_tree {
             let mut true_fix = None;
             loop {
                 let ev = if let Some(true_fix) = true_fix.clone() {
-                    (self.pair_op)(self.dat[v - 1].clone(), true_fix)
+                    (self.pair_op)(self.dat[v - 1].clone().unwrap(), true_fix)
                 } else {
-                    self.dat[v - 1].clone()
+                    self.dat[v - 1].clone().unwrap()
                 };
                 if jdg(ev.clone()) {
                     if v & 1 != 0 {
@@ -531,20 +572,15 @@ mod segment_tree {
                 } else {
                     break;
                 }
-                if v == 0 {
-                    v = 1;
-                    true_fix = None;
-                    break;
-                }
             }
             v -= 1;
-            while v < self.n {
+            while v < self.n2 {
                 let lc = v * 2;
                 let rc = lc + 1;
                 let ev_rc = if let Some(true_fix) = true_fix.clone() {
-                    (self.pair_op)(self.dat[rc].clone(), true_fix)
+                    (self.pair_op)(self.dat[rc].clone().unwrap(), true_fix)
                 } else {
-                    self.dat[rc].clone()
+                    self.dat[rc].clone().unwrap()
                 };
                 if !jdg(ev_rc.clone()) {
                     v = rc;
@@ -553,7 +589,7 @@ mod segment_tree {
                     true_fix = Some(ev_rc);
                 }
             }
-            Some(v - self.n)
+            Some(v - self.n2)
         }
     }
     impl<T: Copy + Add<Output = T> + Sub<Output = T>> SegmentTree<T> {
@@ -564,13 +600,34 @@ mod segment_tree {
             self.set(pos, self.get(pos) - sub_val);
         }
     }
-    pub mod test {
+    mod test {
         use super::super::XorShift64;
         use super::SegmentTree;
+        const T: usize = 100;
+        const N: usize = 100;
         #[test]
-        pub fn binary_search() {
-            const T: usize = 100;
-            const N: usize = 100;
+        fn query() {
+            let mut rand = XorShift64::new();
+            for n in 1..=N {
+                let mut a = vec![0; n];
+                let mut seg = SegmentTree::<usize>::from_vec(std::cmp::max, a.clone());
+                for _ in 0..T {
+                    a.iter_mut().enumerate().for_each(|(i, a)| {
+                        *a = rand.next_usize() % N;
+                        seg.set(i, *a);
+                    });
+                    for l in 0..n {
+                        for r in l..n {
+                            let &expected = a[l..=r].iter().max().unwrap();
+                            let actual = seg.query(l, r);
+                            assert_eq!(expected, actual);
+                        }
+                    }
+                }
+            }
+        }
+        #[test]
+        fn binary_search() {
             let mut rand = XorShift64::new();
             for n in 1..=N {
                 let mut a = vec![0; n];
