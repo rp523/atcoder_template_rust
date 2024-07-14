@@ -448,6 +448,15 @@ mod segment_tree {
         pub fn get(&self, pos: usize) -> T {
             self.dat[pos + self.n2].clone().unwrap()
         }
+        pub fn query_all(&mut self) -> T {
+            self.query(0, self.n - 1)
+        }
+        pub fn query_left(&self, r: usize) -> T {
+            self.query(0, r)
+        }
+        pub fn query_right(&self, l: usize) -> T {
+            self.query(l, self.n - 1)
+        }
         // get query value of [a, b]
         pub fn query(&self, mut l: usize, mut r: usize) -> T {
             l += self.n2;
@@ -792,6 +801,7 @@ mod lazy_segment_tree {
     #[derive(Clone)]
     pub struct LazySegmentTree<X, M> {
         // https://algo-logic.info/segment-tree/#toc_id_3
+        n: usize,
         n2: usize,                    // num of node(integer power of 2)
         pair_op: fn(X, X) -> X,       // node_val x node_val -> node_val
         update_op: fn(X, M) -> X,     // node_val x update_val -> node
@@ -813,6 +823,7 @@ mod lazy_segment_tree {
                 n2 *= 2;
             }
             let mut ret = Self {
+                n,
                 n2,
                 pair_op,
                 update_op,
@@ -848,6 +859,18 @@ mod lazy_segment_tree {
                 ret.set(i, init_val.clone());
             }
             ret
+        }
+        pub fn query_all(&mut self) -> X // closed interval
+        {
+            self.query(0, self.n - 1)
+        }
+        pub fn query_left(&mut self, r: usize) -> X // closed interval
+        {
+            self.query(0, r)
+        }
+        pub fn query_right(&mut self, l: usize) -> X // closed interval
+        {
+            self.query(l, self.n - 1)
         }
         pub fn query(&mut self, a: usize, b: usize) -> X // closed interval
         {
@@ -2152,10 +2175,10 @@ mod my_string {
             let p: String = p.vc.iter().collect::<String>();
             s.rfind(&p)
         }
-        pub fn into_values(self, base: char) -> Vec<usize> {
+        pub fn into_usize(self, base: char, offset: usize) -> Vec<usize> {
             self.vc
                 .into_iter()
-                .map(|c| (c as u8 - base as u8) as usize)
+                .map(|c| (c as u8 - base as u8) as usize + offset)
                 .collect::<Vec<usize>>()
         }
         pub fn sort(&mut self) {
