@@ -818,22 +818,7 @@ mod lazy_segment_tree {
             update_concat: fn(M, M) -> M,
             ini_val: X,
         ) -> Self {
-            let mut n2 = 1_usize;
-            while n > n2 {
-                n2 *= 2;
-            }
-            let mut ret = Self {
-                n,
-                n2,
-                pair_op,
-                update_op,
-                update_concat,
-                dat: vec![ini_val.clone(); n * 4],
-                lazy_ops: vec![None; n * 4],
-                built: false,
-            };
-            ret.init_all(ini_val);
-            ret
+            Self::from_vec(pair_op, update_op, update_concat, vec![ini_val.clone(); n])
         }
         pub fn from_vec(
             pair_op: fn(X, X) -> X,
@@ -847,6 +832,7 @@ mod lazy_segment_tree {
                 n2 *= 2;
             }
             let mut ret = Self {
+                n,
                 n2,
                 pair_op,
                 update_op,
