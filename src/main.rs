@@ -400,11 +400,7 @@ mod segment_tree {
                         Some(lv)
                     }
                 } else {
-                    if let Some(rv) = self.dat[r].clone() {
-                        Some(rv)
-                    } else {
-                        None
-                    }
+                    self.dat[r].clone()
                 };
             }
         }
@@ -444,17 +440,22 @@ mod segment_tree {
                         Some(lv)
                     }
                 } else {
-                    if let Some(rv) = self.dat[r].clone() {
-                        Some(rv)
-                    } else {
-                        None
-                    }
+                    self.dat[r].clone()
                 };
                 p /= 2;
             }
         }
         pub fn get(&self, pos: usize) -> T {
             self.dat[pos + self.n2].clone().unwrap()
+        }
+        pub fn query_all(&mut self) -> T {
+            self.query(0, self.n - 1)
+        }
+        pub fn query_left(&self, r: usize) -> T {
+            self.query(0, r)
+        }
+        pub fn query_right(&self, l: usize) -> T {
+            self.query(l, self.n - 1)
         }
         // get query value of [a, b]
         pub fn query(&self, mut l: usize, mut r: usize) -> T {
@@ -800,6 +801,7 @@ mod lazy_segment_tree {
     #[derive(Clone)]
     pub struct LazySegmentTree<X, M> {
         // https://algo-logic.info/segment-tree/#toc_id_3
+        n: usize,
         n2: usize,                    // num of node(integer power of 2)
         pair_op: fn(X, X) -> X,       // node_val x node_val -> node_val
         update_op: fn(X, M) -> X,     // node_val x update_val -> node
@@ -816,21 +818,7 @@ mod lazy_segment_tree {
             update_concat: fn(M, M) -> M,
             ini_val: X,
         ) -> Self {
-            let mut n2 = 1_usize;
-            while n > n2 {
-                n2 *= 2;
-            }
-            let mut ret = Self {
-                n2,
-                pair_op,
-                update_op,
-                update_concat,
-                dat: vec![ini_val.clone(); n * 4],
-                lazy_ops: vec![None; n * 4],
-                built: false,
-            };
-            ret.init_all(ini_val);
-            ret
+            Self::from_vec(pair_op, update_op, update_concat, vec![ini_val.clone(); n])
         }
         pub fn from_vec(
             pair_op: fn(X, X) -> X,
@@ -844,6 +832,7 @@ mod lazy_segment_tree {
                 n2 *= 2;
             }
             let mut ret = Self {
+                n,
                 n2,
                 pair_op,
                 update_op,
@@ -856,6 +845,18 @@ mod lazy_segment_tree {
                 ret.set(i, init_val.clone());
             }
             ret
+        }
+        pub fn query_all(&mut self) -> X // closed interval
+        {
+            self.query(0, self.n - 1)
+        }
+        pub fn query_left(&mut self, r: usize) -> X // closed interval
+        {
+            self.query(0, r)
+        }
+        pub fn query_right(&mut self, l: usize) -> X // closed interval
+        {
+            self.query(l, self.n - 1)
         }
         pub fn query(&mut self, a: usize, b: usize) -> X // closed interval
         {
@@ -2160,10 +2161,10 @@ mod my_string {
             let p: String = p.vc.iter().collect::<String>();
             s.rfind(&p)
         }
-        pub fn into_values(self, base: char) -> Vec<usize> {
+        pub fn into_usize(self, base: char, offset: usize) -> Vec<usize> {
             self.vc
                 .into_iter()
-                .map(|c| (c as u8 - base as u8) as usize)
+                .map(|c| (c as u8 - base as u8) as usize + offset)
                 .collect::<Vec<usize>>()
         }
         pub fn sort(&mut self) {
@@ -2722,51 +2723,116 @@ mod matrix {
 use matrix::Matrix;
 
 mod suffix_array {
-    use crate::my_string;
-    use crate::CoordinateCompress;
-    use std::cmp::{min, Ord, Ordering};
-    fn compare_sa(rank: &[i64], i: usize, j: usize, k: usize, n: usize) -> Ordering {
-        if rank[i] != rank[j] {
-            rank[i].cmp(&rank[j])
-        } else {
-            let ri = if i + k <= n { rank[i + k] } else { 0 };
-            let rj = if j + k <= n { rank[j + k] } else { 0 };
-            ri.cmp(&rj)
-        }
+    use std::cmp::Ordering;
+    use std::mem::swap;
+    fn compare(pos_to_ord: &[i64], i: usize, j: usize, k: usize, n: usize) -> Ordering {
+        let ri0 = pos_to_ord[i];
+        let rj0 = pos_to_ord[j];
+        let ri1 = if i + k <= n { pos_to_ord[i + k] } else { -1 };
+        let rj1 = if j + k <= n { pos_to_ord[j + k] } else { -1 };
+        (ri0, ri1).cmp(&(rj0, rj1))
     }
-    fn construct_sa(s: &[usize]) -> Vec<usize> {
+    fn construct_suffix_array(s: &[usize]) -> Vec<usize> {
         let n = s.len();
-        let mut sa = vec![0usize; n + 1];
-        let mut rank = vec![0i64; n + 1];
+        let mut ord_to_pos = vec![0usize; n + 1];
+        let mut pos_to_ord = vec![0i64; n + 1];
+        let mut pos_to_ord_nxt = vec![0i64; n + 1];
         for i in 0..=n {
-            sa[i] = i;
-            rank[i] = if i < n { s[i] as i64 } else { -1 };
+            ord_to_pos[i] = i;
+            pos_to_ord[i] = if i < n { s[i] as i64 } else { -1 };
         }
-        let mut nrank = rank.clone();
         let mut k = 1;
         while k <= n {
-            sa.sort_by(|&i, &j| compare_sa(&rank, i, j, k, n));
-            nrank[sa[0]] = 0;
-            for i in 1..=n {
-                nrank[sa[i]] = nrank[sa[i - 1]]
-                    + if compare_sa(&rank, sa[i - 1], sa[i], k, n) == Ordering::Less {
+            ord_to_pos.sort_by(|&i, &j| compare(&pos_to_ord, i, j, k, n));
+            pos_to_ord_nxt[ord_to_pos[0]] = 0;
+            for ord in 1..=n {
+                pos_to_ord_nxt[ord_to_pos[ord]] = pos_to_ord_nxt[ord_to_pos[ord - 1]]
+                    + if compare(&pos_to_ord, ord_to_pos[ord - 1], ord_to_pos[ord], k, n)
+                        == Ordering::Less
+                    {
                         1
                     } else {
                         0
                     };
             }
-            std::mem::swap(&mut rank, &mut nrank);
             //
-            k <<= 1;
+            k *= 2;
+            swap(&mut pos_to_ord, &mut pos_to_ord_nxt);
         }
-        sa.into_iter().skip(1).collect::<Vec<_>>()
+        ord_to_pos
+    }
+    fn construct_longest_common_prefix(s: &[usize], ord_to_pos: &[usize]) -> Vec<usize> {
+        let n = s.len();
+        debug_assert_eq!(ord_to_pos.len(), n + 1);
+        let pos_to_ord = {
+            let mut pos_to_ord = vec![0; ord_to_pos.len()];
+            for (ord, &pos) in ord_to_pos.iter().enumerate() {
+                pos_to_ord[pos] = ord;
+            }
+            pos_to_ord
+        };
+        let mut lcp_now = 0;
+        let mut lcp = vec![0; n];
+        for pos in 0..n {
+            let pre_ord = pos_to_ord[pos] - 1;
+            let pre_ord_pos = ord_to_pos[pre_ord];
+            if lcp_now > 0 {
+                lcp_now -= 1;
+            }
+            while pre_ord_pos + lcp_now < n && pos + lcp_now < n {
+                if s[pre_ord_pos + lcp_now] == s[pos + lcp_now] {
+                    lcp_now += 1;
+                } else {
+                    break;
+                }
+            }
+            lcp[pre_ord] = lcp_now;
+        }
+        lcp
     }
     pub trait ToSuffixArray {
-        fn to_suffix_array(&self) -> Vec<usize>;
+        fn suffix_array(&self) -> (Vec<usize>, Vec<usize>);
     }
     impl ToSuffixArray for Vec<usize> {
-        fn to_suffix_array(&self) -> Vec<usize> {
-            construct_sa(self)
+        fn suffix_array(&self) -> (Vec<usize>, Vec<usize>) {
+            let ord_to_pos = construct_suffix_array(self);
+            let lcp = construct_longest_common_prefix(self, &ord_to_pos);
+            (ord_to_pos, lcp)
+        }
+    }
+    mod test {
+        const T: usize = 100;
+        const N: usize = 100;
+        const C: usize = 26;
+        use super::super::XorShift64;
+        use super::ToSuffixArray;
+        #[test]
+        fn suffix_array() {
+            let mut rand = XorShift64::new();
+            for n in 1..=N {
+                for _ in 0..T {
+                    let a = (0..n).map(|_| rand.next_usize() % C).collect::<Vec<_>>();
+                    let sa_expected = {
+                        let mut sa_expected = (0..=n).collect::<Vec<_>>();
+                        sa_expected.sort_by(|&i, &j| a[i..].cmp(&a[j..]));
+                        sa_expected
+                    };
+                    let lcp_expected = (0..n)
+                        .map(|i| {
+                            (0..)
+                                .take_while(|&d| {
+                                    (sa_expected[i] + d < n)
+                                        && (sa_expected[i + 1] + d < n)
+                                        && a[sa_expected[i] + d] == a[sa_expected[i + 1] + d]
+                                })
+                                .count()
+                        })
+                        .collect::<Vec<_>>();
+                    let (sa_actual, lcp_actual) = a.suffix_array();
+                    assert_eq!(sa_expected, sa_actual);
+                    assert_eq!(lcp_expected, lcp_actual);
+                }
+            }
         }
     }
 }
