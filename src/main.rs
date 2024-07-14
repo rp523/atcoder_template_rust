@@ -400,11 +400,7 @@ mod segment_tree {
                         Some(lv)
                     }
                 } else {
-                    if let Some(rv) = self.dat[r].clone() {
-                        Some(rv)
-                    } else {
-                        None
-                    }
+                    self.dat[r].clone()
                 };
             }
         }
@@ -444,11 +440,7 @@ mod segment_tree {
                         Some(lv)
                     }
                 } else {
-                    if let Some(rv) = self.dat[r].clone() {
-                        Some(rv)
-                    } else {
-                        None
-                    }
+                    self.dat[r].clone()
                 };
                 p /= 2;
             }
@@ -2722,44 +2714,43 @@ mod matrix {
 use matrix::Matrix;
 
 mod suffix_array {
-    use crate::my_string;
-    use crate::CoordinateCompress;
-    use std::cmp::{min, Ord, Ordering};
-    fn compare_sa(rank: &[i64], i: usize, j: usize, k: usize, n: usize) -> Ordering {
-        if rank[i] != rank[j] {
-            rank[i].cmp(&rank[j])
-        } else {
-            let ri = if i + k <= n { rank[i + k] } else { 0 };
-            let rj = if j + k <= n { rank[j + k] } else { 0 };
-            ri.cmp(&rj)
-        }
+    use std::cmp::Ordering;
+    use std::mem::swap;
+    fn compare(pos_to_ord: &[i64], i: usize, j: usize, k: usize, n: usize) -> Ordering {
+        let ri0 = pos_to_ord[i];
+        let rj0 = pos_to_ord[j];
+        let ri1 = if i + k <= n { pos_to_ord[i + k] } else { -1 };
+        let rj1 = if j + k <= n { pos_to_ord[j + k] } else { -1 };
+        (ri0, ri1).cmp(&(rj0, rj1))
     }
     fn construct_sa(s: &[usize]) -> Vec<usize> {
         let n = s.len();
-        let mut sa = vec![0usize; n + 1];
-        let mut rank = vec![0i64; n + 1];
+        let mut ord_to_pos = vec![0usize; n + 1];
+        let mut pos_to_ord = vec![0i64; n + 1];
+        let mut pos_to_ord_nxt = vec![0i64; n + 1];
         for i in 0..=n {
-            sa[i] = i;
-            rank[i] = if i < n { s[i] as i64 } else { -1 };
+            ord_to_pos[i] = i;
+            pos_to_ord[i] = if i < n { s[i] as i64 } else { -1 };
         }
-        let mut nrank = rank.clone();
         let mut k = 1;
         while k <= n {
-            sa.sort_by(|&i, &j| compare_sa(&rank, i, j, k, n));
-            nrank[sa[0]] = 0;
+            ord_to_pos.sort_by(|&i, &j| compare(&pos_to_ord, i, j, k, n));
+            pos_to_ord_nxt[ord_to_pos[0]] = 0;
             for i in 1..=n {
-                nrank[sa[i]] = nrank[sa[i - 1]]
-                    + if compare_sa(&rank, sa[i - 1], sa[i], k, n) == Ordering::Less {
+                pos_to_ord_nxt[ord_to_pos[i]] = pos_to_ord_nxt[ord_to_pos[i - 1]]
+                    + if compare(&pos_to_ord, ord_to_pos[i - 1], ord_to_pos[i], k, n)
+                        == Ordering::Less
+                    {
                         1
                     } else {
                         0
                     };
             }
-            std::mem::swap(&mut rank, &mut nrank);
             //
-            k <<= 1;
+            k *= 2;
+            swap(&mut pos_to_ord, &mut pos_to_ord_nxt);
         }
-        sa.into_iter().skip(1).collect::<Vec<_>>()
+        ord_to_pos
     }
     pub trait ToSuffixArray {
         fn to_suffix_array(&self) -> Vec<usize>;
@@ -2767,6 +2758,26 @@ mod suffix_array {
     impl ToSuffixArray for Vec<usize> {
         fn to_suffix_array(&self) -> Vec<usize> {
             construct_sa(self)
+        }
+    }
+    mod test {
+        const T: usize = 100;
+        const N: usize = 100;
+        const C: usize = 26;
+        use super::super::XorShift64;
+        use super::ToSuffixArray;
+        #[test]
+        fn suffix_array() {
+            let mut rand = XorShift64::new();
+            for n in 1..=N {
+                for _ in 0..T {
+                    let a = (0..n).map(|_| rand.next_usize() % C).collect::<Vec<_>>();
+                    let mut expected = (0..=n).collect::<Vec<_>>();
+                    expected.sort_by(|&i, &j| a[i..].cmp(&a[j..]));
+                    let actual = a.to_suffix_array();
+                    assert_eq!(expected, actual);
+                }
+            }
         }
     }
 }
