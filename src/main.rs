@@ -5260,6 +5260,372 @@ use procon_reader::*;
 //////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////
 
+mod lazy_segment_tree2 {
+    #[derive(Clone, Debug)]
+    pub struct LazySegmentTree2<X, M> {
+        n: usize,
+        n2: usize,
+        height: usize,
+        pair_op: fn(X, X) -> X,
+        update_op: fn(X, M) -> X,
+        update_concat: fn(M, M) -> M,
+        dat: Vec<Option<X>>,
+        lazy_ops: Vec<Option<M>>,
+    }
+    impl<X: Clone, M: Clone> LazySegmentTree2<X, M> {
+        pub fn from_vec(
+            pair_op: fn(X, X) -> X,
+            update_op: fn(X, M) -> X,
+            update_concat: fn(M, M) -> M,
+            ini_vals: Vec<X>,
+        ) -> Self {
+            let n = ini_vals.len();
+            let mut n2 = 1;
+            let mut height = 1;
+            while n2 < n {
+                n2 *= 2;
+                height += 1;
+            }
+            let mut dat = vec![None; n2 * 2];
+            dat.iter_mut()
+                .skip(n2)
+                .zip(ini_vals)
+                .for_each(|(dat, ini)| {
+                    *dat = Some(ini);
+                });
+            for p in (1..n2).rev() {
+                let l = p * 2;
+                let r = l + 1;
+                dat[p] = if let Some(lv) = dat[l].clone() {
+                    if let Some(rv) = dat[r].clone() {
+                        Some(pair_op(lv, rv))
+                    } else {
+                        Some(lv)
+                    }
+                } else {
+                    dat[r].clone()
+                };
+            }
+            let lazy_ops = vec![None; n2 * 2];
+            Self {
+                n,
+                n2,
+                height,
+                pair_op,
+                update_op,
+                update_concat,
+                dat,
+                lazy_ops,
+            }
+        }
+        #[inline(always)]
+        fn eval_down(&mut self, v: usize) {
+            let Some(lazy) = self.lazy_ops[v].clone() else {
+                return;
+            };
+            self.lazy_ops[v] = None;
+            let x0 = self.dat[v].clone().unwrap();
+            self.dat[v] = Some((self.update_op)(x0, lazy.clone()));
+            if v < self.n2 {
+                let l = v * 2;
+                let r = l + 1;
+                self.lazy_ops[l] = if let Some(m0) = self.lazy_ops[l].clone() {
+                    Some((self.update_concat)(m0, lazy.clone()))
+                } else if self.dat[l].is_some() {
+                    Some(lazy.clone())
+                } else {
+                    None
+                };
+                self.lazy_ops[r] = if let Some(m0) = self.lazy_ops[r].clone() {
+                    Some((self.update_concat)(m0, lazy))
+                } else if self.dat[r].is_some() {
+                    Some(lazy)
+                } else {
+                    None
+                };
+            }
+        }
+        fn sum_up(&mut self, v: usize) {
+            self.eval_down(v);
+            if v >= self.n2 {
+                return;
+            }
+            let l = v * 2;
+            let r = l + 1;
+            self.eval_down(l);
+            self.eval_down(r);
+            self.dat[v] = if let Some(lv) = self.dat[l].clone() {
+                if let Some(rv) = self.dat[r].clone() {
+                    Some((self.pair_op)(lv, rv))
+                } else {
+                    Some(lv)
+                }
+            } else {
+                self.dat[r].clone()
+            };
+        }
+        pub fn get(&mut self, mut i: usize) -> X {
+            i += self.n2;
+            for d in (0..self.height).rev() {
+                self.eval_down(i >> d);
+            }
+            for d in 0..self.height {
+                self.sum_up(i >> d);
+            }
+            self.dat[i].clone().unwrap()
+        }
+        pub fn set(&mut self, mut i: usize, x: X) {
+            i += self.n2;
+            for d in (0..self.height).rev() {
+                self.eval_down(i >> d);
+            }
+            self.dat[i] = Some(x);
+            for d in 0..self.height {
+                self.sum_up(i >> d);
+            }
+        }
+        pub fn query(&mut self, mut l: usize, mut r: usize) -> X {
+            l += self.n2;
+            r += self.n2 + 1;
+            for d in (0..self.height).rev() {
+                self.eval_down(l >> d);
+                self.eval_down((r - 1) >> d);
+            }
+            for d in 0..self.height{
+                self.sum_up(l >> d);
+                self.sum_up((r - 1) >> d);
+            }
+            let mut lcum = None;
+            let mut rcum = None;
+            while l < r {
+                if l % 2 == 1 {
+                    self.eval_down(l);
+                    lcum = if let Some(lv) = lcum {
+                        if let Some(v) = self.dat[l].clone() {
+                            Some((self.pair_op)(lv, v))
+                        } else {
+                            Some(lv)
+                        }
+                    } else {
+                        self.dat[l].clone()
+                    };
+                    l += 1;
+                }
+                if r % 2 == 1 {
+                    r -= 1;
+                    self.eval_down(r);
+                    rcum = if let Some(rv) = rcum {
+                        if let Some(v) = self.dat[r].clone() {
+                            Some((self.pair_op)(v, rv))
+                        } else {
+                            Some(rv)
+                        }
+                    } else {
+                        self.dat[r].clone()
+                    };
+                }
+                l /= 2;
+                r /= 2;
+            }
+            if let Some(lcum) = lcum {
+                if let Some(rcum) = rcum {
+                    (self.pair_op)(lcum, rcum)
+                } else {
+                    lcum
+                }
+            } else {
+                rcum.unwrap()
+            }
+        }
+        pub fn reserve(&mut self, mut l: usize, mut r: usize, m: M) {
+            l += self.n2;
+            r += self.n2 + 1;
+            for d in (0..self.height).rev() {
+                self.eval_down(l >> d);
+                self.eval_down((r - 1) >> d);
+            }
+            while l < r {
+                if l % 2 == 1 {
+                    self.eval_down(l);
+                    self.lazy_ops[l] = Some(m.clone());
+                    l += 1;
+                }
+                if r % 2 == 1 {
+                    r -= 1;
+                    self.eval_down(r);
+                    self.lazy_ops[r] = Some(m.clone());
+                }
+                l /= 2;
+                r /= 2;
+            }
+        }
+    }
+    pub mod test {
+        use super::super::XorShift64;
+        use super::LazySegmentTree2;
+        //#[test]
+        pub fn random() {
+            const N: usize = 100;
+            const T: usize = 1000;
+            let mut rand = XorShift64::new();
+            for n in 1..=N {
+                let mut a = vec![0; n];
+                #[derive(Clone, Debug)]
+                struct Node {
+                    n0: usize,
+                    n1: usize,
+                    inner_swap: usize,
+                }
+                let mut seg = LazySegmentTree2::<Node, bool>::from_vec(
+                    |x, y| {
+                        let n0 = x.n0 + y.n0;
+                        let n1 = x.n1 + y.n1;
+                        let inner_swap = x.inner_swap + y.inner_swap + x.n1 * y.n0;
+                        Node { n0, n1, inner_swap }
+                    },
+                    |x, b| {
+                        if !b {
+                            return x;
+                        }
+                        let tot = x.n0 + x.n1;
+                        let n0 = x.n1;
+                        let n1 = x.n0;
+                        let mut inner_swap = (tot * (tot - 1)) / 2;
+                        inner_swap -= if n0 == 0 { 0 } else { (n0 * (n0 - 1)) / 2 };
+                        inner_swap -= if n1 == 0 { 0 } else { (n1 * (n1 - 1)) / 2 };
+                        inner_swap -= x.inner_swap;
+                        Node { n0, n1, inner_swap }
+                    },
+                    |b0, b1| (b0 != b1),
+                    a.iter()
+                        .map(|&a| {
+                            if a == 0 {
+                                Node {
+                                    n0: 1,
+                                    n1: 0,
+                                    inner_swap: 0,
+                                }
+                            } else {
+                                Node {
+                                    n0: 0,
+                                    n1: 1,
+                                    inner_swap: 0,
+                                }
+                            }
+                        })
+                        .collect::<Vec<_>>(),
+                );
+                for ti in 0..T {
+                    let mut l = rand.next_usize() % n;
+                    let mut r = rand.next_usize() % n;
+                    if l >= r {
+                        std::mem::swap(&mut l, &mut r);
+                    }
+                    if rand.next_usize() % 2 == 0 {
+                        seg.reserve(l, r, true);
+                        a.iter_mut().take(r + 1).skip(l).for_each(|a| {
+                            *a = 1 - *a;
+                        });
+                        /*
+                        debug!(n, ti, l, r);
+                        eprintln!("{:?}", a);
+                        for i in 0..n {
+                            eprint!("{} ", seg.get(i).n1);
+                        }
+                        eprintln!();
+                         */
+                    } else {
+                        let actual = seg.query(l, r).inner_swap;
+                        let mut cnt = vec![0; 2];
+                        let mut expected = 0;
+                        for i in l..=r {
+                            if a[i] == 0 {
+                                expected += cnt[1];
+                            }
+                            cnt[a[i]] += 1;
+                        }
+                        if expected != actual {
+                            debug!(n, l, r, expected, actual);
+                            eprintln!("{:?}", a);
+                            eprintln!("{:?}", seg);
+                            assert_eq!(expected, actual);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+use lazy_segment_tree2::LazySegmentTree2;
 fn main() {
-    read::<usize>();
+    {
+        lazy_segment_tree2::test::random();
+        return;
+    }
+    let n = read::<usize>();
+    let q = read::<usize>();
+    let a = read_vec::<usize>(n);
+    #[derive(Clone)]
+    struct Node {
+        n0: usize,
+        n1: usize,
+        inner_swap: usize,
+    }
+    let mut seg = LazySegmentTree2::<Node, bool>::from_vec(
+        |x, y| {
+            let n0 = x.n0 + y.n0;
+            let n1 = x.n1 + y.n1;
+            let inner_swap = x.inner_swap + y.inner_swap + x.n1 * y.n0;
+            Node { n0, n1, inner_swap }
+        },
+        |x, b| {
+            if !b {
+                return x;
+            }
+            let tot = x.n0 + x.n1;
+            let n0 = x.n1;
+            let n1 = x.n0;
+            let mut inner_swap = (tot * (tot - 1)) / 2;
+            inner_swap -= if n0 == 0 { 0 } else { (n0 * (n0 - 1)) / 2 };
+            inner_swap -= if n1 == 0 { 0 } else { (n1 * (n1 - 1)) / 2 };
+            inner_swap -= x.inner_swap;
+            Node { n0, n1, inner_swap }
+        },
+        |b0, b1| (b0 != b1),
+        a.into_iter()
+            .map(|a| {
+                if a == 0 {
+                    Node {
+                        n0: 1,
+                        n1: 0,
+                        inner_swap: 0,
+                    }
+                } else {
+                    Node {
+                        n0: 0,
+                        n1: 1,
+                        inner_swap: 0,
+                    }
+                }
+            })
+            .collect::<Vec<_>>(),
+    );
+    let mut ans = vec![];
+    for _ in 0..q {
+        let t = read::<usize>();
+        let l = read::<usize>() - 1;
+        let r = read::<usize>() - 1;
+        match t {
+            1 => {
+                seg.reserve(l, r, true);
+            }
+            _ => {
+                ans.push(seg.query(l, r).inner_swap);
+            }
+        }
+    }
+    eprintln!();
+    for ans in ans {
+        println!("{ans}");
+    }
 }
