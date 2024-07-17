@@ -5306,7 +5306,7 @@ mod lazy_segment_tree2 {
                     dat[r].clone()
                 };
             }
-            let lazy_ops = vec![None; n2 * 2];
+            let lazy_ops = vec![None; n2];
             Self {
                 n,
                 n2,
@@ -5320,6 +5320,9 @@ mod lazy_segment_tree2 {
         }
         #[inline(always)]
         fn eval_down(&mut self, v: usize) {
+            if v >= self.n2 {
+                return;
+            }
             let Some(lazy) = self.lazy_ops[v].clone() else {
                 return;
             };
@@ -5327,33 +5330,48 @@ mod lazy_segment_tree2 {
             let x0 = self.dat[v].clone().unwrap();
             self.dat[v] = Some((self.update_op)(x0, lazy.clone()));
             if v < self.n2 {
+                // not bottom, has childs.
                 let l = v * 2;
                 let r = l + 1;
-                self.lazy_ops[l] = if let Some(m0) = self.lazy_ops[l].clone() {
-                    Some((self.update_concat)(m0, lazy.clone()))
-                } else if self.dat[l].is_some() {
-                    Some(lazy.clone())
+                if l < self.n2 {
+                    self.lazy_ops[l] = if let Some(m0) = self.lazy_ops[l].clone() {
+                        Some((self.update_concat)(m0, lazy.clone()))
+                    } else if self.dat[l].is_some() {
+                        Some(lazy.clone())
+                    } else {
+                        None
+                    };
+                    self.lazy_ops[r] = if let Some(m0) = self.lazy_ops[r].clone() {
+                        Some((self.update_concat)(m0, lazy))
+                    } else if self.dat[r].is_some() {
+                        Some(lazy)
+                    } else {
+                        None
+                    };
                 } else {
-                    None
-                };
-                self.lazy_ops[r] = if let Some(m0) = self.lazy_ops[r].clone() {
-                    Some((self.update_concat)(m0, lazy))
-                } else if self.dat[r].is_some() {
-                    Some(lazy)
-                } else {
-                    None
-                };
+                    // bottom, no childs.
+                    if l < self.n2 + self.n {
+                        self.dat[l] =
+                            Some((self.update_op)(self.dat[l].clone().unwrap(), lazy.clone()));
+                        if r < self.n2 + self.n {
+                            self.dat[r] =
+                                Some((self.update_op)(self.dat[r].clone().unwrap(), lazy));
+                        }
+                    }
+                }
             }
         }
         fn sum_up(&mut self, v: usize) {
-            self.eval_down(v);
             if v >= self.n2 {
                 return;
             }
+            self.eval_down(v);
             let l = v * 2;
             let r = l + 1;
-            self.eval_down(l);
-            self.eval_down(r);
+            if l < self.n2 {
+                self.eval_down(l);
+                self.eval_down(r);
+            }
             self.dat[v] = if let Some(lv) = self.dat[l].clone() {
                 if let Some(rv) = self.dat[r].clone() {
                     Some((self.pair_op)(lv, rv))
@@ -5441,14 +5459,24 @@ mod lazy_segment_tree2 {
                 let (mut l2, mut r2) = (l, r);
                 while l2 < r2 {
                     if l2 % 2 == 1 {
-                        self.eval_down(l2);
-                        self.lazy_ops[l2] = Some(m.clone());
+                        if l2 < self.n2 {
+                            self.eval_down(l2);
+                            self.lazy_ops[l2] = Some(m.clone());
+                        } else if l2 < self.n2 + self.n {
+                            self.dat[l2] =
+                                Some((self.update_op)(self.dat[l2].clone().unwrap(), m.clone()));
+                        }
                         l2 += 1;
                     }
                     if r2 % 2 == 1 {
                         r2 -= 1;
-                        self.eval_down(r2);
-                        self.lazy_ops[r2] = Some(m.clone());
+                        if r2 < self.n2 {
+                            self.eval_down(r2);
+                            self.lazy_ops[r2] = Some(m.clone());
+                        } else if r2 < self.n2 + self.n {
+                            self.dat[r2] =
+                                Some((self.update_op)(self.dat[r2].clone().unwrap(), m.clone()));
+                        }
                     }
                     l2 /= 2;
                     r2 /= 2;
