@@ -5369,9 +5369,6 @@ mod lazy_segment_tree2 {
             for d in (0..self.height).rev() {
                 self.eval_down(i >> d);
             }
-            for d in 0..self.height {
-                self.sum_up(i >> d);
-            }
             self.dat[i].clone().unwrap()
         }
         pub fn set(&mut self, mut i: usize, x: X) {
@@ -5390,10 +5387,6 @@ mod lazy_segment_tree2 {
             for d in (0..self.height).rev() {
                 self.eval_down(l >> d);
                 self.eval_down((r - 1) >> d);
-            }
-            for d in 0..self.height{
-                self.sum_up(l >> d);
-                self.sum_up((r - 1) >> d);
             }
             let mut lcum = None;
             let mut rcum = None;
@@ -5444,32 +5437,39 @@ mod lazy_segment_tree2 {
                 self.eval_down(l >> d);
                 self.eval_down((r - 1) >> d);
             }
-            while l < r {
-                if l % 2 == 1 {
-                    self.eval_down(l);
-                    self.lazy_ops[l] = Some(m.clone());
-                    l += 1;
+            {
+                let (mut l2, mut r2) = (l, r);
+                while l2 < r2 {
+                    if l2 % 2 == 1 {
+                        self.eval_down(l2);
+                        self.lazy_ops[l2] = Some(m.clone());
+                        l2 += 1;
+                    }
+                    if r2 % 2 == 1 {
+                        r2 -= 1;
+                        self.eval_down(r2);
+                        self.lazy_ops[r2] = Some(m.clone());
+                    }
+                    l2 /= 2;
+                    r2 /= 2;
                 }
-                if r % 2 == 1 {
-                    r -= 1;
-                    self.eval_down(r);
-                    self.lazy_ops[r] = Some(m.clone());
-                }
-                l /= 2;
-                r /= 2;
+            }
+            for d in 0..self.height {
+                self.sum_up(l >> d);
+                self.sum_up((r - 1) >> d);
             }
         }
     }
-    pub mod test {
+    mod test {
         use super::super::XorShift64;
         use super::LazySegmentTree2;
-        //#[test]
-        pub fn random() {
+        #[test]
+        fn random() {
             const N: usize = 100;
             const T: usize = 1000;
             let mut rand = XorShift64::new();
             for n in 1..=N {
-                let mut a = vec![0; n];
+                let mut a = (0..n).map(|_| rand.next_usize() % 2).collect::<Vec<_>>();
                 #[derive(Clone, Debug)]
                 struct Node {
                     n0: usize,
@@ -5521,7 +5521,8 @@ mod lazy_segment_tree2 {
                     if l >= r {
                         std::mem::swap(&mut l, &mut r);
                     }
-                    if rand.next_usize() % 2 == 0 {
+                    let op = rand.next_usize() % 2;
+                    if op == 0 {
                         seg.reserve(l, r, true);
                         a.iter_mut().take(r + 1).skip(l).for_each(|a| {
                             *a = 1 - *a;
@@ -5533,7 +5534,7 @@ mod lazy_segment_tree2 {
                             eprint!("{} ", seg.get(i).n1);
                         }
                         eprintln!();
-                         */
+                            */
                     } else {
                         let actual = seg.query(l, r).inner_swap;
                         let mut cnt = vec![0; 2];
@@ -5544,12 +5545,7 @@ mod lazy_segment_tree2 {
                             }
                             cnt[a[i]] += 1;
                         }
-                        if expected != actual {
-                            debug!(n, l, r, expected, actual);
-                            eprintln!("{:?}", a);
-                            eprintln!("{:?}", seg);
-                            assert_eq!(expected, actual);
-                        }
+                        assert_eq!(expected, actual);
                     }
                 }
             }
@@ -5558,10 +5554,6 @@ mod lazy_segment_tree2 {
 }
 use lazy_segment_tree2::LazySegmentTree2;
 fn main() {
-    {
-        lazy_segment_tree2::test::random();
-        return;
-    }
     let n = read::<usize>();
     let q = read::<usize>();
     let a = read_vec::<usize>(n);
