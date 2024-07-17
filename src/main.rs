@@ -378,38 +378,22 @@ mod segment_tree {
     pub struct SegmentTree<T> {
         n: usize,
         n2: usize,
+        height: usize,
         dat: Vec<Option<T>>,
         pair_op: fn(T, T) -> T,
     }
     impl<T: Clone> SegmentTree<T> {
-        fn calc_n2(n: usize) -> usize {
-            let mut n2 = 1;
-            while n2 < n {
-                n2 *= 2;
-            }
-            n2
-        }
-        fn build(&mut self) {
-            for i in (0..self.n2).rev() {
-                let l = i * 2;
-                let r = l + 1;
-                self.dat[i] = if let Some(lv) = self.dat[l].clone() {
-                    if let Some(rv) = self.dat[r].clone() {
-                        Some((self.pair_op)(lv, rv))
-                    } else {
-                        Some(lv)
-                    }
-                } else {
-                    self.dat[r].clone()
-                };
-            }
-        }
         pub fn new(n: usize, pair_op: fn(T, T) -> T, ini_val: T) -> Self {
             Self::from_vec(pair_op, vec![ini_val; n])
         }
         pub fn from_vec(pair_op: fn(T, T) -> T, ini_values: Vec<T>) -> Self {
             let n = ini_values.len();
-            let n2 = Self::calc_n2(n);
+            let mut n2 = 1;
+            let mut height = 1;
+            while n2 < n {
+                n2 *= 2;
+                height += 1;
+            }
             let mut dat = vec![None; n2 * 2];
             dat.iter_mut()
                 .skip(n2)
@@ -417,14 +401,29 @@ mod segment_tree {
                 .for_each(|(dat, ini)| {
                     *dat = Some(ini);
                 });
-            let mut slf = Self {
+            let mut w = n;
+            for nhi in 1..height {
+                let nw = (w + 1) / 2;
+                let beg = n2 >> nhi;
+                for p in (beg..).take(nw) {
+                    let l = p * 2;
+                    let r = l + 1;
+                    dat[p] = if r < (beg * 2) + w {
+                        Some(pair_op(dat[l].clone().unwrap(), dat[r].clone().unwrap()))
+                    } else {
+                        Some(dat[l].clone().unwrap())
+                    };
+                }
+                //
+                w = nw;
+            }
+            Self {
                 n,
                 n2,
+                height,
                 pair_op,
                 dat,
-            };
-            slf.build();
-            slf
+            }
         }
         pub fn set(&mut self, mut i: usize, val: T) {
             i += self.n2;
@@ -440,7 +439,7 @@ mod segment_tree {
                         Some(lv)
                     }
                 } else {
-                    self.dat[r].clone()
+                    unreachable!();
                 };
                 p /= 2;
             }
@@ -601,13 +600,13 @@ mod segment_tree {
             self.set(pos, self.get(pos) - sub_val);
         }
     }
-    mod test {
+    pub mod test {
         use super::super::XorShift64;
         use super::SegmentTree;
         const T: usize = 100;
         const N: usize = 100;
         #[test]
-        fn query() {
+        pub fn query() {
             let mut rand = XorShift64::new();
             for n in 1..=N {
                 let mut a = vec![0; n];
@@ -5543,7 +5542,7 @@ mod lazy_segment_tree2 {
                         })
                         .collect::<Vec<_>>(),
                 );
-                for ti in 0..T {
+                for _ in 0..T {
                     let mut l = rand.next_usize() % n;
                     let mut r = rand.next_usize() % n;
                     if l >= r {
@@ -5555,14 +5554,6 @@ mod lazy_segment_tree2 {
                         a.iter_mut().take(r + 1).skip(l).for_each(|a| {
                             *a = 1 - *a;
                         });
-                        /*
-                        debug!(n, ti, l, r);
-                        eprintln!("{:?}", a);
-                        for i in 0..n {
-                            eprint!("{} ", seg.get(i).n1);
-                        }
-                        eprintln!();
-                            */
                     } else {
                         let actual = seg.query(l, r).inner_swap;
                         let mut cnt = vec![0; 2];
@@ -5582,70 +5573,5 @@ mod lazy_segment_tree2 {
 }
 use lazy_segment_tree2::LazySegmentTree2;
 fn main() {
-    let n = read::<usize>();
-    let q = read::<usize>();
-    let a = read_vec::<usize>(n);
-    #[derive(Clone)]
-    struct Node {
-        n0: usize,
-        n1: usize,
-        inner_swap: usize,
-    }
-    let mut seg = LazySegmentTree2::<Node, bool>::from_vec(
-        |x, y| {
-            let n0 = x.n0 + y.n0;
-            let n1 = x.n1 + y.n1;
-            let inner_swap = x.inner_swap + y.inner_swap + x.n1 * y.n0;
-            Node { n0, n1, inner_swap }
-        },
-        |x, b| {
-            if !b {
-                return x;
-            }
-            let tot = x.n0 + x.n1;
-            let n0 = x.n1;
-            let n1 = x.n0;
-            let mut inner_swap = (tot * (tot - 1)) / 2;
-            inner_swap -= if n0 == 0 { 0 } else { (n0 * (n0 - 1)) / 2 };
-            inner_swap -= if n1 == 0 { 0 } else { (n1 * (n1 - 1)) / 2 };
-            inner_swap -= x.inner_swap;
-            Node { n0, n1, inner_swap }
-        },
-        |b0, b1| (b0 != b1),
-        a.into_iter()
-            .map(|a| {
-                if a == 0 {
-                    Node {
-                        n0: 1,
-                        n1: 0,
-                        inner_swap: 0,
-                    }
-                } else {
-                    Node {
-                        n0: 0,
-                        n1: 1,
-                        inner_swap: 0,
-                    }
-                }
-            })
-            .collect::<Vec<_>>(),
-    );
-    let mut ans = vec![];
-    for _ in 0..q {
-        let t = read::<usize>();
-        let l = read::<usize>() - 1;
-        let r = read::<usize>() - 1;
-        match t {
-            1 => {
-                seg.reserve(l, r, true);
-            }
-            _ => {
-                ans.push(seg.query(l, r).inner_swap);
-            }
-        }
-    }
-    eprintln!();
-    for ans in ans {
-        println!("{ans}");
-    }
+    segment_tree::test::query();
 }
