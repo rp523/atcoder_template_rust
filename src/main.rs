@@ -379,6 +379,7 @@ mod segment_tree {
         n: usize,
         n2: usize,
         height: usize,
+        width: Vec<usize>,
         dat: Vec<T>,
         pair_op: fn(T, T) -> T,
     }
@@ -394,33 +395,37 @@ mod segment_tree {
                 n2 *= 2;
                 height += 1;
             }
-            let mut dat = vec![ini_values[0].clone(); n2 * 2];
+            let width = (0..height)
+                .scan(2 * n, |cum, _| {
+                    *cum = (*cum + 1) / 2;
+                    Some(*cum)
+                })
+                .collect::<Vec<_>>();
+            let mut dat = vec![ini_values[0].clone(); n2 + n];
             dat.iter_mut()
                 .skip(n2)
                 .zip(ini_values.into_iter())
                 .for_each(|(dat, ini)| {
                     *dat = ini;
                 });
-            let mut wl = n;
-            for nhi in 1..height {
-                let wh = (wl + 1) / 2;
-                let beg = n2 >> nhi;
-                for p in (beg..).take(wh) {
+            for hi in 1..height {
+                let beg = n2 >> hi;
+                let cend = (n2 >> (hi - 1)) + width[hi - 1];
+                for p in (beg..).take(width[hi]) {
                     let l = p * 2;
                     let r = l + 1;
-                    dat[p] = if r < (beg * 2) + wl {
+                    dat[p] = if r < cend {
                         pair_op(dat[l].clone(), dat[r].clone())
                     } else {
                         dat[l].clone()
                     };
                 }
-                //
-                wl = wh;
             }
             Self {
                 n,
                 n2,
                 height,
+                width,
                 pair_op,
                 dat,
             }
@@ -428,18 +433,16 @@ mod segment_tree {
         pub fn set(&mut self, mut i: usize, val: T) {
             i += self.n2;
             self.dat[i] = val;
-            let mut wl = self.n;
             for hi in 1..self.height {
-                let wh = (wl + 1) / 2;
                 let p = i >> hi;
                 let l = p * 2;
                 let r = l + 1;
-                self.dat[p] = if r < (self.n2 >> (hi - 1)) + wl {
+                let cend = (self.n2 >> (hi - 1)) + self.width[hi - 1];
+                self.dat[p] = if r < cend {
                     (self.pair_op)(self.dat[l].clone(), self.dat[r].clone())
                 } else {
                     self.dat[l].clone()
                 };
-                wl = wh;
             }
         }
         pub fn get(&self, pos: usize) -> T {
@@ -460,35 +463,24 @@ mod segment_tree {
             r += self.n2 + 1;
             let mut lcum = None;
             let mut rcum = None;
-            let mut w = self.n;
             for hi in 0..self.height {
-                let end = (self.n2 >> hi) + w;
+                let end = (self.n2 >> hi) + self.width[hi];
                 if l % 2 == 1 {
+                    debug_assert!(l < end);
                     lcum = if let Some(lv) = lcum {
-                        if l < end {
-                            Some((self.pair_op)(lv, self.dat[l].clone()))
-                        } else {
-                            Some(lv)
-                        }
-                    } else if l < end {
-                        Some(self.dat[l].clone())
+                        Some((self.pair_op)(lv, self.dat[l].clone()))
                     } else {
-                        None
+                        Some(self.dat[l].clone())
                     };
                     l += 1;
                 }
                 if r % 2 == 1 {
                     r -= 1;
+                    debug_assert!(r < end);
                     rcum = if let Some(rv) = rcum {
-                        if r < end {
-                            Some((self.pair_op)(self.dat[r].clone(), rv))
-                        } else {
-                            Some(rv)
-                        }
-                    } else if r < end {
-                        Some(self.dat[r].clone())
+                        Some((self.pair_op)(self.dat[r].clone(), rv))
                     } else {
-                        None
+                        Some(self.dat[r].clone())
                     };
                 }
                 l /= 2;
@@ -496,7 +488,6 @@ mod segment_tree {
                 if l >= r {
                     break;
                 }
-                w = (w + 1) / 2;
             }
             if let Some(lcum) = lcum {
                 if let Some(rcum) = rcum {
@@ -5273,10 +5264,11 @@ mod lazy_segment_tree2 {
         n: usize,
         n2: usize,
         height: usize,
+        width: Vec<usize>,
         pair_op: fn(X, X) -> X,
         update_op: fn(X, M) -> X,
         update_concat: fn(M, M) -> M,
-        dat: Vec<Option<X>>,
+        dat: Vec<X>,
         lazy_ops: Vec<Option<M>>,
     }
     impl<X: Clone, M: Clone> LazySegmentTree2<X, M> {
@@ -5293,37 +5285,38 @@ mod lazy_segment_tree2 {
                 n2 *= 2;
                 height += 1;
             }
-            let mut dat = vec![None; n2 * 2];
+            let width = (0..height)
+                .scan(2 * n, |cum, _| {
+                    *cum = (*cum + 1) / 2;
+                    Some(*cum)
+                })
+                .collect::<Vec<_>>();
+            let mut dat = vec![ini_vals[0].clone(); n2 + n];
             dat.iter_mut()
                 .skip(n2)
                 .zip(ini_vals)
                 .for_each(|(dat, ini)| {
-                    *dat = Some(ini);
+                    *dat = ini;
                 });
-            let mut wl = n;
             for hi in 1..height {
-                let wh = (wl + 1) / 2;
                 let beg = n2 >> hi;
-                for p in (beg..).take(wh) {
+                let cend = (n2 >> (hi - 1)) + width[hi - 1];
+                for p in (beg..).take(width[hi]) {
                     let l = p * 2;
                     let r = l + 1;
-                    dat[p] = if l < (n2 >> (hi - 1)) + wl {
-                        if r < (n2 >> (hi - 1)) + wl {
-                            Some(pair_op(dat[l].clone().unwrap(), dat[r].clone().unwrap()))
-                        } else {
-                            Some(dat[l].clone().unwrap())
-                        }
+                    dat[p] = if r < cend {
+                        pair_op(dat[l].clone(), dat[r].clone())
                     } else {
-                        unreachable!()
+                        dat[l].clone()
                     };
                 }
-                wl = wh;
             }
             let lazy_ops = vec![None; n2];
             Self {
                 n,
                 n2,
                 height,
+                width,
                 pair_op,
                 update_op,
                 update_concat,
@@ -5333,7 +5326,8 @@ mod lazy_segment_tree2 {
         }
         #[inline(always)]
         fn eval_down(&mut self, hi: usize, v: usize) {
-            if v >= self.n2 {
+            if hi == 0 {
+                // bottom
                 return;
             }
             // not bottom, has childs.
@@ -5341,21 +5335,22 @@ mod lazy_segment_tree2 {
                 return;
             };
             self.lazy_ops[v] = None;
-            let x0 = self.dat[v].clone().unwrap();
-            self.dat[v] = Some((self.update_op)(x0, lazy.clone()));
+            let x0 = self.dat[v].clone();
+            self.dat[v] = (self.update_op)(x0, lazy.clone());
             let l = v * 2;
             let r = l + 1;
+            let cend = (self.n2 >> (hi - 1)) + self.width[hi - 1];
             if l < self.n2 {
                 self.lazy_ops[l] = if let Some(m0) = self.lazy_ops[l].clone() {
                     Some((self.update_concat)(m0, lazy.clone()))
-                } else if self.dat[l].is_some() {
+                } else if l < cend {
                     Some(lazy.clone())
                 } else {
                     None
                 };
                 self.lazy_ops[r] = if let Some(m0) = self.lazy_ops[r].clone() {
                     Some((self.update_concat)(m0, lazy))
-                } else if self.dat[r].is_some() {
+                } else if r < cend {
                     Some(lazy)
                 } else {
                     None
@@ -5363,31 +5358,31 @@ mod lazy_segment_tree2 {
             } else {
                 // bottom, no childs.
                 if l < self.n2 + self.n {
-                    self.dat[l] =
-                        Some((self.update_op)(self.dat[l].clone().unwrap(), lazy.clone()));
+                    self.dat[l] = (self.update_op)(self.dat[l].clone(), lazy.clone());
                     if r < self.n2 + self.n {
-                        self.dat[r] = Some((self.update_op)(self.dat[r].clone().unwrap(), lazy));
+                        self.dat[r] = (self.update_op)(self.dat[r].clone(), lazy);
                     }
                 }
             }
         }
         #[inline(always)]
         fn sum_up(&mut self, hi: usize, v: usize) {
-            if v >= self.n2 {
+            if hi == 0 {
                 return;
             }
             self.eval_down(hi, v);
             let l = v * 2;
             let r = l + 1;
-            if l < self.n2 {
-                self.eval_down(hi, l);
-                self.eval_down(hi, r);
+            if hi > 0 {
+                self.eval_down(hi - 1, l);
+                self.eval_down(hi - 1, r);
             }
-            self.dat[v] = if let Some(lv) = self.dat[l].clone() {
-                if let Some(rv) = self.dat[r].clone() {
-                    Some((self.pair_op)(lv, rv))
+            let cend = (self.n2 >> (hi - 1)) + self.width[hi - 1];
+            self.dat[v] = if l < cend {
+                if r < cend {
+                    (self.pair_op)(self.dat[l].clone(), self.dat[r].clone())
                 } else {
-                    Some(lv)
+                    self.dat[l].clone()
                 }
             } else {
                 self.dat[r].clone()
@@ -5398,14 +5393,14 @@ mod lazy_segment_tree2 {
             for hi in (0..self.height).rev() {
                 self.eval_down(hi, i >> hi);
             }
-            self.dat[i].clone().unwrap()
+            self.dat[i].clone()
         }
         pub fn set(&mut self, mut i: usize, x: X) {
             i += self.n2;
             for hi in (0..self.height).rev() {
                 self.eval_down(hi, i >> hi);
             }
-            self.dat[i] = Some(x);
+            self.dat[i] = x;
             for hi in 0..self.height {
                 self.sum_up(hi, i >> hi);
             }
@@ -5419,37 +5414,26 @@ mod lazy_segment_tree2 {
             }
             let mut lcum = None;
             let mut rcum = None;
-            let mut w = self.n;
             for hi in 0..self.height {
-                let end = (self.n2 >> hi) + w;
+                let end = (self.n2 >> hi) + self.width[hi];
                 if l % 2 == 1 {
+                    debug_assert!(l < end);
                     self.eval_down(hi, l);
                     lcum = if let Some(lv) = lcum {
-                        if l < end {
-                            Some((self.pair_op)(lv, self.dat[l].clone().unwrap()))
-                        } else {
-                            Some(lv)
-                        }
-                    } else if l < end {
-                        Some(self.dat[l].clone().unwrap())
+                        Some((self.pair_op)(lv, self.dat[l].clone()))
                     } else {
-                        None
+                        Some(self.dat[l].clone())
                     };
                     l += 1;
                 }
                 if r % 2 == 1 {
                     r -= 1;
+                    debug_assert!(r < end);
                     self.eval_down(hi, r);
                     rcum = if let Some(rv) = rcum {
-                        if r < end {
-                            Some((self.pair_op)(self.dat[r].clone().unwrap(), rv))
-                        } else {
-                            Some(rv)
-                        }
-                    } else if r < end {
-                        Some(self.dat[r].clone().unwrap())
+                        Some((self.pair_op)(self.dat[r].clone(), rv))
                     } else {
-                        None
+                        Some(self.dat[r].clone())
                     };
                 }
                 l /= 2;
@@ -5457,7 +5441,6 @@ mod lazy_segment_tree2 {
                 if l >= r {
                     break;
                 }
-                w = (w + 1) / 2;
             }
             if let Some(lcum) = lcum {
                 if let Some(rcum) = rcum {
@@ -5478,26 +5461,25 @@ mod lazy_segment_tree2 {
             }
             {
                 let (mut l2, mut r2) = (l, r);
-                let mut w = self.n;
                 for hi in 0..self.height {
                     if l2 % 2 == 1 {
-                        if l2 < self.n2 {
+                        debug_assert!(l2 < (self.n2 >> hi) + self.width[hi]);
+                        if hi > 0 {
                             self.eval_down(hi, l2);
                             self.lazy_ops[l2] = Some(m.clone());
-                        } else if l2 < self.n2 + self.n {
-                            self.dat[l2] =
-                                Some((self.update_op)(self.dat[l2].clone().unwrap(), m.clone()));
+                        } else {
+                            self.dat[l2] = (self.update_op)(self.dat[l2].clone(), m.clone());
                         }
                         l2 += 1;
                     }
                     if r2 % 2 == 1 {
                         r2 -= 1;
-                        if r2 < self.n2 {
+                        debug_assert!(r2 < (self.n2 >> hi) + self.width[hi]);
+                        if hi > 0 {
                             self.eval_down(hi, r2);
                             self.lazy_ops[r2] = Some(m.clone());
-                        } else if r2 < self.n2 + self.n {
-                            self.dat[r2] =
-                                Some((self.update_op)(self.dat[r2].clone().unwrap(), m.clone()));
+                        } else {
+                            self.dat[r2] = (self.update_op)(self.dat[r2].clone(), m.clone());
                         }
                     }
                     l2 /= 2;
@@ -5505,7 +5487,6 @@ mod lazy_segment_tree2 {
                     if l2 >= r2 {
                         break;
                     }
-                    w = (w + 1) / 2;
                 }
             }
             for hi in 0..self.height {
