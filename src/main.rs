@@ -5600,5 +5600,5 @@ mod lazy_segment_tree2 {
 }
 use lazy_segment_tree2::LazySegmentTree2;
 fn main() {
-    segment_tree::test::query();
+    read::<usize>();
 }
