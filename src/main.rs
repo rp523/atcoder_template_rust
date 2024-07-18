@@ -5402,6 +5402,42 @@ use procon_reader::*;
 //////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////
 
+mod aho_corasick {
+    use std::cmp::Eq;
+    use std::collections::HashMap;
+    use std::hash::Hash;
+    #[derive(Clone, Debug)]
+    pub struct AhoCoarsick<T> {
+        trie: Vec<HashMap<T, usize>>,
+        fin: Vec<Vec<usize>>,
+    }
+    impl<T: Eq + Hash> AhoCoarsick<T> {
+        pub fn new(ngs: Vec<Vec<T>>) -> Self {
+            let mut trie = vec![HashMap::new()];
+            let mut fin = vec![vec![]];
+            for (i, ng) in ngs.into_iter().enumerate() {
+                let mut v = 0;
+                for val in ng {
+                    let nv = if let Some(&nv) = trie[v].get(&val) {
+                        nv
+                    } else {
+                        let nv = trie.len();
+                        trie.push(HashMap::new());
+                        fin.push(vec![]);
+                        trie[v].insert(val, nv);
+                        nv
+                    };
+                    v = nv;
+                }
+                fin[v].push(i);
+            }
+            Self { trie, fin }
+        }
+        pub fn fin_at(&self, node: usize) -> &Vec<usize> {
+            &self.fin[node]
+        }
+    }
+}
 fn main() {
     read::<usize>();
 }
