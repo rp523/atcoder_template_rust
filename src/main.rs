@@ -378,75 +378,75 @@ mod segment_tree {
     pub struct SegmentTree<T> {
         n: usize,
         n2: usize,
-        dat: Vec<Option<T>>,
+        height: usize,
+        width: Vec<usize>,
+        dat: Vec<T>,
         pair_op: fn(T, T) -> T,
     }
     impl<T: Clone> SegmentTree<T> {
-        fn calc_n2(n: usize) -> usize {
-            let mut n2 = 1;
-            while n2 < n {
-                n2 *= 2;
-            }
-            n2
-        }
-        fn build(&mut self) {
-            for i in (0..self.n2).rev() {
-                let l = i * 2;
-                let r = l + 1;
-                self.dat[i] = if let Some(lv) = self.dat[l].clone() {
-                    if let Some(rv) = self.dat[r].clone() {
-                        Some((self.pair_op)(lv, rv))
-                    } else {
-                        Some(lv)
-                    }
-                } else {
-                    self.dat[r].clone()
-                };
-            }
-        }
         pub fn new(n: usize, pair_op: fn(T, T) -> T, ini_val: T) -> Self {
             Self::from_vec(pair_op, vec![ini_val; n])
         }
         pub fn from_vec(pair_op: fn(T, T) -> T, ini_values: Vec<T>) -> Self {
             let n = ini_values.len();
-            let n2 = Self::calc_n2(n);
-            let mut dat = vec![None; n2 * 2];
+            let mut n2 = 1;
+            let mut height = 1;
+            while n2 < n {
+                n2 *= 2;
+                height += 1;
+            }
+            let width = (0..height)
+                .scan(2 * n, |cum, _| {
+                    *cum = (*cum + 1) / 2;
+                    Some(*cum)
+                })
+                .collect::<Vec<_>>();
+            let mut dat = vec![ini_values[0].clone(); n2 + n];
             dat.iter_mut()
                 .skip(n2)
                 .zip(ini_values.into_iter())
                 .for_each(|(dat, ini)| {
-                    *dat = Some(ini);
+                    *dat = ini;
                 });
-            let mut slf = Self {
+            for hi in 1..height {
+                let beg = n2 >> hi;
+                let cend = (n2 >> (hi - 1)) + width[hi - 1];
+                for p in (beg..).take(width[hi]) {
+                    let l = p * 2;
+                    let r = l + 1;
+                    dat[p] = if r < cend {
+                        pair_op(dat[l].clone(), dat[r].clone())
+                    } else {
+                        dat[l].clone()
+                    };
+                }
+            }
+            Self {
                 n,
                 n2,
+                height,
+                width,
                 pair_op,
                 dat,
-            };
-            slf.build();
-            slf
+            }
         }
         pub fn set(&mut self, mut i: usize, val: T) {
             i += self.n2;
-            self.dat[i] = Some(val);
-            let mut p = i / 2;
-            while p >= 1 {
+            self.dat[i] = val;
+            for hi in 1..self.height {
+                let p = i >> hi;
                 let l = p * 2;
                 let r = l + 1;
-                self.dat[p] = if let Some(lv) = self.dat[l].clone() {
-                    if let Some(rv) = self.dat[r].clone() {
-                        Some((self.pair_op)(lv, rv))
-                    } else {
-                        Some(lv)
-                    }
+                let cend = (self.n2 >> (hi - 1)) + self.width[hi - 1];
+                self.dat[p] = if r < cend {
+                    (self.pair_op)(self.dat[l].clone(), self.dat[r].clone())
                 } else {
-                    self.dat[r].clone()
+                    self.dat[l].clone()
                 };
-                p /= 2;
             }
         }
         pub fn get(&self, pos: usize) -> T {
-            self.dat[pos + self.n2].clone().unwrap()
+            self.dat[pos + self.n2].clone()
         }
         pub fn query_all(&mut self) -> T {
             self.query(0, self.n - 1)
@@ -463,33 +463,31 @@ mod segment_tree {
             r += self.n2 + 1;
             let mut lcum = None;
             let mut rcum = None;
-            while l < r {
+            for hi in 0..self.height {
+                let end = (self.n2 >> hi) + self.width[hi];
                 if l % 2 == 1 {
+                    debug_assert!(l < end);
                     lcum = if let Some(lv) = lcum {
-                        if let Some(v) = self.dat[l].clone() {
-                            Some((self.pair_op)(lv, v))
-                        } else {
-                            Some(lv)
-                        }
+                        Some((self.pair_op)(lv, self.dat[l].clone()))
                     } else {
-                        self.dat[l].clone()
+                        Some(self.dat[l].clone())
                     };
                     l += 1;
                 }
                 if r % 2 == 1 {
                     r -= 1;
+                    debug_assert!(r < end);
                     rcum = if let Some(rv) = rcum {
-                        if let Some(v) = self.dat[r].clone() {
-                            Some((self.pair_op)(v, rv))
-                        } else {
-                            Some(rv)
-                        }
+                        Some((self.pair_op)(self.dat[r].clone(), rv))
                     } else {
-                        self.dat[r].clone()
+                        Some(self.dat[r].clone())
                     };
                 }
                 l /= 2;
                 r /= 2;
+                if l >= r {
+                    break;
+                }
             }
             if let Some(lcum) = lcum {
                 if let Some(rcum) = rcum {
@@ -506,7 +504,7 @@ mod segment_tree {
         }
         pub fn right_fall(&self, l: usize, jdg: impl Fn(T) -> bool) -> Option<usize> {
             let mut v = l + self.n2;
-            if !jdg(self.dat[v].clone().unwrap()) {
+            if !jdg(self.dat[v].clone()) {
                 return Some(l);
             }
             if jdg(self.query(l, self.n - 1)) {
@@ -515,9 +513,9 @@ mod segment_tree {
             let mut true_fix = None;
             loop {
                 let ev = if let Some(true_fix) = true_fix.clone() {
-                    (self.pair_op)(true_fix, self.dat[v].clone().unwrap())
+                    (self.pair_op)(true_fix, self.dat[v].clone())
                 } else {
-                    self.dat[v].clone().unwrap()
+                    self.dat[v].clone()
                 };
                 if jdg(ev.clone()) {
                     if v & 1 != 0 {
@@ -533,9 +531,9 @@ mod segment_tree {
                 let lc = v * 2;
                 let rc = lc + 1;
                 let ev_lc = if let Some(true_fix) = true_fix.clone() {
-                    (self.pair_op)(true_fix, self.dat[lc].clone().unwrap())
+                    (self.pair_op)(true_fix, self.dat[lc].clone())
                 } else {
-                    self.dat[lc].clone().unwrap()
+                    self.dat[lc].clone()
                 };
                 if !jdg(ev_lc.clone()) {
                     v = lc;
@@ -551,7 +549,7 @@ mod segment_tree {
         }
         pub fn left_fall(&self, r: usize, jdg: impl Fn(T) -> bool) -> Option<usize> {
             let mut v = r + self.n2 + 1;
-            if !jdg(self.dat[v - 1].clone().unwrap()) {
+            if !jdg(self.dat[v - 1].clone()) {
                 return Some(r);
             }
             if jdg(self.query(0, r)) {
@@ -560,9 +558,9 @@ mod segment_tree {
             let mut true_fix = None;
             loop {
                 let ev = if let Some(true_fix) = true_fix.clone() {
-                    (self.pair_op)(self.dat[v - 1].clone().unwrap(), true_fix)
+                    (self.pair_op)(self.dat[v - 1].clone(), true_fix)
                 } else {
-                    self.dat[v - 1].clone().unwrap()
+                    self.dat[v - 1].clone()
                 };
                 if jdg(ev.clone()) {
                     if v & 1 != 0 {
@@ -579,9 +577,9 @@ mod segment_tree {
                 let lc = v * 2;
                 let rc = lc + 1;
                 let ev_rc = if let Some(true_fix) = true_fix.clone() {
-                    (self.pair_op)(self.dat[rc].clone().unwrap(), true_fix)
+                    (self.pair_op)(self.dat[rc].clone(), true_fix)
                 } else {
-                    self.dat[rc].clone().unwrap()
+                    self.dat[rc].clone()
                 };
                 if !jdg(ev_rc.clone()) {
                     v = rc;
@@ -601,13 +599,13 @@ mod segment_tree {
             self.set(pos, self.get(pos) - sub_val);
         }
     }
-    mod test {
+    pub mod test {
         use super::super::XorShift64;
         use super::SegmentTree;
         const T: usize = 100;
         const N: usize = 100;
         #[test]
-        fn query() {
+        pub fn query() {
             let mut rand = XorShift64::new();
             for n in 1..=N {
                 let mut a = vec![0; n];
@@ -798,178 +796,322 @@ mod segment_tree_2d {
 use segment_tree_2d::SegmentTree2D;
 
 mod lazy_segment_tree {
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     pub struct LazySegmentTree<X, M> {
-        // https://algo-logic.info/segment-tree/#toc_id_3
         n: usize,
-        n2: usize,                    // num of node(integer power of 2)
-        pair_op: fn(X, X) -> X,       // node_val x node_val -> node_val
-        update_op: fn(X, M) -> X,     // node_val x update_val -> node
-        update_concat: fn(M, M) -> M, // update_val x update_val -> update_val
-        dat: Vec<X>,                  // node values
-        lazy_ops: Vec<Option<M>>,     // reserved operations
-        built: bool,
+        n2: usize,
+        height: usize,
+        width: Vec<usize>,
+        pair_op: fn(X, X) -> X,
+        update_op: fn(X, M) -> X,
+        update_concat: fn(M, M) -> M,
+        dat: Vec<X>,
+        lazy_ops: Vec<Option<M>>,
     }
     impl<X: Clone, M: Clone> LazySegmentTree<X, M> {
-        pub fn new(
-            n: usize,
-            pair_op: fn(X, X) -> X,
-            update_op: fn(X, M) -> X,
-            update_concat: fn(M, M) -> M,
-            ini_val: X,
-        ) -> Self {
-            Self::from_vec(pair_op, update_op, update_concat, vec![ini_val.clone(); n])
-        }
         pub fn from_vec(
             pair_op: fn(X, X) -> X,
             update_op: fn(X, M) -> X,
             update_concat: fn(M, M) -> M,
-            init_vals: Vec<X>,
+            ini_vals: Vec<X>,
         ) -> Self {
-            let n = init_vals.len();
-            let mut n2 = 1_usize;
-            while n > n2 {
+            let n = ini_vals.len();
+            let mut n2 = 1;
+            let mut height = 1;
+            while n2 < n {
                 n2 *= 2;
+                height += 1;
             }
-            let mut ret = Self {
+            let width = (0..height)
+                .scan(2 * n, |cum, _| {
+                    *cum = (*cum + 1) / 2;
+                    Some(*cum)
+                })
+                .collect::<Vec<_>>();
+            let mut dat = vec![ini_vals[0].clone(); n2 + n];
+            dat.iter_mut()
+                .skip(n2)
+                .zip(ini_vals)
+                .for_each(|(dat, ini)| {
+                    *dat = ini;
+                });
+            for hi in 1..height {
+                let beg = n2 >> hi;
+                let cend = (n2 >> (hi - 1)) + width[hi - 1];
+                for p in (beg..).take(width[hi]) {
+                    let l = p * 2;
+                    let r = l + 1;
+                    dat[p] = if r < cend {
+                        pair_op(dat[l].clone(), dat[r].clone())
+                    } else {
+                        dat[l].clone()
+                    };
+                }
+            }
+            let lazy_ops = vec![None; n2];
+            Self {
                 n,
                 n2,
+                height,
+                width,
                 pair_op,
                 update_op,
                 update_concat,
-                dat: vec![init_vals[0].clone(); n * 4],
-                lazy_ops: vec![None; n * 4],
-                built: false,
+                dat,
+                lazy_ops,
+            }
+        }
+        #[inline(always)]
+        fn eval_down(&mut self, hi: usize, v: usize) {
+            if hi == 0 {
+                // bottom
+                return;
+            }
+            // not bottom, has childs.
+            let Some(lazy) = self.lazy_ops[v].clone() else {
+                return;
             };
-            for (i, init_val) in init_vals.iter().enumerate() {
-                ret.set(i, init_val.clone());
-            }
-            ret
-        }
-        pub fn query_all(&mut self) -> X // closed interval
-        {
-            self.query(0, self.n - 1)
-        }
-        pub fn query_left(&mut self, r: usize) -> X // closed interval
-        {
-            self.query(0, r)
-        }
-        pub fn query_right(&mut self, l: usize) -> X // closed interval
-        {
-            self.query(l, self.n - 1)
-        }
-        pub fn query(&mut self, a: usize, b: usize) -> X // closed interval
-        {
-            self.query_sub(a, b + 1, 0, 0, self.n2) // half_open interval
-        }
-        pub fn reserve(&mut self, a: usize, b: usize, m: M) // closed interval
-        {
-            self.reserve_sub(a, b + 1, m, 0, 0, self.n2); // half_open interval
-        }
-        pub fn set(&mut self, i: usize, val: X) {
-            self.dat[i + self.n2 - 1] = val;
-        }
-        fn init_all(&mut self, ini_val: X) {
-            for i in 0..self.n2 {
-                self.set(i, ini_val.clone());
-            }
-        }
-        fn build(&mut self) {
-            for k in (0..self.n2).rev().skip(1) {
-                self.dat[k] =
-                    (self.pair_op)(self.dat[2 * k + 1].clone(), self.dat[2 * k + 2].clone());
-            }
-        }
-        fn lazy_eval(&mut self, node: usize) {
-            if !self.built {
-                self.build();
-                self.built = true;
-            }
-            if let Some(lazy_val) = self.lazy_ops[node].clone() {
-                if node < self.n2 - 1 {
-                    // if the target node is not a terminal one, propagate to its' children.
-                    for d in 1..=2_usize {
-                        let nc = node * 2 + d;
-                        if let Some(nc_lazy_val) = self.lazy_ops[nc].clone() {
-                            self.lazy_ops[nc] =
-                                Some((self.update_concat)(nc_lazy_val, lazy_val.clone()));
-                        } else {
-                            self.lazy_ops[nc] = Some(lazy_val.clone());
-                        }
+            self.lazy_ops[v] = None;
+            let x0 = self.dat[v].clone();
+            self.dat[v] = (self.update_op)(x0, lazy.clone());
+            let l = v * 2;
+            let r = l + 1;
+            let cend = (self.n2 >> (hi - 1)) + self.width[hi - 1];
+            if l < self.n2 {
+                self.lazy_ops[l] = if let Some(m0) = self.lazy_ops[l].clone() {
+                    Some((self.update_concat)(m0, lazy.clone()))
+                } else if l < cend {
+                    Some(lazy.clone())
+                } else {
+                    None
+                };
+                self.lazy_ops[r] = if let Some(m0) = self.lazy_ops[r].clone() {
+                    Some((self.update_concat)(m0, lazy))
+                } else if r < cend {
+                    Some(lazy)
+                } else {
+                    None
+                };
+            } else {
+                // bottom, no childs.
+                if l < self.n2 + self.n {
+                    self.dat[l] = (self.update_op)(self.dat[l].clone(), lazy.clone());
+                    if r < self.n2 + self.n {
+                        self.dat[r] = (self.update_op)(self.dat[r].clone(), lazy);
                     }
                 }
-                // update the target node
-                self.dat[node] = (self.update_op)(self.dat[node].clone(), lazy_val);
-                self.lazy_ops[node] = None;
             }
         }
-        fn reserve_sub(
-            &mut self,
-            a: usize,
-            b: usize,
-            m: M,
-            node: usize,
-            node_l: usize,
-            node_r: usize,
-        ) {
-            self.lazy_eval(node);
-            if (a <= node_l) && (node_r <= b) {
-                // this node is inside the query range.
-                if let Some(lazy_val) = self.lazy_ops[node].clone() {
-                    self.lazy_ops[node] = Some((self.update_concat)(lazy_val, m));
-                } else {
-                    self.lazy_ops[node] = Some(m);
-                }
-                self.lazy_eval(node);
-            } else if (node_r > a) && (b > node_l) {
-                // this node and query range overlap partly.
-                self.reserve_sub(a, b, m.clone(), node * 2 + 1, node_l, (node_l + node_r) / 2); // 左の子
-                self.reserve_sub(a, b, m, node * 2 + 2, (node_l + node_r) / 2, node_r); // 右の子
-                self.dat[node] = (self.pair_op)(
-                    self.dat[node * 2 + 1].clone(),
-                    self.dat[node * 2 + 2].clone(),
-                );
+        #[inline(always)]
+        fn sum_up(&mut self, hi: usize, v: usize) {
+            if hi == 0 {
+                return;
             }
-        }
-        fn query_sub(
-            &mut self,
-            a: usize,
-            b: usize,
-            node: usize,
-            node_l: usize,
-            node_r: usize,
-        ) -> X {
-            self.lazy_eval(node);
-            if (a <= node_l) && (node_r <= b) {
-                // this node is inside the query range.
-                self.dat[node].clone()
-            } else if (node_r > a) && (b > node_l) {
-                // this node and query range overlap partly.
-                let n0 = node * 2 + 1;
-                let l0 = node_l;
-                let r0 = (node_l + node_r) / 2;
-                let n1 = node * 2 + 2;
-                let l1 = (node_l + node_r) / 2;
-                let r1 = node_r;
-                if (a < r0) && (l0 < b) {
-                    if (a < r1) && (l1 < b) {
-                        (self.pair_op)(
-                            self.query_sub(a, b, n0, l0, r0),
-                            self.query_sub(a, b, n1, l1, r1),
-                        )
-                    } else {
-                        self.query_sub(a, b, n0, l0, r0)
-                    }
-                } else if (a < r1) && (l1 < b) {
-                    self.query_sub(a, b, n1, l1, r1)
+            self.eval_down(hi, v);
+            let l = v * 2;
+            let r = l + 1;
+            if hi > 0 {
+                self.eval_down(hi - 1, l);
+                self.eval_down(hi - 1, r);
+            }
+            let cend = (self.n2 >> (hi - 1)) + self.width[hi - 1];
+            self.dat[v] = if l < cend {
+                if r < cend {
+                    (self.pair_op)(self.dat[l].clone(), self.dat[r].clone())
                 } else {
-                    panic!("invalid arg range {}, {}", a, b);
+                    self.dat[l].clone()
                 }
             } else {
-                panic!(
-                    "this node and query range have no common area, {}, {}",
-                    a, b
+                self.dat[r].clone()
+            };
+        }
+        pub fn get(&mut self, mut i: usize) -> X {
+            i += self.n2;
+            for hi in (0..self.height).rev() {
+                self.eval_down(hi, i >> hi);
+            }
+            self.dat[i].clone()
+        }
+        pub fn set(&mut self, mut i: usize, x: X) {
+            i += self.n2;
+            for hi in (0..self.height).rev() {
+                self.eval_down(hi, i >> hi);
+            }
+            self.dat[i] = x;
+            for hi in 0..self.height {
+                self.sum_up(hi, i >> hi);
+            }
+        }
+        pub fn query(&mut self, mut l: usize, mut r: usize) -> X {
+            l += self.n2;
+            r += self.n2 + 1;
+            for hi in (0..self.height).rev() {
+                self.eval_down(hi, l >> hi);
+                self.eval_down(hi, (r - 1) >> hi);
+            }
+            let mut lcum = None;
+            let mut rcum = None;
+            for hi in 0..self.height {
+                let end = (self.n2 >> hi) + self.width[hi];
+                if l % 2 == 1 {
+                    debug_assert!(l < end);
+                    self.eval_down(hi, l);
+                    lcum = if let Some(lv) = lcum {
+                        Some((self.pair_op)(lv, self.dat[l].clone()))
+                    } else {
+                        Some(self.dat[l].clone())
+                    };
+                    l += 1;
+                }
+                if r % 2 == 1 {
+                    r -= 1;
+                    debug_assert!(r < end);
+                    self.eval_down(hi, r);
+                    rcum = if let Some(rv) = rcum {
+                        Some((self.pair_op)(self.dat[r].clone(), rv))
+                    } else {
+                        Some(self.dat[r].clone())
+                    };
+                }
+                l /= 2;
+                r /= 2;
+                if l >= r {
+                    break;
+                }
+            }
+            if let Some(lcum) = lcum {
+                if let Some(rcum) = rcum {
+                    (self.pair_op)(lcum, rcum)
+                } else {
+                    lcum
+                }
+            } else {
+                rcum.unwrap()
+            }
+        }
+        pub fn reserve(&mut self, mut l: usize, mut r: usize, m: M) {
+            l += self.n2;
+            r += self.n2 + 1;
+            for hi in (0..self.height).rev() {
+                self.eval_down(hi, l >> hi);
+                self.eval_down(hi, (r - 1) >> hi);
+            }
+            {
+                let (mut l2, mut r2) = (l, r);
+                for hi in 0..self.height {
+                    if l2 % 2 == 1 {
+                        debug_assert!(l2 < (self.n2 >> hi) + self.width[hi]);
+                        if hi > 0 {
+                            self.eval_down(hi, l2);
+                            self.lazy_ops[l2] = Some(m.clone());
+                        } else {
+                            self.dat[l2] = (self.update_op)(self.dat[l2].clone(), m.clone());
+                        }
+                        l2 += 1;
+                    }
+                    if r2 % 2 == 1 {
+                        r2 -= 1;
+                        debug_assert!(r2 < (self.n2 >> hi) + self.width[hi]);
+                        if hi > 0 {
+                            self.eval_down(hi, r2);
+                            self.lazy_ops[r2] = Some(m.clone());
+                        } else {
+                            self.dat[r2] = (self.update_op)(self.dat[r2].clone(), m.clone());
+                        }
+                    }
+                    l2 /= 2;
+                    r2 /= 2;
+                    if l2 >= r2 {
+                        break;
+                    }
+                }
+            }
+            for hi in 0..self.height {
+                self.sum_up(hi, l >> hi);
+                self.sum_up(hi, (r - 1) >> hi);
+            }
+        }
+    }
+    mod test {
+        use super::super::XorShift64;
+        use super::LazySegmentTree;
+        #[test]
+        fn random() {
+            const N: usize = 100;
+            const T: usize = 1000;
+            let mut rand = XorShift64::new();
+            for n in 1..=N {
+                let mut a = (0..n).map(|_| rand.next_usize() % 2).collect::<Vec<_>>();
+                #[derive(Clone, Debug)]
+                struct Node {
+                    n0: usize,
+                    n1: usize,
+                    inner_swap: usize,
+                }
+                let mut seg = LazySegmentTree::<Node, bool>::from_vec(
+                    |x, y| {
+                        let n0 = x.n0 + y.n0;
+                        let n1 = x.n1 + y.n1;
+                        let inner_swap = x.inner_swap + y.inner_swap + x.n1 * y.n0;
+                        Node { n0, n1, inner_swap }
+                    },
+                    |x, b| {
+                        if !b {
+                            return x;
+                        }
+                        let tot = x.n0 + x.n1;
+                        let n0 = x.n1;
+                        let n1 = x.n0;
+                        let mut inner_swap = (tot * (tot - 1)) / 2;
+                        inner_swap -= if n0 == 0 { 0 } else { (n0 * (n0 - 1)) / 2 };
+                        inner_swap -= if n1 == 0 { 0 } else { (n1 * (n1 - 1)) / 2 };
+                        inner_swap -= x.inner_swap;
+                        Node { n0, n1, inner_swap }
+                    },
+                    |b0, b1| (b0 != b1),
+                    a.iter()
+                        .map(|&a| {
+                            if a == 0 {
+                                Node {
+                                    n0: 1,
+                                    n1: 0,
+                                    inner_swap: 0,
+                                }
+                            } else {
+                                Node {
+                                    n0: 0,
+                                    n1: 1,
+                                    inner_swap: 0,
+                                }
+                            }
+                        })
+                        .collect::<Vec<_>>(),
                 );
+                for _ in 0..T {
+                    let mut l = rand.next_usize() % n;
+                    let mut r = rand.next_usize() % n;
+                    if l >= r {
+                        std::mem::swap(&mut l, &mut r);
+                    }
+                    let op = rand.next_usize() % 2;
+                    if op == 0 {
+                        seg.reserve(l, r, true);
+                        a.iter_mut().take(r + 1).skip(l).for_each(|a| {
+                            *a = 1 - *a;
+                        });
+                    } else {
+                        let actual = seg.query(l, r).inner_swap;
+                        let mut cnt = vec![0; 2];
+                        let mut expected = 0;
+                        for i in l..=r {
+                            if a[i] == 0 {
+                                expected += cnt[1];
+                            }
+                            cnt[a[i]] += 1;
+                        }
+                        assert_eq!(expected, actual);
+                    }
+                }
             }
         }
     }
