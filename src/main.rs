@@ -5409,14 +5409,14 @@ mod aho_corasick {
     #[derive(Clone, Debug)]
     pub struct AhoCoarsick<T> {
         trie: Vec<HashMap<T, usize>>,
-        fin: Vec<Vec<usize>>,
-        failure: Vec<Option<usize>>,
+        hit: Vec<usize>,
+        failure: Vec<usize>,
     }
     impl<T: Eq + Hash + Copy> AhoCoarsick<T> {
         pub fn new(ngs: Vec<Vec<T>>) -> Self {
-            let (trie, fin) = {
+            let (trie, mut hit) = {
                 let mut trie = vec![HashMap::new()];
-                let mut fin = vec![vec![]];
+                let mut hit = vec![0];
                 for (i, ng) in ngs.into_iter().enumerate() {
                     let mut v = 0;
                     for val in ng {
@@ -5425,41 +5425,44 @@ mod aho_corasick {
                         } else {
                             let nv = trie.len();
                             trie.push(HashMap::new());
-                            fin.push(vec![]);
+                            hit.push(0);
                             trie[v].insert(val, nv);
                             nv
                         };
                         v = nv;
                     }
-                    fin[v].push(i);
+                    hit[v] += 1;
                 }
-                (trie, fin)
+                (trie, hit)
             };
             let failure = {
-                let mut failure = vec![None; trie.len()];
+                let mut failure = vec![0; trie.len()];
                 let mut que = VecDeque::new();
-                que.push_back(0);
+                for (_c, &nv) in trie[0].iter() {
+                    que.push_back(nv);
+                }
                 while let Some(v) = que.pop_front() {
                     for (&c, &nv) in trie[v].iter() {
-                        failure[nv] = Some(Self::next_impl(
+                        failure[nv] = Self::next_impl(
                             &trie,
                             &failure,
-                            if let Some(f) = failure[v] { f } else { 0 },
+                            failure[v],
                             c,
-                        ));
+                        );
+                        hit[nv] += hit[failure[nv]];
                         que.push_back(nv);
                     }
                 }
                 failure
             };
-            Self { trie, fin, failure }
+            Self { trie, hit, failure }
         }
         pub fn next(&self, from: usize, c: T) -> usize {
             Self::next_impl(&self.trie, &self.failure, from, c)
         }
         fn next_impl(
             trie: &[HashMap<T, usize>],
-            failure: &[Option<usize>],
+            failure: &[usize],
             from: usize,
             c: T,
         ) -> usize {
@@ -5468,17 +5471,14 @@ mod aho_corasick {
                 if let Some(&to) = trie[now].get(&c) {
                     return to;
                 }
-                let Some(fail_now) = failure[now] else {
-                    return 0;
-                };
-                now = fail_now;
+                now = failure[now];
                 if now == 0 {
                     return 0;
                 }
             }
         }
-        pub fn fin_at(&self, node: usize) -> &Vec<usize> {
-            &self.fin[node]
+        pub fn fin_at(&self, node: usize) -> usize {
+            self.hit[node]
         }
     }
     pub mod test {
@@ -5487,12 +5487,11 @@ mod aho_corasick {
         //#[test]
         pub fn random() {
             let mut rand = XorShift64::new();
-            const N: usize = 10;
-            const C: usize = 26;
-            const K: usize = N;
-            const T: usize = 1000;
+            const N: usize = 5;
+            const C: usize = 10;
+            const K: usize = 3;
+            const T: usize = 100000;
             for ti in 0..T {
-                dbg!(ti);
                 let s = (0..N).map(|_| rand.next_usize() % C).collect::<Vec<_>>();
                 let keys = (0..K)
                     .map(|_| {
@@ -5503,22 +5502,23 @@ mod aho_corasick {
                     .collect::<Vec<_>>();
                 let ac = AhoCoarsick::new(keys.clone());
                 let mut v = 0;
+                dbg!(ti);
                 for (i, &c) in s.iter().enumerate() {
-                    if i == 1 {
-                        dbg!();
-                    }
-                    dbg!(i);
                     v = ac.next(v, c);
+                    dbg!(i, v);
                     let fin = ac.fin_at(v);
+                    let mut same_cnt = 0;
                     for (ki, key) in keys.iter().enumerate() {
-                        dbg!(ki);
                         let same = if i < key.len() - 1 {
                             false
                         } else {
                             &s[i - (key.len() - 1)..=i] == key
                         };
-                        assert!(fin.contains(&ki) == same);
+                        if same {
+                            same_cnt += 1;
+                        }
                     }
+                    assert_eq!(fin, same_cnt);
                 }
             }
         }
