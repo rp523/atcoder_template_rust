@@ -5443,12 +5443,7 @@ mod aho_corasick {
                 }
                 while let Some(v) = que.pop_front() {
                     for (&c, &nv) in trie[v].iter() {
-                        failure[nv] = Self::next_impl(
-                            &trie,
-                            &failure,
-                            failure[v],
-                            c,
-                        );
+                        failure[nv] = Self::next_impl(&trie, &failure, failure[v], c);
                         hit[nv] += hit[failure[nv]];
                         que.push_back(nv);
                     }
@@ -5460,19 +5455,19 @@ mod aho_corasick {
         pub fn next(&self, from: usize, c: T) -> usize {
             Self::next_impl(&self.trie, &self.failure, from, c)
         }
-        fn next_impl(
-            trie: &[HashMap<T, usize>],
-            failure: &[usize],
-            from: usize,
-            c: T,
-        ) -> usize {
+        fn next_impl(trie: &[HashMap<T, usize>], failure: &[usize], from: usize, c: T) -> usize {
             let mut now = from;
             loop {
                 if let Some(&to) = trie[now].get(&c) {
+                    // trie has next node.
                     return to;
-                }
-                now = failure[now];
-                if now == 0 {
+                } else if now != failure[now] {
+                    // proceed failure
+                    // retry from failure-link.
+                    now = failure[now];
+                } else {
+                    // proceed failure at root.
+                    debug_assert!(now == 0);
                     return 0;
                 }
             }
@@ -5484,41 +5479,42 @@ mod aho_corasick {
     pub mod test {
         use super::super::XorShift64;
         use super::AhoCoarsick;
-        //#[test]
+        #[test]
         pub fn random() {
             let mut rand = XorShift64::new();
-            const N: usize = 5;
+            const NMAX: usize = 50;
             const C: usize = 10;
-            const K: usize = 3;
-            const T: usize = 100000;
-            for ti in 0..T {
-                let s = (0..N).map(|_| rand.next_usize() % C).collect::<Vec<_>>();
-                let keys = (0..K)
-                    .map(|_| {
-                        (0..1 + rand.next_usize() % (N - 1))
-                            .map(|_| rand.next_usize() % C)
-                            .collect::<Vec<_>>()
-                    })
-                    .collect::<Vec<_>>();
-                let ac = AhoCoarsick::new(keys.clone());
-                let mut v = 0;
-                dbg!(ti);
-                for (i, &c) in s.iter().enumerate() {
-                    v = ac.next(v, c);
-                    dbg!(i, v);
-                    let fin = ac.fin_at(v);
-                    let mut same_cnt = 0;
-                    for (ki, key) in keys.iter().enumerate() {
-                        let same = if i < key.len() - 1 {
-                            false
-                        } else {
-                            &s[i - (key.len() - 1)..=i] == key
-                        };
-                        if same {
-                            same_cnt += 1;
+            const K: usize = NMAX;
+            const T: usize = 1000;
+            for n in 1..=NMAX {
+                for ti in 0..T {
+                    let s = (0..NMAX).map(|_| rand.next_usize() % C).collect::<Vec<_>>();
+                    let keys = (0..K)
+                        .map(|_| {
+                            (0..1 + rand.next_usize() % (NMAX - 1))
+                                .map(|_| rand.next_usize() % C)
+                                .collect::<Vec<_>>()
+                        })
+                        .collect::<Vec<_>>();
+                    let ac = AhoCoarsick::new(keys.clone());
+                    let mut v = 0;
+                    for (i, &c) in s.iter().enumerate() {
+                        v = ac.next(v, c);
+                        if ti == 38 {}
+                        let fin = ac.fin_at(v);
+                        let mut same_cnt = 0;
+                        for (ki, key) in keys.iter().enumerate() {
+                            let same = if i < key.len() - 1 {
+                                false
+                            } else {
+                                &s[i - (key.len() - 1)..=i] == key
+                            };
+                            if same {
+                                same_cnt += 1;
+                            }
                         }
+                        assert_eq!(fin, same_cnt);
                     }
-                    assert_eq!(fin, same_cnt);
                 }
             }
         }
@@ -5526,5 +5522,5 @@ mod aho_corasick {
 }
 use aho_corasick::AhoCoarsick;
 fn main() {
-    aho_corasick::test::random();
+    read::<usize>();
 }
