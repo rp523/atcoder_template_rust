@@ -1031,8 +1031,59 @@ mod lazy_segment_tree {
                 self.sum_up(hi, (r - 1) >> hi);
             }
         }
+        pub fn right_fall(&mut self, l: usize, jdg: impl Fn(X) -> bool) -> Option<usize> {
+            let mut v = l + self.n2;
+            for hi in (1..self.height).rev() {
+                self.eval_down(hi, v >> hi);
+            }
+            if !jdg(self.dat[v].clone()) {
+                return Some(l);
+            }
+            if jdg(self.query(l, self.n - 1)) {
+                return None;
+            }
+            let mut true_fix = None;
+            let mut hi = 0;
+            loop {
+                self.eval_down(hi, v);
+                let ev = if let Some(true_fix) = true_fix.clone() {
+                    (self.pair_op)(true_fix, self.dat[v].clone())
+                } else {
+                    self.dat[v].clone()
+                };
+                if jdg(ev.clone()) {
+                    if v & 1 != 0 {
+                        v += 1;
+                        true_fix = Some(ev);
+                    }
+                    v /= 2;
+                    hi += 1;
+                } else {
+                    break;
+                }
+            }
+            while hi > 0 {
+                let lc = v * 2;
+                let rc = lc + 1;
+                self.eval_down(hi - 1, lc);
+                let ev_lc = if let Some(true_fix) = true_fix.clone() {
+                    (self.pair_op)(true_fix, self.dat[lc].clone())
+                } else {
+                    self.dat[lc].clone()
+                };
+                if !jdg(ev_lc.clone()) {
+                    v = lc;
+                } else {
+                    self.eval_down(hi - 1, rc);
+                    v = rc;
+                    true_fix = Some(ev_lc);
+                }
+                hi -= 1;
+            }
+            Some(v - self.n2)
+        }
     }
-    mod test {
+    pub mod test {
         use super::super::XorShift64;
         use super::LazySegmentTree;
         #[test]
@@ -1110,6 +1161,62 @@ mod lazy_segment_tree {
                             cnt[a[i]] += 1;
                         }
                         assert_eq!(expected, actual);
+                    }
+                }
+            }
+        }
+        //#[test]
+        pub fn binary_search() {
+            const NMAX: usize = 100;
+            const T: usize = 1000;
+            const OP: usize = 1000;
+            const V: i64 = 10;
+            let mut rand = XorShift64::new();
+            for n in 1..=NMAX {
+                let mut a = (0..n)
+                    .map(|_| rand.next_usize() as i64 % (2 * V) - V)
+                    .collect::<Vec<_>>();
+                let mut seg = LazySegmentTree::<(i64, i64), i64>::from_vec(
+                    |x, y| (x.0 + y.0, x.1 + y.1),
+                    |x, m| (x.0 + x.1 * m, x.1),
+                    |m0, m1| m0 + m1,
+                    a.iter().map(|&a| (a, 1)).collect::<Vec<_>>(),
+                );
+                for ti in 0..T {
+                    let mut ops = vec![];
+                    for opi in 0..OP {
+                        //dbg!(n, ti);
+                        let mut l = rand.next_usize() % n;
+                        let mut r = rand.next_usize() % n;
+                        if l > r {
+                            (l, r) = (r, l);
+                        }
+                        let op = rand.next_usize() % 2;
+                        let v = rand.next_usize() as i64 % (2 * V) - V;
+                        ops.push((op, l, r, v));
+                        match op {
+                            0 => {
+                                //eprintln!("add [{}, {}] {}", l, r, v);
+                                (l..=r).for_each(|i| {
+                                    a[i] += v;
+                                });
+                                seg.reserve(l, r, v);
+                            }
+                            _ => {
+                                let mut expected_fall = None;
+                                let mut cum = 0;
+                                //eprintln!("query [{}, {}] sum < {}", l, r, v);
+                                for i in l..n {
+                                    cum += a[i];
+                                    if cum >= v {
+                                        expected_fall = Some(i);
+                                        break;
+                                    }
+                                }
+                                let actual_fall = seg.right_fall(l, |(x, _)| x < v);
+                                assert_eq!(expected_fall, actual_fall);
+                            }
+                        }
                     }
                 }
             }
@@ -5527,5 +5634,6 @@ use procon_reader::*;
 //////////////////////////////////////////////////////////////////////////////////////
 
 fn main() {
+    return lazy_segment_tree::test::binary_search();
     read::<usize>();
 }
