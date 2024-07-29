@@ -1031,6 +1031,116 @@ mod lazy_segment_tree {
                 self.sum_up(hi, (r - 1) >> hi);
             }
         }
+        pub fn right_rise(&mut self, l: usize, jdg: impl Fn(X) -> bool) -> Option<usize> {
+            self.right_fall(l, |x| !jdg(x))
+        }
+        pub fn right_fall(&mut self, l: usize, jdg: impl Fn(X) -> bool) -> Option<usize> {
+            let mut v = l + self.n2;
+            for hi in (1..self.height).rev() {
+                self.eval_down(hi, v >> hi);
+            }
+            if !jdg(self.dat[v].clone()) {
+                return Some(l);
+            }
+            if jdg(self.query(l, self.n - 1)) {
+                return None;
+            }
+            let mut true_fix = None;
+            let mut hi = 0;
+            while hi < self.height {
+                self.eval_down(hi, v);
+                let ev = if let Some(true_fix) = true_fix.clone() {
+                    (self.pair_op)(true_fix, self.dat[v].clone())
+                } else {
+                    self.dat[v].clone()
+                };
+                if !jdg(ev.clone()) {
+                    break;
+                }
+                if v & 1 != 0 {
+                    v += 1;
+                    true_fix = Some(ev);
+                }
+                while v & 1 == 0 {
+                    v /= 2;
+                    hi += 1;
+                }
+            }
+            while hi > 0 {
+                let lc = v * 2;
+                let rc = lc + 1;
+                self.eval_down(hi - 1, lc);
+                let ev_lc = if let Some(true_fix) = true_fix.clone() {
+                    (self.pair_op)(true_fix, self.dat[lc].clone())
+                } else {
+                    self.dat[lc].clone()
+                };
+                if !jdg(ev_lc.clone()) {
+                    v = lc;
+                } else {
+                    self.eval_down(hi - 1, rc);
+                    v = rc;
+                    true_fix = Some(ev_lc);
+                }
+                hi -= 1;
+            }
+            Some(v - self.n2)
+        }
+        pub fn left_rise(&mut self, r: usize, jdg: impl Fn(X) -> bool) -> Option<usize> {
+            self.left_fall(r, |x| !jdg(x))
+        }
+        pub fn left_fall(&mut self, r: usize, jdg: impl Fn(X) -> bool) -> Option<usize> {
+            let mut v = r + self.n2 + 1;
+            for hi in (1..self.height).rev() {
+                self.eval_down(hi, (v - 1) >> hi);
+            }
+            if !jdg(self.dat[v - 1].clone()) {
+                return Some(r);
+            }
+            if jdg(self.query(0, r)) {
+                return None;
+            }
+            let mut true_fix = None;
+            let mut hi = 0;
+            while hi < self.height {
+                self.eval_down(hi, v - 1);
+                let ev = if let Some(true_fix) = true_fix.clone() {
+                    (self.pair_op)(self.dat[v - 1].clone(), true_fix)
+                } else {
+                    self.dat[v - 1].clone()
+                };
+                if !jdg(ev.clone()) {
+                    break;
+                }
+                if v & 1 != 0 {
+                    v -= 1;
+                    true_fix = Some(ev);
+                }
+                while v & 1 == 0 {
+                    v /= 2;
+                    hi += 1;
+                }
+            }
+            while hi > 0 {
+                let lc = (v - 1) * 2;
+                let rc = lc + 1;
+                self.eval_down(hi - 1, rc);
+                let ev_rc = if let Some(true_fix) = true_fix.clone() {
+                    (self.pair_op)(self.dat[rc].clone(), true_fix)
+                } else {
+                    self.dat[rc].clone()
+                };
+                if !jdg(ev_rc.clone()) {
+                    v = rc + 1;
+                } else {
+                    self.eval_down(hi - 1, lc);
+                    v = lc + 1;
+                    true_fix = Some(ev_rc);
+                }
+                hi -= 1;
+            }
+            Some(v - self.n2 - 1)
+        }
     }
     mod test {
         use super::super::XorShift64;
@@ -1110,6 +1220,71 @@ mod lazy_segment_tree {
                             cnt[a[i]] += 1;
                         }
                         assert_eq!(expected, actual);
+                    }
+                }
+            }
+        }
+        #[test]
+        fn binary_search() {
+            const NMAX: usize = 100;
+            const T: usize = 100;
+            const OP: usize = 1000;
+            const V: usize = 10;
+            let mut rand = XorShift64::new();
+            for n in 1..=NMAX {
+                for _ in 0..T {
+                    let mut a = (0..n).map(|_| rand.next_usize() % V).collect::<Vec<_>>();
+                    let mut seg = LazySegmentTree::<(usize, usize), usize>::from_vec(
+                        |x, y| (x.0 + y.0, x.1 + y.1),
+                        |x, m| (x.0 + x.1 * m, x.1),
+                        |m0, m1| m0 + m1,
+                        a.iter().map(|&a| (a, 1)).collect::<Vec<_>>(),
+                    );
+                    let mut ops = vec![];
+                    for _ in 0..OP {
+                        let mut l = rand.next_usize() % n;
+                        let mut r = rand.next_usize() % n;
+                        if l > r {
+                            (l, r) = (r, l);
+                        }
+                        let op = rand.next_usize() % 3;
+                        let v = rand.next_usize() % V;
+                        ops.push((op, l, r, v));
+                        match op {
+                            0 => {
+                                (l..=r).for_each(|i| {
+                                    a[i] += v;
+                                });
+                                seg.reserve(l, r, v);
+                            }
+                            1 => {
+                                let mut expected_fall = None;
+                                let mut cum = 0;
+                                for i in l..n {
+                                    cum += a[i];
+                                    if cum >= v {
+                                        expected_fall = Some(i);
+                                        break;
+                                    }
+                                }
+                                assert_eq!(expected_fall, seg.right_fall(l, |(x, _)| x < v));
+                                assert_eq!(expected_fall, seg.right_rise(l, |(x, _)| x >= v));
+                            }
+                            2 => {
+                                let mut expected_fall = None;
+                                let mut cum = 0;
+                                for i in (0..=r).rev() {
+                                    cum += a[i];
+                                    if cum >= v {
+                                        expected_fall = Some(i);
+                                        break;
+                                    }
+                                }
+                                assert_eq!(expected_fall, seg.left_fall(r, |(x, _)| x < v));
+                                assert_eq!(expected_fall, seg.left_rise(r, |(x, _)| x >= v));
+                            }
+                            _ => unreachable!(),
+                        }
                     }
                 }
             }
