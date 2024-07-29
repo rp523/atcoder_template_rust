@@ -1142,7 +1142,7 @@ mod lazy_segment_tree {
             Some(v - self.n2 - 1)
         }
     }
-    pub mod test {
+    mod test {
         use super::super::XorShift64;
         use super::LazySegmentTree;
         #[test]
@@ -1225,7 +1225,7 @@ mod lazy_segment_tree {
             }
         }
         #[test]
-        pub fn binary_search() {
+        fn binary_search() {
             const NMAX: usize = 100;
             const T: usize = 100;
             const OP: usize = 1000;
