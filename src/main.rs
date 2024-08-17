@@ -1299,14 +1299,29 @@ mod modint {
     use std::fmt;
     use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, Sub, SubAssign};
 
+    #[inline(always)]
+    pub fn powmod(x: i64, mut p: usize, m: i64) -> i64 {
+        let mut ret = 1;
+        let mut mul = x;
+        while p > 0 {
+            if p & 1 != 0 {
+                ret = (ret * mul) % m;
+            }
+            p >>= 1;
+            mul = (mul * mul) % m;
+        }
+        ret
+    }
     #[derive(Clone, Copy, Eq, Hash, PartialEq)]
     pub struct ModInt<const MOD: i64> {
         x: i64,
     }
     impl<const MOD: i64> ModInt<MOD> {
+        #[inline(always)]
         pub fn val(&self) -> i64 {
             self.x
         }
+        #[inline(always)]
         fn new(mut sig: i64) -> Self {
             if sig < 0 {
                 let ab = (-sig + MOD - 1) / MOD;
@@ -1336,17 +1351,10 @@ mod modint {
             //}
             //ret
         }
-        pub fn pow(self, mut p: usize) -> Self {
-            let mut ret = Self::one();
-            let mut mul = self;
-            while p > 0 {
-                if p & 1 != 0 {
-                    ret *= mul;
-                }
-                p >>= 1;
-                mul *= mul;
+        pub fn pow(self, p: usize) -> Self {
+            Self {
+                x: powmod(self.x, p, MOD),
             }
-            ret
         }
     }
     impl<const MOD: i64> One for ModInt<MOD> {
@@ -1522,9 +1530,11 @@ mod modint {
         pub fn get_mod() -> i64 {
             unsafe { MOD }
         }
+        #[inline(always)]
         pub fn val(&self) -> i64 {
             self.x
         }
+        #[inline(always)]
         fn new(mut sig: i64) -> Self {
             if sig < 0 {
                 let m = Self::get_mod();
@@ -1681,7 +1691,7 @@ mod modint {
         }
     }
 }
-use modint::{DynModInt, ModInt};
+use modint::{powmod, DynModInt, ModInt};
 
 pub trait IntegerOperation {
     fn into_primes(self) -> BTreeMap<Self, usize>
