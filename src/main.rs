@@ -405,7 +405,7 @@ mod segment_tree {
             let mut dat = vec![ini_values[0].clone(); n2 + n];
             dat.iter_mut()
                 .skip(n2)
-                .zip(ini_values.into_iter())
+                .zip(ini_values)
                 .for_each(|(dat, ini)| {
                     *dat = ini;
                 });
