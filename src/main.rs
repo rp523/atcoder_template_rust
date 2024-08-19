@@ -591,6 +591,50 @@ mod segment_tree {
             }
             Some(v - self.n2)
         }
+        pub fn right_true_max(&self, l: usize, jdg: impl Fn(T) -> bool) -> Option<usize> {
+            if let Some(r) = self.right_fall(l, jdg) {
+                if l == r {
+                    None
+                } else {
+                    Some(r - 1)
+                }
+            } else {
+                Some(self.n - 1)
+            }
+        }
+        pub fn right_false_max(&self, l: usize, jdg: impl Fn(T) -> bool) -> Option<usize> {
+            if let Some(r) = self.right_rise(l, jdg) {
+                if l == r {
+                    None
+                } else {
+                    Some(r - 1)
+                }
+            } else {
+                Some(self.n - 1)
+            }
+        }
+        pub fn left_true_max(&self, r: usize, jdg: impl Fn(T) -> bool) -> Option<usize> {
+            if let Some(l) = self.left_fall(r, jdg) {
+                if l == r {
+                    None
+                } else {
+                    Some(l + 1)
+                }
+            } else {
+                Some(0)
+            }
+        }
+        pub fn left_false_max(&self, r: usize, jdg: impl Fn(T) -> bool) -> Option<usize> {
+            if let Some(l) = self.left_rise(r, jdg) {
+                if l == r {
+                    None
+                } else {
+                    Some(l + 1)
+                }
+            } else {
+                Some(0)
+            }
+        }
     }
     impl<T: Copy + Add<Output = T> + Sub<Output = T>> SegmentTree<T> {
         pub fn add(&mut self, pos: usize, add_val: T) {
@@ -1141,6 +1185,50 @@ mod lazy_segment_tree {
                 hi -= 1;
             }
             Some(v - self.n2 - 1)
+        }
+        pub fn right_true_max(&mut self, l: usize, jdg: impl Fn(X) -> bool) -> Option<usize> {
+            if let Some(r) = self.right_fall(l, jdg) {
+                if l == r {
+                    None
+                } else {
+                    Some(r - 1)
+                }
+            } else {
+                Some(self.n - 1)
+            }
+        }
+        pub fn right_false_max(&mut self, l: usize, jdg: impl Fn(X) -> bool) -> Option<usize> {
+            if let Some(r) = self.right_rise(l, jdg) {
+                if l == r {
+                    None
+                } else {
+                    Some(r - 1)
+                }
+            } else {
+                Some(self.n - 1)
+            }
+        }
+        pub fn left_true_max(&mut self, r: usize, jdg: impl Fn(X) -> bool) -> Option<usize> {
+            if let Some(l) = self.left_fall(r, jdg) {
+                if l == r {
+                    None
+                } else {
+                    Some(l + 1)
+                }
+            } else {
+                Some(0)
+            }
+        }
+        pub fn left_false_max(&mut self, r: usize, jdg: impl Fn(X) -> bool) -> Option<usize> {
+            if let Some(l) = self.left_rise(r, jdg) {
+                if l == r {
+                    None
+                } else {
+                    Some(l + 1)
+                }
+            } else {
+                Some(0)
+            }
         }
     }
     mod test {
