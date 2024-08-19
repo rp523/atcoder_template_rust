@@ -3211,7 +3211,7 @@ mod suffix_array {
         for pos in 0..n {
             let pre_ord = pos_to_ord[pos] - 1;
             let pre_ord_pos = ord_to_pos[pre_ord];
-            let _ = lcp_now.saturating_sub(1);
+            lcp_now = lcp_now.saturating_sub(1);
             while pre_ord_pos + lcp_now < n && pos + lcp_now < n {
                 if s[pre_ord_pos + lcp_now] == s[pos + lcp_now] {
                     lcp_now += 1;
