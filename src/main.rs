@@ -1889,85 +1889,108 @@ use modint::{
     carry_mod_int::CarryModInt, dynamic_mod_int::DynModInt, powmod, static_mod_int::StaticModInt,
 };
 
-pub trait IntegerOperation {
-    fn into_primes(self) -> BTreeMap<Self, usize>
-    where
-        Self: Sized;
-    fn into_divisors(self) -> Vec<Self>
-    where
-        Self: Sized;
-    fn squared_length(&self, rhs: Self) -> Self;
-}
-impl<
-        T: Copy
-            + Ord
-            + AddAssign
-            + MulAssign
-            + DivAssign
-            + Add<Output = T>
-            + Mul<Output = T>
-            + Div<Output = T>
-            + Rem<Output = T>
-            + Zero
-            + One,
-    > IntegerOperation for T
-{
-    fn into_primes(self) -> BTreeMap<T, usize> // O(N^0.5 x logN)
-    {
-        #[allow(clippy::eq_op)]
-        if self == T::zero() {
-            panic!("Zero has no divisors.");
-        }
-        #[allow(clippy::eq_op)]
-        let two = T::one() + T::one();
-        let three = two + T::one();
-        let mut n = self;
-        let mut ans = BTreeMap::new();
-        while n % two == T::zero() {
-            *ans.entry(two).or_insert(0) += 1;
-            n /= two;
-        }
-        {
-            let mut i = three;
-            while i * i <= n {
-                while n % i == T::zero() {
-                    *ans.entry(i).or_insert(0) += 1;
-                    n /= i;
-                }
-                i += two;
-            }
-        }
-        if n != T::one() {
-            *ans.entry(n).or_insert(0) += 1;
-        }
-        ans
+mod integer_operation {
+    use num::{One, Zero};
+    use std::collections::BTreeMap;
+    use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem};
+    pub trait IntegerOperation {
+        fn into_primes(self) -> BTreeMap<Self, usize>
+        where
+            Self: Sized;
+        fn into_divisors(self) -> Vec<Self>
+        where
+            Self: Sized;
+        fn squared_length(&self, rhs: Self) -> Self;
+        fn is_prime(self) -> bool;
     }
-    fn into_divisors(self) -> Vec<T> // O(N^0.5)
+    impl<
+            T: Copy
+                + Ord
+                + AddAssign
+                + MulAssign
+                + DivAssign
+                + Add<Output = T>
+                + Mul<Output = T>
+                + Div<Output = T>
+                + Rem<Output = T>
+                + Zero
+                + One,
+        > IntegerOperation for T
     {
-        if self == T::zero() {
-            panic!("Zero has no primes.");
-        }
-        let n = self;
-        let mut ret: Vec<T> = Vec::new();
+        fn into_primes(self) -> BTreeMap<T, usize> // O(N^0.5 x logN)
         {
-            let mut i = T::one();
-            while i * i <= n {
-                if n % i == T::zero() {
-                    ret.push(i);
-                    if i * i != n {
-                        ret.push(n / i);
+            #[allow(clippy::eq_op)]
+            if self == T::zero() {
+                panic!("Zero has no divisors.");
+            }
+            #[allow(clippy::eq_op)]
+            let two = T::one() + T::one();
+            let three = two + T::one();
+            let mut n = self;
+            let mut ans = BTreeMap::new();
+            while n % two == T::zero() {
+                *ans.entry(two).or_insert(0) += 1;
+                n /= two;
+            }
+            {
+                let mut i = three;
+                while i * i <= n {
+                    while n % i == T::zero() {
+                        *ans.entry(i).or_insert(0) += 1;
+                        n /= i;
                     }
+                    i += two;
                 }
-                i += T::one();
+            }
+            if n != T::one() {
+                *ans.entry(n).or_insert(0) += 1;
+            }
+            ans
+        }
+        fn is_prime(self) -> bool // O(N^0.5 x logN)
+        {
+            let primes = self.into_primes();
+            primes.len() == 1 && primes.iter().next().unwrap().1 == &1
+        }
+        fn into_divisors(self) -> Vec<T> // O(N^0.5)
+        {
+            if self == T::zero() {
+                panic!("Zero has no primes.");
+            }
+            let n = self;
+            let mut ret: Vec<T> = Vec::new();
+            {
+                let mut i = T::one();
+                while i * i <= n {
+                    if n % i == T::zero() {
+                        ret.push(i);
+                        if i * i != n {
+                            ret.push(n / i);
+                        }
+                    }
+                    i += T::one();
+                }
+            }
+            ret.sort();
+            ret
+        }
+        fn squared_length(&self, rhs: Self) -> Self {
+            *self * *self + rhs * rhs
+        }
+    }
+    mod test {
+        use super::IntegerOperation;
+        #[test]
+        fn is_prime() {
+            for x in 2..1e5 as usize {
+                let expected = (2..x).all(|px| x % px != 0);
+                let actual = x.is_prime();
+                assert_eq!(expected, actual);
             }
         }
-        ret.sort();
-        ret
-    }
-    fn squared_length(&self, rhs: Self) -> Self {
-        *self * *self + rhs * rhs
     }
 }
+use integer_operation::IntegerOperation;
 
 pub trait CoordinateCompress<T> {
     fn compress_encoder(&self) -> HashMap<T, usize>;
