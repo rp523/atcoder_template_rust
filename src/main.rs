@@ -1983,15 +1983,7 @@ mod integer_operation {
         #[test]
         fn is_prime() {
             for x in 2..1e5 as usize {
-                let expected = {
-                    let mut is_prime = true;
-                    for px in 2..x {
-                        if x % px == 0 {
-                            is_prime = false;
-                        }
-                    }
-                    is_prime
-                };
+                let expected = (2..x).all(|px| x % px != 0);
                 let actual = x.is_prime();
                 assert_eq!(expected, actual);
             }
