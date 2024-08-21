@@ -1982,7 +1982,7 @@ mod integer_operation {
         use super::IntegerOperation;
         #[test]
         fn is_prime() {
-            for x in 2..1e4 as usize {
+            for x in 2..1e5 as usize {
                 let expected = {
                     let mut is_prime = true;
                     for px in 2..x {
