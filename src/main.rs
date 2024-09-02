@@ -62,6 +62,7 @@ mod change_min_max {
         fn chmax(&mut self, rhs: T) -> bool;
     }
     impl<T: PartialOrd + Copy> ChangeMinMax<T> for T {
+        #[inline(always)]
         fn chmin(&mut self, rhs: T) -> bool {
             if *self > rhs {
                 *self = rhs;
@@ -70,6 +71,7 @@ mod change_min_max {
                 false
             }
         }
+        #[inline(always)]
         fn chmax(&mut self, rhs: T) -> bool {
             if *self < rhs {
                 *self = rhs;
@@ -80,6 +82,7 @@ mod change_min_max {
         }
     }
     impl<T: PartialOrd + Copy> ChangeMinMax<T> for Option<T> {
+        #[inline(always)]
         fn chmin(&mut self, rhs: T) -> bool {
             if let Some(val) = *self {
                 if val > rhs {
@@ -93,6 +96,7 @@ mod change_min_max {
                 true
             }
         }
+        #[inline(always)]
         fn chmax(&mut self, rhs: T) -> bool {
             if let Some(val) = *self {
                 if val < rhs {
@@ -2339,47 +2343,63 @@ mod map_counter {
     use std::collections::{BTreeMap, HashMap};
     use std::hash::Hash;
     pub trait MapCounter<T> {
-        fn incr(&mut self, key: T);
-        fn incr_by(&mut self, key: T, delta: usize);
-        fn decr(&mut self, key: &T);
-        fn decr_by(&mut self, key: &T, delta: usize);
+        fn incr(&mut self, key: T) -> bool;
+        fn incr_by(&mut self, key: T, delta: usize) -> bool;
+        fn decr(&mut self, key: &T) -> bool;
+        fn decr_by(&mut self, key: &T, delta: usize) -> bool;
     }
     impl<T: Ord + Clone> MapCounter<T> for BTreeMap<T, usize> {
-        fn incr(&mut self, key: T) {
-            self.incr_by(key, 1);
+        fn incr(&mut self, key: T) -> bool {
+            let stat0 = self.contains_key(&key);
+            self.incr_by(key.clone(), 1);
+            stat0 != self.contains_key(&key)
         }
-        fn incr_by(&mut self, key: T, delta: usize) {
-            *self.entry(key).or_insert(0) += delta;
+        fn incr_by(&mut self, key: T, delta: usize) -> bool {
+            let stat0 = self.contains_key(&key);
+            *self.entry(key.clone()).or_insert(0) += delta;
+            stat0 != self.contains_key(&key)
         }
-        fn decr(&mut self, key: &T) {
+        fn decr(&mut self, key: &T) -> bool {
+            let stat0 = self.contains_key(key);
             self.decr_by(key, 1);
+            stat0 != self.contains_key(key)
         }
-        fn decr_by(&mut self, key: &T, delta: usize) {
+        fn decr_by(&mut self, key: &T, delta: usize) -> bool {
+            let stat0 = self.contains_key(key);
             let v = self.entry(key.clone()).or_insert(0);
             debug_assert!(*v >= delta);
             *v -= delta;
             if *v == 0 {
                 self.remove(key);
             }
+            stat0 != self.contains_key(key)
         }
     }
     impl<T: Clone + Hash + Eq> MapCounter<T> for HashMap<T, usize> {
-        fn incr(&mut self, key: T) {
-            self.incr_by(key, 1);
+        fn incr(&mut self, key: T) -> bool {
+            let stat0 = self.contains_key(&key);
+            self.incr_by(key.clone(), 1);
+            stat0 != self.contains_key(&key)
         }
-        fn incr_by(&mut self, key: T, delta: usize) {
-            *self.entry(key).or_insert(0) += delta;
+        fn incr_by(&mut self, key: T, delta: usize) -> bool {
+            let stat0 = self.contains_key(&key);
+            *self.entry(key.clone()).or_insert(0) += delta;
+            stat0 != self.contains_key(&key)
         }
-        fn decr(&mut self, key: &T) {
+        fn decr(&mut self, key: &T) -> bool {
+            let stat0 = self.contains_key(key);
             self.decr_by(key, 1);
+            stat0 != self.contains_key(key)
         }
-        fn decr_by(&mut self, key: &T, delta: usize) {
+        fn decr_by(&mut self, key: &T, delta: usize) -> bool {
+            let stat0 = self.contains_key(key);
             let v = self.entry(key.clone()).or_insert(0);
             debug_assert!(*v >= delta);
             *v -= delta;
             if *v == 0 {
                 self.remove(key);
             }
+            stat0 != self.contains_key(key)
         }
     }
 }
