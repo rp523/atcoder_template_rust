@@ -1,4 +1,6 @@
 #![allow(unused_macros, unused_imports, dead_code)]
+use fixedbitset::FixedBitSet;
+use itertools::*;
 use num::{One, Zero};
 use permutohedron::LexicalPermutation;
 use rand::{seq::SliceRandom, SeedableRng};
@@ -1901,7 +1903,7 @@ mod integer_operation {
         where
             Self: Sized;
         fn squared_length(&self, rhs: Self) -> Self;
-        fn is_prime(self) -> bool;
+        fn is_prime(&self) -> bool;
     }
     impl<
             T: Copy
@@ -1947,7 +1949,7 @@ mod integer_operation {
             }
             ans
         }
-        fn is_prime(self) -> bool // O(N^0.5 x logN)
+        fn is_prime(&self) -> bool // O(N^0.5 x logN)
         {
             let primes = self.into_primes();
             primes.len() == 1 && primes.iter().next().unwrap().1 == &1
@@ -5149,87 +5151,6 @@ mod point {
     }
 }
 
-mod bit_set {
-    #[derive(Clone)]
-    pub struct BitSet {
-        pub x: Vec<u64>,
-    }
-    impl BitSet {
-        pub fn new(n: usize) -> Self {
-            Self { x: vec![0; n] }
-        }
-        #[inline(always)]
-        pub fn get(&self, i: usize) -> bool {
-            (self.x[i >> 6] >> (i & 63)) & 1 != 0
-        }
-        #[inline(always)]
-        pub fn set(&mut self, i: usize, b: bool) {
-            if b {
-                self.x[i >> 6] |= 1u64 << (i & 63);
-            } else {
-                self.x[i >> 6] &= !(1u64 << (i & 63));
-            }
-        }
-        pub fn count_ones(&self) -> u32 {
-            self.x.iter().map(|x| x.count_ones()).sum()
-        }
-    }
-    impl std::ops::BitAnd for BitSet {
-        type Output = Self;
-        fn bitand(self, rhs: Self) -> Self::Output {
-            Self {
-                x: self
-                    .x
-                    .into_iter()
-                    .zip(rhs.x)
-                    .map(|(x, y)| x & y)
-                    .collect::<Vec<_>>(),
-            }
-        }
-    }
-    impl std::ops::BitAndAssign for BitSet {
-        fn bitand_assign(&mut self, rhs: Self) {
-            self.x.iter_mut().zip(rhs.x).for_each(|(x, y)| *x &= y);
-        }
-    }
-    impl std::ops::BitOr for BitSet {
-        type Output = Self;
-        fn bitor(self, rhs: Self) -> Self::Output {
-            Self {
-                x: self
-                    .x
-                    .into_iter()
-                    .zip(rhs.x)
-                    .map(|(x, y)| x | y)
-                    .collect::<Vec<_>>(),
-            }
-        }
-    }
-    impl std::ops::BitOrAssign for BitSet {
-        fn bitor_assign(&mut self, rhs: Self) {
-            self.x.iter_mut().zip(rhs.x).for_each(|(x, y)| *x |= y);
-        }
-    }
-    impl std::ops::BitXor for BitSet {
-        type Output = Self;
-        fn bitxor(self, rhs: Self) -> Self::Output {
-            Self {
-                x: self
-                    .x
-                    .into_iter()
-                    .zip(rhs.x)
-                    .map(|(x, y)| x ^ y)
-                    .collect::<Vec<_>>(),
-            }
-        }
-    }
-    impl std::ops::BitXorAssign for BitSet {
-        fn bitxor_assign(&mut self, rhs: Self) {
-            self.x.iter_mut().zip(rhs.x).for_each(|(x, y)| *x ^= y);
-        }
-    }
-}
-use bit_set::BitSet;
 mod transpose {
     pub trait Transpose<T> {
         fn transpose(self) -> Vec<Vec<T>>;
@@ -5914,14 +5835,11 @@ mod procon_reader {
     {
         (0..n).map(|_| read::<T>()).collect::<Vec<T>>()
     }
-    pub fn read_vec_sub1(n: usize) -> Vec<usize> {
-        (0..n).map(|_| read::<usize>() - 1).collect::<Vec<usize>>()
-    }
     pub fn read_mat<T: std::str::FromStr>(h: usize, w: usize) -> Vec<Vec<T>>
     where
         <T as FromStr>::Err: Debug,
     {
-        (0..h).map(|_| read_vec::<T>(w)).collect::<Vec<Vec<T>>>()
+        (0..h).map(|_| read_vec::<T>(w)).collect::<Vec<_>>()
     }
 }
 use procon_reader::*;
