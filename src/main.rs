@@ -4595,7 +4595,7 @@ mod dynamic_connectivity {
         use super::euler_step::EulerStep;
         use std::collections::HashMap;
         pub struct EulerTour {
-            pub tour: Vec<HashMap<usize, Box<EulerStep>>>,
+            tour: Vec<HashMap<usize, Box<EulerStep>>>,
         }
         impl EulerTour {
             pub fn new(n: usize) -> Self {
