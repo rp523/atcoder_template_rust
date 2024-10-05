@@ -5192,6 +5192,7 @@ use transpose::Transpose;
 mod wavelet_matrix {
     mod bit_vector {
         const W: usize = 64;
+        const LOG_W: usize = 6;
         #[derive(Clone)]
         pub struct BitVector {
             bits: Vec<u64>,
@@ -5203,8 +5204,8 @@ mod wavelet_matrix {
                 let ln = a.len() / W + 1;
                 let mut bits = vec![0; ln];
                 for (i, &a) in a.iter().enumerate() {
-                    let d = i / W;
-                    let r = i % W;
+                    let d = i >> LOG_W;
+                    let r = i & (W - 1);
                     bits[d] |= ((a >> di) & 1) << r;
                 }
                 let cum_ones = bits
@@ -5225,8 +5226,8 @@ mod wavelet_matrix {
             // count 1 in 0..i
             #[inline(always)]
             pub fn rank1(&self, i: usize) -> usize {
-                let d = i / W;
-                let r = i % W;
+                let d = i >> LOG_W;
+                let r = i & (W - 1);
                 (if d == 0 {
                     (self.bits[d] & ((1u64 << r) - 1)).count_ones()
                 } else {
@@ -5244,8 +5245,8 @@ mod wavelet_matrix {
             }
             #[inline(always)]
             pub fn get(&self, i: usize) -> bool {
-                let d = i / W;
-                let r = i % W;
+                let d = i >> LOG_W;
+                let r = i & (W - 1);
                 (self.bits[d] >> r) & 1 != 0
             }
         }
