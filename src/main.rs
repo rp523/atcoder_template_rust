@@ -5903,7 +5903,7 @@ mod low_link {
     #[test]
     fn low_link() {
         use super::UnionFind;
-        use rand::SeedableRng;
+        use rand::{Rng, SeedableRng};
         use rand_chacha::*;
         let mut rng = ChaChaRng::from_seed([0; 32]);
         const TEST: usize = 10000;
