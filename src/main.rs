@@ -5824,8 +5824,6 @@ mod aho_corasick {
 use aho_corasick::AhoCoarsick;
 
 mod low_link {
-    use rand::Rng;
-
     #[derive(Clone, Debug)]
     pub struct LowLink {
         g: Vec<Vec<usize>>,
