@@ -3,7 +3,7 @@ use fixedbitset::FixedBitSet;
 use itertools::*;
 use num::{One, Zero};
 use permutohedron::LexicalPermutation;
-use rand::{seq::SliceRandom, SeedableRng};
+use rand::{seq::SliceRandom, Rng, SeedableRng};
 use rand_chacha::ChaChaRng;
 use std::any::TypeId;
 use std::cmp::{max, min, Ordering, Reverse};
