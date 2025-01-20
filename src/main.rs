@@ -381,7 +381,7 @@ use union_find::UnionFind;
 
 mod segment_tree {
     use std::ops::{Add, Sub};
-    #[derive(Debug, Clone)]
+    #[derive(Clone)]
     pub struct SegmentTree<T> {
         n: usize,
         n2: usize,
@@ -641,6 +641,23 @@ mod segment_tree {
                 Some(0)
             }
         }
+        fn fmt_base(
+            &self,
+            f: &mut std::fmt::Formatter,
+            x_to_string: fn(&T) -> String,
+        ) -> std::fmt::Result {
+            let mut now = 1;
+            let mut delta = 1;
+            for hi in (0..self.height).rev() {
+                for x in (now..).take(self.width[hi]) {
+                    write!(f, "{} ", x_to_string(&self.dat[x]),)?;
+                }
+                writeln!(f)?;
+                now += delta;
+                delta *= 2;
+            }
+            Ok(())
+        }
     }
     impl<T: Copy + Add<Output = T> + Sub<Output = T>> SegmentTree<T> {
         pub fn add(&mut self, pos: usize, add_val: T) {
@@ -648,6 +665,16 @@ mod segment_tree {
         }
         pub fn sub(&mut self, pos: usize, sub_val: T) {
             self.set(pos, self.get(pos) - sub_val);
+        }
+    }
+    impl<T: Clone + std::fmt::Display> std::fmt::Display for SegmentTree<T> {
+        fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            self.fmt_base(f, |x: &T| format!("{}", x))
+        }
+    }
+    impl<T: Clone + std::fmt::Debug> std::fmt::Debug for SegmentTree<T> {
+        fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            self.fmt_base(f, |x: &T| format!("{:?}", x))
         }
     }
     pub mod test {
@@ -726,7 +753,7 @@ mod segment_tree_2d {
 
     use crate::segment_tree::SegmentTree;
     #[derive(Debug, Clone)]
-    pub struct SegmentTree2D<T> {
+    pub struct SegmentTree2D<T: Clone> {
         h: usize,
         w: usize,
         segs: Vec<SegmentTree<T>>,
@@ -847,7 +874,7 @@ mod segment_tree_2d {
 use segment_tree_2d::SegmentTree2D;
 
 mod lazy_segment_tree {
-    #[derive(Clone, Debug)]
+    #[derive(Clone)]
     pub struct LazySegmentTree<X, M> {
         n: usize,
         n2: usize,
@@ -1041,6 +1068,10 @@ mod lazy_segment_tree {
             }
         }
         pub fn reserve(&mut self, mut l: usize, mut r: usize, m: M) {
+            if l > r {
+                debug_assert!(false);
+                return;
+            }
             l += self.n2;
             r += self.n2 + 1;
             for hi in (0..self.height).rev() {
@@ -1235,6 +1266,51 @@ mod lazy_segment_tree {
             } else {
                 Some(0)
             }
+        }
+        fn fmt_base(
+            &self,
+            f: &mut std::fmt::Formatter,
+            x_to_string: fn(&X) -> String,
+            m_to_string: fn(&M) -> String,
+        ) -> std::fmt::Result {
+            let mut now = 1;
+            let mut delta = 1;
+            for hi in (0..self.height).rev() {
+                for x in (now..).take(self.width[hi]) {
+                    write!(
+                        f,
+                        "{}{} ",
+                        x_to_string(&self.dat[x]),
+                        if x < self.lazy_ops.len() {
+                            if let Some(l) = &self.lazy_ops[x] {
+                                m_to_string(l)
+                            } else {
+                                String::new()
+                            }
+                        } else {
+                            String::new()
+                        }
+                    )?;
+                }
+                writeln!(f)?;
+                now += delta;
+                delta *= 2;
+            }
+            Ok(())
+        }
+    }
+    impl<X: Clone + std::fmt::Display, M: Clone + std::fmt::Display> std::fmt::Display
+        for LazySegmentTree<X, M>
+    {
+        fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            self.fmt_base(f, |x: &X| format!("{}", x), |m: &M| format!("{}", m))
+        }
+    }
+    impl<X: Clone + std::fmt::Debug, M: Clone + std::fmt::Debug> std::fmt::Debug
+        for LazySegmentTree<X, M>
+    {
+        fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            self.fmt_base(f, |x: &X| format!("{:?}", x), |m: &M| format!("{:?}", m))
         }
     }
     mod test {
