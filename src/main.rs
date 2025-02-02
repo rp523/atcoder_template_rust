@@ -15,7 +15,7 @@ use std::time::Instant;
 
 macro_rules! __debug_impl {
     ($x:expr) => {
-        eprint!("{}={}  ", stringify!($x), &$x);
+        eprint!("{}={:?}  ", stringify!($x), &$x);
     };
     ($x:expr, $($y:expr),+) => (
         __debug_impl!($x);
