@@ -2,16 +2,14 @@
 use fixedbitset::FixedBitSet;
 use itertools::*;
 use num::{One, Zero};
+use ordered_float::OrderedFloat;
 use permutohedron::LexicalPermutation;
-use rand::{seq::SliceRandom, Rng, SeedableRng};
-use rand_chacha::ChaChaRng;
 use std::any::TypeId;
 use std::cmp::{max, min, Ordering, Reverse};
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, VecDeque};
 use std::mem::swap;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Rem, Sub, SubAssign};
 use std::time::Instant;
-//let mut rng = ChaChaRng::from_seed([0; 32]);
 
 macro_rules! __debug_impl {
     ($x:expr) => {
@@ -843,7 +841,7 @@ mod segment_tree_2d {
                 let mut seg = SegmentTree2D::<i64>::new(N, N, f, 0);
                 for y in 0..N {
                     for x in 0..N {
-                        let v = rand.next_u64() as i64 % 100;
+                        let v = rand.next_usize() as i64 % 100;
                         seg.set(y, x, v);
                         raw[y][x] = v;
                     }
@@ -2144,27 +2142,38 @@ impl<T: Copy + Ord + std::hash::Hash> CoordinateCompress<T> for HashSet<T> {
 }
 
 mod xor_shift_64 {
-    pub struct XorShift64(u64);
+    pub struct XorShift64(usize);
     impl XorShift64 {
         pub fn new() -> Self {
-            XorShift64(88172645463325252_u64)
+            XorShift64(88172645463325252_usize)
         }
-        pub fn next_f64(&mut self) -> f64 {
-            self.0 = self.0 ^ (self.0 << 7);
-            self.0 = self.0 ^ (self.0 >> 9);
-            self.0 as f64 * 5.421_010_862_427_522e-20
-        }
-        pub fn next_u64(&mut self) -> u64 {
-            self.0 = self.0 ^ (self.0 << 7);
-            self.0 = self.0 ^ (self.0 >> 9);
-            self.0
+        fn next(&mut self) {
+            self.0 ^= self.0 << 7;
+            self.0 ^= self.0 >> 9;
         }
         pub fn next_usize(&mut self) -> usize {
-            self.next_u64() as usize
+            self.next();
+            self.0
+        }
+        pub fn next_f64(&mut self) -> f64 {
+            self.next();
+            self.0 as f64 * 5.421_010_862_427_522e-20
+        }
+    }
+    pub trait Shuffle {
+        fn shuffle(&mut self, rand: &mut XorShift64);
+    }
+    impl<T> Shuffle for Vec<T> {
+        fn shuffle(&mut self, rand: &mut XorShift64) {
+            let n = self.len();
+            for i in (1..n).rev() {
+                let j = rand.next_usize() % (i + 1);
+                self.swap(i, j);
+            }
         }
     }
 }
-use xor_shift_64::XorShift64;
+use xor_shift_64::{Shuffle, XorShift64};
 
 mod rooted_tree {
     use std::mem::swap;
@@ -5337,7 +5346,7 @@ mod wavelet_matrix {
                 const D: usize = 10;
                 for n in 1..W * 5 {
                     let a = (0..n)
-                        .map(|_| rand.next_u64() % (1u64 << D))
+                        .map(|_| rand.next_usize() as u64 % (1u64 << D))
                         .collect::<Vec<_>>();
                     let bit_vectors = (0..D)
                         .map(|di| BitVector::from_vec(&a, di))
