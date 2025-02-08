@@ -3172,6 +3172,7 @@ fn z_algo(s: &[usize]) -> Vec<usize> {
 mod convex_hull {
     use super::{ChangeMinMax, Rational};
     use std::collections::{BTreeMap, BTreeSet, VecDeque};
+    use std::ops::{Add, Div, Mul, Neg, Sub};
     pub struct ConvexHull {
         x_ys: BTreeMap<i64, Vec<i64>>,
     }
@@ -3251,8 +3252,200 @@ mod convex_hull {
             vs
         }
     }
+    pub struct ConvexHullTrickMaxImpl<T> {
+        lines: BTreeMap<T, T>,   // slope, intercept
+        borders: BTreeMap<T, T>, // x, slope
+    }
+    impl<T> ConvexHullTrickMaxImpl<T>
+    where
+        T: Clone
+            + Copy
+            + PartialEq
+            + Eq
+            + PartialOrd
+            + Ord
+            + Add<Output = T>
+            + Sub<Output = T>
+            + Mul<Output = T>
+            + Div<Output = T>
+            + Neg<Output = T>
+            + std::fmt::Debug,
+    {
+        pub fn new() -> Self {
+            Self {
+                lines: BTreeMap::new(),
+                borders: BTreeMap::new(),
+            }
+        }
+        fn cross(a0: T, b0: T, a1: T, b1: T) -> (T, T) {
+            let x = (b0 - b1) / (a1 - a0);
+            let y = a0 * x + b0;
+            (y, x)
+        }
+        pub fn get_max(&self, x: T) -> T {
+            if let Some((_, &a)) = self.borders.range(..=x).next_back() {
+                let b = self.lines[&a];
+                a * x + b
+            } else if let Some((&a, &b)) = self.lines.iter().next() {
+                a * x + b
+            } else {
+                unreachable!()
+            }
+        }
+        pub fn add(&mut self, a: T, b: T) {
+            let mut del_lines = VecDeque::new();
+            if let Some(&b0) = self.lines.get(&a) {
+                // same slope
+                if b <= b0 {
+                    // NOT need to add.
+                    return;
+                }
+                self.lines.remove(&a).unwrap();
+                del_lines.push_back((a, b0));
+            } else if let Some((&al, &bl)) = self.lines.range(..=a).next_back() {
+                if let Some((&ar, &br)) = self.lines.range(a..).next() {
+                    let (yc, xc) = Self::cross(al, bl, ar, br);
+                    if a * xc + b <= yc {
+                        // NOT need to add.
+                        return;
+                    }
+                }
+            }
+            // left remove
+            while self.lines.len() >= 2 {
+                let mut range = self.lines.range(..a);
+                let Some((&ar0, &br0)) = range.next_back() else {
+                    break;
+                };
+                let Some((&ar1, &br1)) = range.next_back() else {
+                    break;
+                };
+                let (yc, xc) = Self::cross(a, b, ar1, br1);
+                if ar0 * xc + br0 > yc {
+                    // this line is needed.
+                    break;
+                }
+                self.lines.remove(&ar0).unwrap();
+                del_lines.push_front((ar0, br0));
+            }
+            // right remove
+            while self.lines.len() >= 2 {
+                let mut range = self.lines.range(a..);
+                let Some((&ar0, &br0)) = range.next() else {
+                    break;
+                };
+                let Some((&ar1, &br1)) = range.next() else {
+                    break;
+                };
+                let (yc, xc) = Self::cross(a, b, ar1, br1);
+                if ar0 * xc + br0 > yc {
+                    // this line is needed.
+                    break;
+                }
+                self.lines.remove(&ar0).unwrap();
+                del_lines.push_back((ar0, br0));
+            }
+            // border remove
+            {
+                // left-end
+                if let Some(&(al0, bl0)) = del_lines.front() {
+                    if let Some((&al1, &bl1)) = self.lines.range(..al0).next_back() {
+                        let (_, x) = Self::cross(al0, bl0, al1, bl1);
+                        assert_eq!(Some(al0), self.borders.remove(&x));
+                    }
+                }
+                // remove right-end
+                if let Some(&(ar0, br0)) = del_lines.front() {
+                    if let Some((&ar1, &br1)) = self.lines.range(ar0..).next() {
+                        let (_, x) = Self::cross(ar0, br0, ar1, br1);
+                        assert_eq!(Some(ar1), self.borders.remove(&x));
+                    }
+                }
+                // remove intermediate
+                for i1 in 1..del_lines.len() {
+                    let i0 = i1 - 1;
+                    let (a0, b0) = del_lines[i0];
+                    let (a1, b1) = del_lines[i1];
+                    let (_, x) = Self::cross(a0, b0, a1, b1);
+                    assert_eq!(Some(a1), self.borders.remove(&x));
+                }
+            }
+            // update
+            if let Some((&al, &bl)) = self.lines.range(..a).next_back() {
+                let (_, x) = Self::cross(a, b, al, bl);
+                assert!(self.borders.insert(x, a).is_none());
+            }
+            if let Some((&ar, &br)) = self.lines.range(a..).next() {
+                let (_, x) = Self::cross(a, b, ar, br);
+                assert!(self.borders.insert(x, ar).is_none());
+            }
+            assert!(self.lines.insert(a, b).is_none());
+        }
+    }
+    pub struct ConvexHullTrickMinImpl<T> {
+        cht: ConvexHullTrickMaxImpl<T>,
+    }
+    impl<T> ConvexHullTrickMinImpl<T>
+    where
+        T: Clone
+            + Copy
+            + PartialEq
+            + Eq
+            + PartialOrd
+            + Ord
+            + Add<Output = T>
+            + Sub<Output = T>
+            + Mul<Output = T>
+            + Div<Output = T>
+            + Neg<Output = T>
+            + std::fmt::Debug,
+    {
+        pub fn new() -> Self {
+            Self {
+                cht: ConvexHullTrickMaxImpl::new(),
+            }
+        }
+        pub fn add(&mut self, a: T, b: T) {
+            self.cht.add(-a, -b)
+        }
+        pub fn get_min(&self, x: T) -> T {
+            -self.cht.get_max(x)
+        }
+    }
+    pub struct ConvexHullTrickMax {
+        cht: ConvexHullTrickMaxImpl<Rational>,
+    }
+    impl ConvexHullTrickMax {
+        pub fn new() -> Self {
+            Self {
+                cht: ConvexHullTrickMaxImpl::new(),
+            }
+        }
+        pub fn add(&mut self, a: i64, b: i64) {
+            self.cht.add(Rational::new(a, 1), Rational::new(b, 1))
+        }
+        pub fn get_max(&self, x: i64) -> Rational {
+            self.cht.get_max(Rational::new(x, 1))
+        }
+    }
+    pub struct ConvexHullTrickMin {
+        cht: ConvexHullTrickMinImpl<Rational>,
+    }
+    impl ConvexHullTrickMin {
+        pub fn new() -> Self {
+            Self {
+                cht: ConvexHullTrickMinImpl::new(),
+            }
+        }
+        pub fn add(&mut self, a: i64, b: i64) {
+            self.cht.add(Rational::new(a, 1), Rational::new(b, 1))
+        }
+        pub fn get_min(&self, x: i64) -> Rational {
+            self.cht.get_min(Rational::new(x, 1))
+        }
+    }
 }
-use convex_hull::ConvexHull;
+use convex_hull::{ConvexHull, ConvexHullTrickMax, ConvexHullTrickMin};
 
 mod matrix {
     use num::{One, Zero};
