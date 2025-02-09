@@ -3305,34 +3305,36 @@ mod convex_hull {
             };
             let mut del_lines = VecDeque::new();
             // left remove
-            while self.lines.len() >= 2 {
-                let mut range = self.lines.range(..a);
-                let Some((&a1, &b1)) = range.next_back() else {
-                    break;
-                };
-                let Some((&a0, &b0)) = range.next_back() else {
-                    break;
-                };
-                if Self::need_center(a0, b0, a1, b1, a, b) {
-                    break;
+            if let Some((a1, b1)) = self.lines.range(..a).next_back() {
+                let mut a1 = *a1;
+                let mut b1 = *b1;
+                while let Some((a0, b0)) = self.lines.range(..a1).next_back() {
+                    let a0 = *a0;
+                    let b0 = *b0;
+                    if Self::need_center(a0, b0, a1, b1, a, b) {
+                        break;
+                    }
+                    assert_eq!(Some(b1), self.lines.remove(&a1));
+                    del_lines.push_front((a1, b1));
+                    a1 = a0;
+                    b1 = b0;
                 }
-                assert_eq!(Some(b1), self.lines.remove(&a1));
-                del_lines.push_front((a1, b1));
             }
             // right remove
-            while self.lines.len() >= 2 {
-                let mut range = self.lines.range(a..);
-                let Some((&a1, &b1)) = range.next() else {
-                    break;
-                };
-                let Some((&a2, &b2)) = range.next() else {
-                    break;
-                };
-                if Self::need_center(a, b, a1, b1, a2, b2) {
-                    break;
+            if let Some((a1, b1)) = self.lines.range(a..).next() {
+                let mut a1 = *a1;
+                let mut b1 = *b1;
+                while let Some((a2, b2)) = self.lines.range(a1..).next() {
+                    let a2 = *a2;
+                    let b2 = *b2;
+                    if Self::need_center(a, b, a1, b1, a2, b2) {
+                        break;
+                    }
+                    assert_eq!(Some(b1), self.lines.remove(&a1));
+                    del_lines.push_back((a1, b1));
+                    a1 = a2;
+                    b1 = b2;
                 }
-                self.lines.remove(&a1).unwrap();
-                del_lines.push_back((a1, b1));
             }
             // remove left-end border.
             if let Some(&(ar, br)) = del_lines.front() {
