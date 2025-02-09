@@ -3252,6 +3252,7 @@ mod convex_hull {
             vs
         }
     }
+    #[derive(Clone, Debug)]
     pub struct ConvexHullTrickMaxImpl<T> {
         lines: BTreeMap<T, T>,   // slope, intercept
         borders: BTreeMap<T, T>, // x, slope
@@ -3268,7 +3269,6 @@ mod convex_hull {
             + Sub<Output = T>
             + Mul<Output = T>
             + Div<Output = T>
-            + Neg<Output = T>
             + std::fmt::Debug,
     {
         pub fn new() -> Self {
@@ -3282,6 +3282,9 @@ mod convex_hull {
             let y = a0 * x + b0;
             (y, x)
         }
+        fn need_center(a0: T, b0: T, a1: T, b1: T, a2: T, b2: T) -> bool {
+            (a2 - a1) * (b1 - b0) > (a1 - a0) * (b2 - b1)
+        }
         pub fn get_max(&self, x: T) -> T {
             if let Some((_, &a)) = self.borders.range(..=x).next_back() {
                 let b = self.lines[&a];
@@ -3293,92 +3296,77 @@ mod convex_hull {
             }
         }
         pub fn add(&mut self, a: T, b: T) {
-            let mut del_lines = VecDeque::new();
-            if let Some(&b0) = self.lines.get(&a) {
-                // same slope
-                if b <= b0 {
-                    // NOT need to add.
-                    return;
-                }
-                self.lines.remove(&a).unwrap();
-                del_lines.push_back((a, b0));
-            } else if let Some((&al, &bl)) = self.lines.range(..=a).next_back() {
-                if let Some((&ar, &br)) = self.lines.range(a..).next() {
-                    let (yc, xc) = Self::cross(al, bl, ar, br);
-                    if a * xc + b <= yc {
-                        // NOT need to add.
+            if let Some((&a0, &b0)) = self.lines.range(..a).next_back() {
+                if let Some((&a2, &b2)) = self.lines.range(a..).next() {
+                    if !Self::need_center(a0, b0, a, b, a2, b2) {
                         return;
                     }
                 }
-            }
+            };
+            let mut del_lines = VecDeque::new();
             // left remove
             while self.lines.len() >= 2 {
                 let mut range = self.lines.range(..a);
-                let Some((&ar0, &br0)) = range.next_back() else {
+                let Some((&a1, &b1)) = range.next_back() else {
                     break;
                 };
-                let Some((&ar1, &br1)) = range.next_back() else {
+                let Some((&a0, &b0)) = range.next_back() else {
                     break;
                 };
-                let (yc, xc) = Self::cross(a, b, ar1, br1);
-                if ar0 * xc + br0 > yc {
-                    // this line is needed.
+                if Self::need_center(a0, b0, a1, b1, a, b) {
                     break;
                 }
-                self.lines.remove(&ar0).unwrap();
-                del_lines.push_front((ar0, br0));
+                assert_eq!(Some(b1), self.lines.remove(&a1));
+                del_lines.push_front((a1, b1));
             }
             // right remove
             while self.lines.len() >= 2 {
                 let mut range = self.lines.range(a..);
-                let Some((&ar0, &br0)) = range.next() else {
+                let Some((&a1, &b1)) = range.next() else {
                     break;
                 };
-                let Some((&ar1, &br1)) = range.next() else {
+                let Some((&a2, &b2)) = range.next() else {
                     break;
                 };
-                let (yc, xc) = Self::cross(a, b, ar1, br1);
-                if ar0 * xc + br0 > yc {
-                    // this line is needed.
+                if Self::need_center(a, b, a1, b1, a2, b2) {
                     break;
                 }
-                self.lines.remove(&ar0).unwrap();
-                del_lines.push_back((ar0, br0));
+                self.lines.remove(&a1).unwrap();
+                del_lines.push_back((a1, b1));
             }
-            // border remove
-            {
-                // left-end
-                if let Some(&(al0, bl0)) = del_lines.front() {
-                    if let Some((&al1, &bl1)) = self.lines.range(..al0).next_back() {
-                        let (_, x) = Self::cross(al0, bl0, al1, bl1);
-                        assert_eq!(Some(al0), self.borders.remove(&x));
-                    }
-                }
-                // remove right-end
-                if let Some(&(ar0, br0)) = del_lines.front() {
-                    if let Some((&ar1, &br1)) = self.lines.range(ar0..).next() {
-                        let (_, x) = Self::cross(ar0, br0, ar1, br1);
-                        assert_eq!(Some(ar1), self.borders.remove(&x));
-                    }
-                }
-                // remove intermediate
-                for i1 in 1..del_lines.len() {
-                    let i0 = i1 - 1;
-                    let (a0, b0) = del_lines[i0];
-                    let (a1, b1) = del_lines[i1];
-                    let (_, x) = Self::cross(a0, b0, a1, b1);
-                    assert_eq!(Some(a1), self.borders.remove(&x));
+            // remove left-end border.
+            if let Some(&(ar, br)) = del_lines.front() {
+                if let Some((&al, &bl)) = self.lines.range(..ar).next_back() {
+                    let (_, x) = Self::cross(al, bl, ar, br);
+                    assert_eq!(Some(ar), self.borders.remove(&x));
                 }
             }
-            // update
+            // remove right-end border.
+            if let Some(&(al, bl)) = del_lines.back() {
+                if let Some((&ar, &br)) = self.lines.range(al..).next() {
+                    let (_, x) = Self::cross(al, bl, ar, br);
+                    assert_eq!(Some(ar), self.borders.remove(&x));
+                }
+            }
+            // remove intermediate border.
+            for ir in 1..del_lines.len() {
+                let il = ir - 1;
+                let (al, bl) = del_lines[il];
+                let (ar, br) = del_lines[ir];
+                let (_, x) = Self::cross(al, bl, ar, br);
+                assert_eq!(Some(ar), self.borders.remove(&x));
+            }
+            // add left border.
             if let Some((&al, &bl)) = self.lines.range(..a).next_back() {
-                let (_, x) = Self::cross(a, b, al, bl);
+                let (_, x) = Self::cross(al, bl, a, b);
                 assert!(self.borders.insert(x, a).is_none());
             }
+            // add right border.
             if let Some((&ar, &br)) = self.lines.range(a..).next() {
                 let (_, x) = Self::cross(a, b, ar, br);
                 assert!(self.borders.insert(x, ar).is_none());
             }
+            // add line.
             assert!(self.lines.insert(a, b).is_none());
         }
     }
