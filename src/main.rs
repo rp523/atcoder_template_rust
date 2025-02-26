@@ -5344,20 +5344,26 @@ mod deletable_binary_heap {
             }
         }
         pub fn pop(&mut self) -> Option<T> {
+            let ret = self.que.pop();
             self.lazy_eval();
-            self.que.pop()
+            ret
         }
         pub fn push(&mut self, v: T) {
-            self.lazy_eval();
             self.que.push(v)
         }
-        pub fn peek(&mut self) -> Option<&T> {
-            self.lazy_eval();
+        pub fn peek(&self) -> Option<&T> {
             self.que.peek()
         }
         pub fn remove(&mut self, del_v: &T) {
             self.del_rsv.push(del_v.clone());
             debug_assert!(self.que.iter().any(|v| v == del_v));
+            self.lazy_eval();
+        }
+        pub fn is_empty(&self) -> bool {
+            self.que.is_empty()
+        }
+        pub fn len(&self) -> usize {
+            self.que.len() - self.del_rsv.len()
         }
         fn lazy_eval(&mut self) {
             while let Some(del_v) = self.del_rsv.peek() {
