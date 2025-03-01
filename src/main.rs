@@ -4047,40 +4047,13 @@ mod flow {
 }
 use flow::Flow;
 
-/*
 mod convolution {
+    use super::IntegerOperation;
     // https://github.com/atcoder/ac-library/blob/master/atcoder/convolution.hpp
-    use crate::{modint::ModInt as mint, IntegerOperation};
-    pub fn convolution(arga: &[mint], argb: &[mint]) -> Vec<mint> {
-        let n = arga.len();
-        let m = argb.len();
-        let z = 1 << ceil_pow2(n + m - 1);
-        let mut a = vec![mint::from(0); z];
-        let mut b = vec![mint::from(0); z];
-        for (a, &arga) in a.iter_mut().zip(arga.iter()) {
-            *a = arga;
-        }
-        butterfly(&mut a);
-        for (b, &argb) in b.iter_mut().zip(argb.iter()) {
-            *b = argb;
-        }
-        butterfly(&mut b);
-        for (a, b) in a.iter_mut().zip(b.into_iter()) {
-            *a *= b;
-        }
-        butterfly_inv(&mut a);
-        while a.len() > n + m - 1 {
-            a.pop();
-        }
-        let iz = mint::from(1) / mint::from(z);
-        for a in a.iter_mut() {
-            *a *= iz;
-        }
-        a
-    }
+
     // returns 'r' s.t. 'r^(m - 1) == 1 (mod m)'
     fn primitive_root(m: i64) -> i64 {
-        debug_assert!(is_prime(m));
+        debug_assert!(m.is_prime());
         if m == 2 {
             return 1;
         }
@@ -4129,6 +4102,37 @@ mod convolution {
             }
         }
         unreachable!();
+    }
+}
+/*
+use convolution::convolution;
+    use crate::{modint::ModInt as mint, IntegerOperation};
+    pub fn convolution(arga: &[mint], argb: &[mint]) -> Vec<mint> {
+        let n = arga.len();
+        let m = argb.len();
+        let z = 1 << ceil_pow2(n + m - 1);
+        let mut a = vec![mint::from(0); z];
+        let mut b = vec![mint::from(0); z];
+        for (a, &arga) in a.iter_mut().zip(arga.iter()) {
+            *a = arga;
+        }
+        butterfly(&mut a);
+        for (b, &argb) in b.iter_mut().zip(argb.iter()) {
+            *b = argb;
+        }
+        butterfly(&mut b);
+        for (a, b) in a.iter_mut().zip(b.into_iter()) {
+            *a *= b;
+        }
+        butterfly_inv(&mut a);
+        while a.len() > n + m - 1 {
+            a.pop();
+        }
+        let iz = mint::from(1) / mint::from(z);
+        for a in a.iter_mut() {
+            *a *= iz;
+        }
+        a
     }
     fn is_prime(x: i64) -> bool {
         if x == 1 {
@@ -4331,8 +4335,6 @@ mod convolution {
             }
         }
     }
-}
-use convolution::convolution;
 */
 
 mod manhattan_mst {
