@@ -4185,7 +4185,7 @@ mod convolution {
             }
         }
     }
-    pub fn convolution_ll(a: &[i64], b: &[i64]) -> Vec<i64> {
+    pub fn convolution_i64(a: &[i64], b: &[i64]) -> Vec<i64> {
         let n = a.len();
         let m = b.len();
         if n == 0 || m == 0 {
@@ -4284,7 +4284,7 @@ mod convolution {
             .collect()
     }
 }
-use convolution::convolution;
+use convolution::{convolution, convolution_i64};
 
 /*
 use convolution::convolution;
