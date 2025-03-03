@@ -1778,7 +1778,7 @@ mod modint {
         }
     }
 }
-use modint::{dynamic_mod_int::DynModInt, powmod, static_mod_int::StaticModInt};
+use modint::{dynamic_mod_int::DynModInt, powmod, static_mod_int::StaticModInt, ModIntTrait};
 
 mod integer_operation {
     use num::{One, Zero};
