@@ -4077,21 +4077,6 @@ mod convolution {
         for g in 2.. {
             let mut ok = true;
             for (&div, _) in divs.iter() {
-                fn pow_mod(x: i64, mut p: i64, m: i64) -> i64 {
-                    let mut ret = 1;
-                    let mut mul = x % m;
-                    while p > 0 {
-                        if p & 1 != 0 {
-                            ret *= mul;
-                            ret %= m;
-                        }
-                        p >>= 1;
-                        mul *= mul;
-                        mul %= m;
-                    }
-                    ret
-                }
-
                 if pow_mod(g, (m - 1) / div, m) == 1 {
                     ok = false;
                     break;
@@ -4102,6 +4087,38 @@ mod convolution {
             }
         }
         unreachable!();
+    }
+    fn pow_mod(x: i64, mut p: i64, m: i64) -> i64 {
+        let mut ret = 1;
+        let mut mul = x % m;
+        while p > 0 {
+            if p & 1 != 0 {
+                ret *= mul;
+                ret %= m;
+            }
+            p >>= 1;
+            mul *= mul;
+            mul %= m;
+        }
+        ret
+    }
+    mod test {
+        use super::super::*;
+        #[test]
+        fn primitive_root() {
+            const T: usize = 10000;
+            for m in (2..)
+                .take(T)
+                .chain((0..=(std::i32::MAX as i64)).rev().take(T))
+            {
+                if !m.is_prime() {
+                    continue;
+                }
+                let r = super::primitive_root(m);
+                let p = super::pow_mod(r, m - 1, m);
+                assert_eq!(1, p);
+            }
+        }
     }
 }
 /*
