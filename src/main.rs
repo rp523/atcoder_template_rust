@@ -1463,6 +1463,7 @@ mod lazy_segment_tree {
 use lazy_segment_tree::LazySegmentTree;
 
 mod modint {
+    use super::gcd::ext_gcd;
     #[inline(always)]
     pub fn powmod(x: i64, mut p: usize, m: i64) -> i64 {
         let mut ret = 1;
@@ -1476,10 +1477,59 @@ mod modint {
         }
         ret
     }
+    pub trait ModIntTrait {
+        fn get_mod() -> i64;
+        fn val(&self) -> i64;
+        fn raw(x: i64) -> Self;
+        fn new<T>(x: T) -> Self
+        where
+            T: Into<i64>,
+            Self: Sized,
+        {
+            let mut x: i64 = x.into();
+            if x < 0 {
+                let ab = (-x + Self::get_mod() - 1) / Self::get_mod();
+                x += ab * Self::get_mod();
+                debug_assert!(x >= 0);
+            }
+            Self::raw(x % Self::get_mod())
+        }
+        fn inverse(&self) -> Self
+        where
+            Self: Sized,
+        {
+            // x * inv_x + M * _ = gcd(x, M) = 1
+            // x * inv_x = 1 (mod M)
+            Self::new(ext_gcd(self.val(), Self::get_mod()).0)
+
+            // [Fermat's little theorem]
+            // if p is prime, for any integer a, a^p = a (mod p)
+            // especially when a and b is coprime, a^(p-1) = 1 (mod p).
+            // -> inverse of a is a^(p-2).
+
+            //let mut ret = Self { x: 1 };
+            //let mut mul: Self = *self;
+            //let mut p = MOD() - 2;
+            //while p > 0 {
+            //    if p & 1 != 0 {
+            //        ret *= mul;
+            //    }
+            //    p >>= 1;
+            //    mul *= mul;
+            //}
+            //ret
+        }
+        fn pow(self, p: usize) -> Self
+        where
+            Self: Sized,
+        {
+            Self::raw(powmod(self.val(), p, Self::get_mod()))
+        }
+    }
 
     pub mod static_mod_int {
         use super::powmod;
-        use crate::gcd::ext_gcd;
+        use super::ModIntTrait;
         use num::{One, Zero};
         use std::fmt;
         use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, Sub, SubAssign};
@@ -1488,48 +1538,15 @@ mod modint {
         pub struct StaticModInt<const MOD: i64> {
             x: i64,
         }
-        impl<const MOD: i64> StaticModInt<MOD> {
-            #[inline(always)]
-            pub fn val(&self) -> i64 {
+        impl<const MOD: i64> ModIntTrait for StaticModInt<MOD> {
+            fn get_mod() -> i64 {
+                MOD
+            }
+            fn raw(x: i64) -> Self {
+                Self { x }
+            }
+            fn val(&self) -> i64 {
                 self.x
-            }
-            #[inline(always)]
-            pub fn new(mut sig: i64) -> Self {
-                if sig < 0 {
-                    let ab = (-sig + MOD - 1) / MOD;
-                    sig += ab * MOD;
-                    debug_assert!(sig >= 0);
-                }
-                Self { x: sig % MOD }
-            }
-            #[inline(always)]
-            fn inverse(&self) -> Self {
-                // x * inv_x + M * _ = gcd(x, M) = 1
-                // x * inv_x = 1 (mod M)
-                Self::new(ext_gcd(self.x, MOD).0)
-
-                // [Fermat's little theorem]
-                // if p is prime, for any integer a, a^p = a (mod p)
-                // especially when a and b is coprime, a^(p-1) = 1 (mod p).
-                // -> inverse of a is a^(p-2).
-
-                //let mut ret = Self { x: 1 };
-                //let mut mul: Self = *self;
-                //let mut p = MOD() - 2;
-                //while p > 0 {
-                //    if p & 1 != 0 {
-                //        ret *= mul;
-                //    }
-                //    p >>= 1;
-                //    mul *= mul;
-                //}
-                //ret
-            }
-            #[inline(always)]
-            pub fn pow(self, p: usize) -> Self {
-                Self {
-                    x: powmod(self.x, p, MOD),
-                }
             }
         }
         impl<const MOD: i64> One for StaticModInt<MOD> {
@@ -1606,23 +1623,11 @@ mod modint {
                 *self = StaticModInt::new(self.x * rhs.inverse().x);
             }
         }
-        impl<const MOD: i64> From<usize> for StaticModInt<MOD> {
-            #[inline(always)]
-            fn from(x: usize) -> Self {
-                StaticModInt::new(x as i64)
-            }
-        }
-        impl<const MOD: i64> From<i64> for StaticModInt<MOD> {
-            #[inline(always)]
-            fn from(x: i64) -> Self {
-                StaticModInt::new(x)
-            }
-        }
         impl<const MOD: i64> std::str::FromStr for StaticModInt<MOD> {
             type Err = std::num::ParseIntError;
             fn from_str(s: &str) -> Result<Self, Self::Err> {
                 match s.parse::<i64>() {
-                    Ok(x) => Ok(StaticModInt::from(x)),
+                    Ok(x) => Ok(StaticModInt::new(x)),
                     Err(e) => Err(e),
                 }
             }
@@ -1646,7 +1651,7 @@ mod modint {
 
     pub mod dynamic_mod_int {
         use super::powmod;
-        use crate::gcd::ext_gcd;
+        use super::ModIntTrait;
         use num::{One, Zero};
         use std::fmt;
         use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, Sub, SubAssign};
@@ -1655,59 +1660,21 @@ mod modint {
         pub struct DynModInt {
             x: i64,
         }
+        impl ModIntTrait for DynModInt {
+            fn get_mod() -> i64 {
+                unsafe { MOD }
+            }
+            fn raw(x: i64) -> Self {
+                Self { x }
+            }
+            fn val(&self) -> i64 {
+                self.x
+            }
+        }
         impl DynModInt {
             pub fn set_mod(val: i64) {
                 unsafe {
                     MOD = val;
-                }
-            }
-            #[inline(always)]
-            pub fn get_mod() -> i64 {
-                unsafe { MOD }
-            }
-            #[inline(always)]
-            pub fn val(&self) -> i64 {
-                self.x
-            }
-            #[inline(always)]
-            pub fn new(mut sig: i64) -> Self {
-                if sig < 0 {
-                    let m = Self::get_mod();
-                    let ab = (-sig + m - 1) / m;
-                    sig += ab * m;
-                    debug_assert!(sig >= 0);
-                }
-                Self {
-                    x: sig % Self::get_mod(),
-                }
-            }
-            #[inline(always)]
-            fn inverse(&self) -> Self {
-                // x * inv_x + M * _ = gcd(x, M) = 1
-                // x * inv_x = 1 (mod M)
-                Self::new(ext_gcd(self.x, Self::get_mod()).0)
-
-                // [Fermat's little theorem]
-                // if p is prime, for any integer a, a^p = a (mod p)
-                // especially when a and b is coprime, a^(p-1) = 1 (mod p).
-                // -> inverse of a is a^(p-2).
-
-                //let mut ret = Self { x: 1 };
-                //let mut mul: Self = *self;
-                //let mut p = Self::get_mod() - 2;
-                //while p > 0 {
-                //    if p & 1 != 0 {
-                //        ret *= mul;
-                //    }
-                //    p >>= 1;
-                //    mul *= mul;
-                //}
-                //ret
-            }
-            #[inline(always)]
-            pub fn pow(self, p: usize) -> Self {
-                Self {
-                    x: powmod(self.x, p, Self::get_mod()),
                 }
             }
         }
@@ -1785,21 +1752,11 @@ mod modint {
                 *self = DynModInt::new(self.x * rhs.inverse().x)
             }
         }
-        impl From<usize> for DynModInt {
-            fn from(x: usize) -> Self {
-                DynModInt::new(x as i64)
-            }
-        }
-        impl From<i64> for DynModInt {
-            fn from(x: i64) -> Self {
-                DynModInt::new(x)
-            }
-        }
         impl std::str::FromStr for DynModInt {
             type Err = std::num::ParseIntError;
             fn from_str(s: &str) -> Result<Self, Self::Err> {
                 match s.parse::<i64>() {
-                    Ok(x) => Ok(DynModInt::from(x)),
+                    Ok(x) => Ok(DynModInt::new(x)),
                     Err(e) => Err(e),
                 }
             }
@@ -1820,154 +1777,8 @@ mod modint {
             }
         }
     }
-
-    pub mod carry_mod_int {
-        use super::powmod;
-        use crate::gcd::ext_gcd;
-        use num::{One, Zero};
-        use std::fmt;
-        use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, Sub, SubAssign};
-        #[derive(Clone, Copy, Eq, Hash, PartialEq)]
-        pub struct CarryModInt {
-            x: i64,
-            m: i64,
-        }
-        impl CarryModInt {
-            #[inline(always)]
-            pub fn get_mod(&self) -> i64 {
-                self.m
-            }
-            #[inline(always)]
-            pub fn val(&self) -> i64 {
-                self.x
-            }
-            #[inline(always)]
-            pub fn new(mut sig: i64, m: i64) -> Self {
-                if sig < 0 {
-                    let ab = (-sig + m - 1) / m;
-                    sig += ab * m;
-                    debug_assert!(sig >= 0);
-                }
-                Self { x: sig % m, m }
-            }
-            #[inline(always)]
-            fn inverse(&self) -> Self {
-                // x * inv_x + M * _ = gcd(x, M) = 1
-                // x * inv_x = 1 (mod M)
-                Self::new(ext_gcd(self.x, self.get_mod()).0, self.get_mod())
-
-                // [Fermat's little theorem]
-                // if p is prime, for any integer a, a^p = a (mod p)
-                // especially when a and b is coprime, a^(p-1) = 1 (mod p).
-                // -> inverse of a is a^(p-2).
-
-                //let mut ret = Self { x: 1 };
-                //let mut mul: Self = *self;
-                //let mut p = Self::get_mod() - 2;
-                //while p > 0 {
-                //    if p & 1 != 0 {
-                //        ret *= mul;
-                //    }
-                //    p >>= 1;
-                //    mul *= mul;
-                //}
-                //ret
-            }
-            #[inline(always)]
-            pub fn pow(self, p: usize) -> Self {
-                Self {
-                    x: powmod(self.x, p, self.get_mod()),
-                    m: self.get_mod(),
-                }
-            }
-        }
-        impl Add<Self> for CarryModInt {
-            type Output = Self;
-            #[inline(always)]
-            fn add(self, rhs: Self) -> Self::Output {
-                debug_assert!(self.get_mod() == rhs.get_mod());
-                CarryModInt::new(self.x + rhs.x, self.get_mod())
-            }
-        }
-        impl Sub<Self> for CarryModInt {
-            type Output = Self;
-            #[inline(always)]
-            fn sub(self, rhs: Self) -> Self::Output {
-                debug_assert!(self.get_mod() == rhs.get_mod());
-                CarryModInt::new(self.x - rhs.x, self.get_mod())
-            }
-        }
-        impl Mul<Self> for CarryModInt {
-            type Output = Self;
-            #[inline(always)]
-            fn mul(self, rhs: Self) -> Self::Output {
-                debug_assert!(self.get_mod() == rhs.get_mod());
-                CarryModInt::new(self.x * rhs.x, self.get_mod())
-            }
-        }
-        impl Div<Self> for CarryModInt {
-            type Output = Self;
-            #[inline(always)]
-            #[allow(clippy::suspicious_arithmetic_impl)]
-            fn div(self, rhs: Self) -> Self::Output {
-                debug_assert!(self.get_mod() == rhs.get_mod());
-                CarryModInt::new(self.x * rhs.inverse().x, self.get_mod())
-            }
-        }
-        impl AddAssign<Self> for CarryModInt {
-            #[inline(always)]
-            fn add_assign(&mut self, rhs: Self) {
-                debug_assert!(self.get_mod() == rhs.get_mod());
-                *self = CarryModInt::new(self.x + rhs.x, self.get_mod());
-            }
-        }
-        impl SubAssign<Self> for CarryModInt {
-            #[inline(always)]
-            fn sub_assign(&mut self, rhs: Self) {
-                debug_assert!(self.get_mod() == rhs.get_mod());
-                *self = CarryModInt::new(self.x - rhs.x, self.get_mod());
-            }
-        }
-        impl MulAssign<Self> for CarryModInt {
-            #[inline(always)]
-            fn mul_assign(&mut self, rhs: Self) {
-                debug_assert!(self.get_mod() == rhs.get_mod());
-                *self = CarryModInt::new(self.x * rhs.x, self.get_mod());
-            }
-        }
-        impl DivAssign<Self> for CarryModInt {
-            #[inline(always)]
-            #[allow(clippy::suspicious_op_assign_impl)]
-            fn div_assign(&mut self, rhs: Self) {
-                debug_assert!(self.get_mod() == rhs.get_mod());
-                *self = CarryModInt::new(self.x * rhs.inverse().x, self.get_mod())
-            }
-        }
-        impl std::iter::Sum for CarryModInt {
-            fn sum<I: Iterator<Item = CarryModInt>>(mut iter: I) -> Self {
-                let mut ret = iter.next().unwrap();
-                for v in iter {
-                    debug_assert!(ret.get_mod() == v.get_mod());
-                    ret += v;
-                }
-                ret
-            }
-        }
-        impl fmt::Display for CarryModInt {
-            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                write!(f, "{}", self.x)
-            }
-        }
-        impl fmt::Debug for CarryModInt {
-            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                write!(f, "{}", self.x)
-            }
-        }
-    }
 }
-use modint::{
-    carry_mod_int::CarryModInt, dynamic_mod_int::DynModInt, powmod, static_mod_int::StaticModInt,
-};
+use modint::{dynamic_mod_int::DynModInt, powmod, static_mod_int::StaticModInt};
 
 mod integer_operation {
     use num::{One, Zero};
