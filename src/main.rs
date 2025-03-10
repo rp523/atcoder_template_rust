@@ -4,6 +4,7 @@ use itertools::*;
 use num::{One, Zero};
 use ordered_float::OrderedFloat;
 use permutohedron::LexicalPermutation;
+use proconio::fastout;
 use std::any::TypeId;
 use std::cmp::{max, min, Ordering, Reverse};
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, VecDeque};
@@ -6266,6 +6267,7 @@ use procon_reader::*;
 //////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////
 
+//#[fastout]
 fn main() {
     read::<usize>();
 }
