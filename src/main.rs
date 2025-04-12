@@ -1548,21 +1548,21 @@ mod modint {
             type Output = Self;
             #[inline(always)]
             fn add(self, rhs: Self) -> Self::Output {
-                StaticModInt::new(self.x + rhs.x)
+                Self::new(self.x + rhs.x)
             }
         }
         impl<const MOD: i64> Sub<Self> for StaticModInt<MOD> {
             type Output = Self;
             #[inline(always)]
             fn sub(self, rhs: Self) -> Self::Output {
-                StaticModInt::new(self.x - rhs.x)
+                Self::new(self.x - rhs.x)
             }
         }
         impl<const MOD: i64> Mul<Self> for StaticModInt<MOD> {
             type Output = Self;
             #[inline(always)]
             fn mul(self, rhs: Self) -> Self::Output {
-                StaticModInt::new(self.x * rhs.x)
+                Self::new(self.x * rhs.x)
             }
         }
         impl<const MOD: i64> Div<Self> for StaticModInt<MOD> {
@@ -1570,39 +1570,39 @@ mod modint {
             #[inline(always)]
             #[allow(clippy::suspicious_arithmetic_impl)]
             fn div(self, rhs: Self) -> Self::Output {
-                StaticModInt::new(self.x * rhs.inverse().x)
+                Self::new(self.x * rhs.inverse().x)
             }
         }
         impl<const MOD: i64> AddAssign<Self> for StaticModInt<MOD> {
             #[inline(always)]
             fn add_assign(&mut self, rhs: Self) {
-                *self = StaticModInt::new(self.x + rhs.x);
+                *self = Self::new(self.x + rhs.x);
             }
         }
         impl<const MOD: i64> SubAssign<Self> for StaticModInt<MOD> {
             #[inline(always)]
             fn sub_assign(&mut self, rhs: Self) {
-                *self = StaticModInt::new(self.x - rhs.x);
+                *self = Self::new(self.x - rhs.x);
             }
         }
         impl<const MOD: i64> MulAssign<Self> for StaticModInt<MOD> {
             #[inline(always)]
             fn mul_assign(&mut self, rhs: Self) {
-                *self = StaticModInt::new(self.x * rhs.x);
+                *self = Self::new(self.x * rhs.x);
             }
         }
         impl<const MOD: i64> DivAssign<Self> for StaticModInt<MOD> {
             #[inline(always)]
             #[allow(clippy::suspicious_op_assign_impl)]
             fn div_assign(&mut self, rhs: Self) {
-                *self = StaticModInt::new(self.x * rhs.inverse().x);
+                *self = Self::new(self.x * rhs.inverse().x);
             }
         }
         impl<const MOD: i64> std::str::FromStr for StaticModInt<MOD> {
             type Err = std::num::ParseIntError;
             fn from_str(s: &str) -> Result<Self, Self::Err> {
                 match s.parse::<i64>() {
-                    Ok(x) => Ok(StaticModInt::new(x)),
+                    Ok(x) => Ok(Self::new(x)),
                     Err(e) => Err(e),
                 }
             }
@@ -1656,13 +1656,13 @@ mod modint {
         impl One for DynModInt {
             #[inline(always)]
             fn one() -> Self {
-                Self { x: 1 }
+                Self::new(1)
             }
         }
         impl Zero for DynModInt {
             #[inline(always)]
             fn zero() -> Self {
-                Self { x: 0 }
+                Self::new(0)
             }
             #[inline(always)]
             fn is_zero(&self) -> bool {
@@ -1677,21 +1677,21 @@ mod modint {
             type Output = Self;
             #[inline(always)]
             fn add(self, rhs: Self) -> Self::Output {
-                DynModInt::new(self.x + rhs.x)
+                Self::new(self.x + rhs.x)
             }
         }
         impl Sub<Self> for DynModInt {
             type Output = Self;
             #[inline(always)]
             fn sub(self, rhs: Self) -> Self::Output {
-                DynModInt::new(self.x - rhs.x)
+                Self::new(self.x - rhs.x)
             }
         }
         impl Mul<Self> for DynModInt {
             type Output = Self;
             #[inline(always)]
             fn mul(self, rhs: Self) -> Self::Output {
-                DynModInt::new(self.x * rhs.x)
+                Self::new(self.x * rhs.x)
             }
         }
         impl Div<Self> for DynModInt {
@@ -1699,45 +1699,45 @@ mod modint {
             #[inline(always)]
             #[allow(clippy::suspicious_arithmetic_impl)]
             fn div(self, rhs: Self) -> Self::Output {
-                DynModInt::new(self.x * rhs.inverse().x)
+                Self::new(self.x * rhs.inverse().x)
             }
         }
         impl AddAssign<Self> for DynModInt {
             #[inline(always)]
             fn add_assign(&mut self, rhs: Self) {
-                *self = DynModInt::new(self.x + rhs.x);
+                *self = Self::new(self.x + rhs.x);
             }
         }
         impl SubAssign<Self> for DynModInt {
             #[inline(always)]
             fn sub_assign(&mut self, rhs: Self) {
-                *self = DynModInt::new(self.x - rhs.x);
+                *self = Self::new(self.x - rhs.x);
             }
         }
         impl MulAssign<Self> for DynModInt {
             #[inline(always)]
             fn mul_assign(&mut self, rhs: Self) {
-                *self = DynModInt::new(self.x * rhs.x);
+                *self = Self::new(self.x * rhs.x);
             }
         }
         impl DivAssign<Self> for DynModInt {
             #[inline(always)]
             #[allow(clippy::suspicious_op_assign_impl)]
             fn div_assign(&mut self, rhs: Self) {
-                *self = DynModInt::new(self.x * rhs.inverse().x)
+                *self = Self::new(self.x * rhs.inverse().x)
             }
         }
         impl std::str::FromStr for DynModInt {
             type Err = std::num::ParseIntError;
             fn from_str(s: &str) -> Result<Self, Self::Err> {
                 match s.parse::<i64>() {
-                    Ok(x) => Ok(DynModInt::new(x)),
+                    Ok(x) => Ok(Self::new(x)),
                     Err(e) => Err(e),
                 }
             }
         }
         impl std::iter::Sum for DynModInt {
-            fn sum<I: Iterator<Item = DynModInt>>(iter: I) -> Self {
+            fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
                 iter.fold(Self::zero(), |cum, v| cum + v)
             }
         }
@@ -1752,10 +1752,190 @@ mod modint {
             }
         }
     }
+
+    pub mod hash_node {
+        use super::powmod;
+        use super::static_mod_int::StaticModInt;
+        use super::ModIntTrait;
+        use num::{One, Zero};
+        use std::fmt;
+        use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, Sub, SubAssign};
+        type Mint0 = StaticModInt<1000010029>;
+        type Mint1 = StaticModInt<1000010051>;
+        type Mint2 = StaticModInt<1000010069>;
+        type Mint3 = StaticModInt<1000010101>;
+        type Mint4 = StaticModInt<1000010153>;
+        type Mint5 = StaticModInt<1000010173>;
+        type Mint6 = StaticModInt<1000010189>;
+        type Mint7 = StaticModInt<1000010197>;
+        type Mint8 = StaticModInt<1000010233>;
+        type Mint9 = StaticModInt<1000010243>;
+        #[derive(Clone, Debug, Copy, Eq, Hash, PartialEq)]
+        pub struct HashNode {
+            x0: Mint0,
+            x1: Mint1,
+            x2: Mint2,
+            x3: Mint3,
+            x4: Mint4,
+            x5: Mint5,
+            x6: Mint6,
+            x7: Mint7,
+            x8: Mint8,
+            x9: Mint9,
+        }
+        impl HashNode {
+            pub fn new(x: i64) -> Self {
+                Self {
+                    x0: Mint0::new(x),
+                    x1: Mint1::new(x),
+                    x2: Mint2::new(x),
+                    x3: Mint3::new(x),
+                    x4: Mint4::new(x),
+                    x5: Mint5::new(x),
+                    x6: Mint6::new(x),
+                    x7: Mint7::new(x),
+                    x8: Mint8::new(x),
+                    x9: Mint9::new(x),
+                }
+            }
+        }
+        impl One for HashNode {
+            #[inline(always)]
+            fn one() -> Self {
+                Self::new(1)
+            }
+        }
+        impl Zero for HashNode {
+            #[inline(always)]
+            fn zero() -> Self {
+                Self::new(0)
+            }
+            #[inline(always)]
+            fn is_zero(&self) -> bool {
+                self == &Self::new(0)
+            }
+            #[inline(always)]
+            fn set_zero(&mut self) {
+                *self = Self::new(0);
+            }
+        }
+        impl Add<Self> for HashNode {
+            type Output = Self;
+            #[inline(always)]
+            fn add(self, rhs: Self) -> Self::Output {
+                Self {
+                    x0: self.x0 + rhs.x0,
+                    x1: self.x1 + rhs.x1,
+                    x2: self.x2 + rhs.x2,
+                    x3: self.x3 + rhs.x3,
+                    x4: self.x4 + rhs.x4,
+                    x5: self.x5 + rhs.x5,
+                    x6: self.x6 + rhs.x6,
+                    x7: self.x7 + rhs.x7,
+                    x8: self.x8 + rhs.x8,
+                    x9: self.x9 + rhs.x9,
+                }
+            }
+        }
+        impl Sub<Self> for HashNode {
+            type Output = Self;
+            #[inline(always)]
+            fn sub(self, rhs: Self) -> Self::Output {
+                Self {
+                    x0: self.x0 - rhs.x0,
+                    x1: self.x1 - rhs.x1,
+                    x2: self.x2 - rhs.x2,
+                    x3: self.x3 - rhs.x3,
+                    x4: self.x4 - rhs.x4,
+                    x5: self.x5 - rhs.x5,
+                    x6: self.x6 - rhs.x6,
+                    x7: self.x7 - rhs.x7,
+                    x8: self.x8 - rhs.x8,
+                    x9: self.x9 - rhs.x9,
+                }
+            }
+        }
+        impl Mul<Self> for HashNode {
+            type Output = Self;
+            #[inline(always)]
+            fn mul(self, rhs: Self) -> Self::Output {
+                Self {
+                    x0: self.x0 * rhs.x0,
+                    x1: self.x1 * rhs.x1,
+                    x2: self.x2 * rhs.x2,
+                    x3: self.x3 * rhs.x3,
+                    x4: self.x4 * rhs.x4,
+                    x5: self.x5 * rhs.x5,
+                    x6: self.x6 * rhs.x6,
+                    x7: self.x7 * rhs.x7,
+                    x8: self.x8 * rhs.x8,
+                    x9: self.x9 * rhs.x9,
+                }
+            }
+        }
+        impl Div<Self> for HashNode {
+            type Output = Self;
+            #[inline(always)]
+            #[allow(clippy::suspicious_arithmetic_impl)]
+            fn div(self, rhs: Self) -> Self::Output {
+                Self {
+                    x0: self.x0 / rhs.x0,
+                    x1: self.x1 / rhs.x1,
+                    x2: self.x2 / rhs.x2,
+                    x3: self.x3 / rhs.x3,
+                    x4: self.x4 / rhs.x4,
+                    x5: self.x5 / rhs.x5,
+                    x6: self.x6 / rhs.x6,
+                    x7: self.x7 / rhs.x7,
+                    x8: self.x8 / rhs.x8,
+                    x9: self.x9 / rhs.x9,
+                }
+            }
+        }
+        impl AddAssign<Self> for HashNode {
+            #[inline(always)]
+            fn add_assign(&mut self, rhs: Self) {
+                *self = *self + rhs;
+            }
+        }
+        impl SubAssign<Self> for HashNode {
+            #[inline(always)]
+            fn sub_assign(&mut self, rhs: Self) {
+                *self = *self - rhs;
+            }
+        }
+        impl MulAssign<Self> for HashNode {
+            #[inline(always)]
+            fn mul_assign(&mut self, rhs: Self) {
+                *self = *self * rhs;
+            }
+        }
+        impl DivAssign<Self> for HashNode {
+            #[inline(always)]
+            #[allow(clippy::suspicious_op_assign_impl)]
+            fn div_assign(&mut self, rhs: Self) {
+                *self = *self / rhs;
+            }
+        }
+        impl std::str::FromStr for HashNode {
+            type Err = std::num::ParseIntError;
+            fn from_str(s: &str) -> Result<Self, Self::Err> {
+                match s.parse::<i64>() {
+                    Ok(x) => Ok(Self::new(x)),
+                    Err(e) => Err(e),
+                }
+            }
+        }
+        impl std::iter::Sum for HashNode {
+            fn sum<I: Iterator<Item = HashNode>>(iter: I) -> Self {
+                iter.fold(Self::zero(), |cum, v| cum + v)
+            }
+        }
+    }
 }
 use modint::{
-    combination, dynamic_mod_int::DynModInt, factorial, factorial_inv, permutation, powmod,
-    static_mod_int::StaticModInt, ModIntTrait,
+    combination, dynamic_mod_int::DynModInt, factorial, factorial_inv, hash_node::HashNode,
+    permutation, powmod, static_mod_int::StaticModInt, ModIntTrait,
 };
 
 mod integer_operation {
@@ -6246,5 +6426,7 @@ use procon_reader::*;
 
 //#[fastout]
 fn main() {
-    read::<usize>();
+    for x in (1000010000usize..).filter(|&x| x.is_prime()).take(10) {
+        println!("{x}");
+    }
 }
