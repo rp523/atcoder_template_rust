@@ -225,92 +225,6 @@ mod gcd {
 }
 use gcd::*;
 
-fn factorial_impl<
-    T: Clone + Copy + From<usize> + Into<usize> + Mul<Output = T> + Div<Output = T>,
->(
-    p: usize,
-    memo: *mut Vec<usize>,
-    update_op: fn(T, T) -> T,
-) -> T {
-    unsafe {
-        while (*memo).len() < 2_usize {
-            (*memo).push(1_usize);
-        }
-        while (*memo).len() <= p + 1 {
-            let last_val: T = T::from(*(*memo).last().unwrap());
-            (*memo).push(update_op(last_val, T::from((*memo).len())).into());
-        }
-        T::from((*memo)[p])
-    }
-}
-
-fn factorial<
-    T: Clone + Copy + From<usize> + Into<usize> + Mul<Output = T> + Div<Output = T> + 'static,
->(
-    p: usize,
-) -> T {
-    static mut MEMO: Vec<usize> = Vec::<usize>::new();
-    factorial_impl(p, unsafe { std::ptr::addr_of_mut!(MEMO) }, |x: T, y: T| {
-        x * y
-    })
-}
-
-fn factorial_inv<
-    T: Clone + Copy + From<usize> + Into<usize> + Mul<Output = T> + Div<Output = T> + 'static,
->(
-    p: usize,
-) -> T {
-    static mut MEMO: Vec<usize> = Vec::<usize>::new();
-    factorial_impl(p, unsafe { std::ptr::addr_of_mut!(MEMO) }, |x: T, y: T| {
-        x / y
-    })
-}
-
-fn combination<
-    T: Clone
-        + Copy
-        + From<usize>
-        + Into<usize>
-        + Mul<Output = T>
-        + Div<Output = T>
-        + One
-        + Zero
-        + 'static,
->(
-    n: usize,
-    k: usize,
-) -> T {
-    if n < k {
-        return T::zero();
-    }
-    if k == 0 {
-        return T::one();
-    } else if k == 1 {
-        return T::from(n);
-    } else if k == 2 {
-        return (T::from(n) * T::from(n - 1)) / T::from(2);
-    }
-
-    factorial::<T>(n) * factorial_inv::<T>(k) * factorial_inv::<T>(n - k)
-}
-
-fn permutation<
-    T: Clone + Copy + From<usize> + Into<usize> + Mul<Output = T> + Div<Output = T> + One + 'static,
->(
-    n: usize,
-    k: usize,
-) -> T {
-    if k == 0 {
-        return T::one();
-    } else if k == 1 {
-        return T::from(n);
-    } else if k == 2 {
-        return T::from(n) * T::from(n - 1);
-    }
-
-    factorial::<T>(n) * factorial_inv::<T>(n - k)
-}
-
 mod union_find {
     #[derive(Debug, Clone)]
     pub struct UnionFind {
@@ -1527,6 +1441,66 @@ mod modint {
             Self::raw(powmod(self.val(), p, Self::get_mod()))
         }
     }
+    fn factorial_impl<T: ModIntTrait>(
+        p: usize,
+        memo: *mut Vec<i64>,
+        update_op: fn(T, T) -> T,
+    ) -> T {
+        unsafe {
+            while (*memo).len() < 2_usize {
+                (*memo).push(1);
+            }
+            while (*memo).len() <= p + 1 {
+                let last_val: T = T::new(*(*memo).last().unwrap());
+                (*memo).push(update_op(last_val, T::new((*memo).len() as i64)).val());
+            }
+            T::new((*memo)[p])
+        }
+    }
+    pub fn factorial<T: ModIntTrait + std::ops::Mul<Output = T>>(p: usize) -> T {
+        static mut MEMO: Vec<i64> = Vec::<i64>::new();
+        factorial_impl::<T>(p, unsafe { std::ptr::addr_of_mut!(MEMO) }, |x: T, y: T| {
+            x * y
+        })
+    }
+    pub fn factorial_inv<T: ModIntTrait + std::ops::Div<Output = T>>(p: usize) -> T {
+        static mut MEMO: Vec<i64> = Vec::<i64>::new();
+        factorial_impl::<T>(p, unsafe { std::ptr::addr_of_mut!(MEMO) }, |x: T, y: T| {
+            x / y
+        })
+    }
+    pub fn combination<
+        T: ModIntTrait + std::ops::Mul<Output = T> + std::ops::Div<Output = T> + num::One + num::Zero,
+    >(
+        n: usize,
+        k: usize,
+    ) -> T {
+        if n < k {
+            return T::zero();
+        }
+        if k == 0 {
+            T::one()
+        } else if k == 1 {
+            T::new(n as i64)
+        } else {
+            factorial::<T>(n) * factorial_inv::<T>(k) * factorial_inv::<T>(n - k)
+        }
+    }
+
+    pub fn permutation<
+        T: ModIntTrait + std::ops::Mul<Output = T> + std::ops::Div<Output = T> + num::One,
+    >(
+        n: usize,
+        k: usize,
+    ) -> T {
+        if k == 0 {
+            T::one()
+        } else if k == 1 {
+            T::new(n as i64)
+        } else {
+            factorial::<T>(n) * factorial_inv::<T>(n - k)
+        }
+    }
 
     pub mod static_mod_int {
         use super::powmod;
@@ -1779,7 +1753,10 @@ mod modint {
         }
     }
 }
-use modint::{dynamic_mod_int::DynModInt, powmod, static_mod_int::StaticModInt, ModIntTrait};
+use modint::{
+    combination, dynamic_mod_int::DynModInt, factorial, factorial_inv, permutation, powmod,
+    static_mod_int::StaticModInt, ModIntTrait,
+};
 
 mod integer_operation {
     use num::{One, Zero};
@@ -5150,9 +5127,9 @@ mod dynamic_connectivity {
                     let mut es = vec![BTreeSet::new(); N];
                     let mut ques = vec![];
                     while ques.len() < N * N {
-                        let t = rng.gen::<usize>() % 2;
-                        let a = rng.gen::<usize>() % N;
-                        let b = (a + 1 + rng.gen::<usize>() % (N - 1)) % N;
+                        let t = rng.random_range(0..2);
+                        let a = rng.random_range(0..N);
+                        let b = (a + 1 + rng.random_range(0..N - 1)) % N;
                         match t {
                             0 => {
                                 // unite
@@ -6136,14 +6113,14 @@ mod low_link {
         const NMIN: usize = 2;
         const NMAX: usize = 20;
         for _ in 0..TEST {
-            let n = NMIN + (rng.gen::<usize>() % (NMAX - NMIN + 1));
-            let m = 1 + (rng.gen::<usize>() % ((n * (n - 1)) / 2));
+            let n = NMIN + (rng.random_range(0..NMAX - NMIN + 1));
+            let m = 1 + (rng.random_range(0..(n * (n - 1)) / 2));
             let mut es = vec![];
             let mut uf0 = UnionFind::new(n);
             let mut ll = LowLink::new(n);
             for _ in 0..m {
-                let a = rng.gen::<usize>() % (n - 1);
-                let b = a + 1 + rng.gen::<usize>() % (n - a - 1);
+                let a = rng.random_range(0..n - 1);
+                let b = a + 1 + rng.random_range(0..n - a - 1);
                 es.push((a, b));
                 uf0.unite(a, b);
                 ll.unite(a, b);
