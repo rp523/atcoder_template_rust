@@ -6426,7 +6426,5 @@ use procon_reader::*;
 
 //#[fastout]
 fn main() {
-    for x in (1000010000usize..).filter(|&x| x.is_prime()).take(10) {
-        println!("{x}");
-    }
+    read::<usize>();
 }
