@@ -3674,6 +3674,7 @@ mod flow {
         pub flow: i64,      // flow can be negative.
         pub cost: i64,      // for min-cost flow
     }
+    #[derive(Clone)]
     pub struct Flow {
         pub g: Vec<Vec<Edge>>,
         flow_lb_sum: i64,
