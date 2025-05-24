@@ -3006,6 +3006,27 @@ mod rational {
                 }
             }
         }
+        pub fn abs(&self) -> Self {
+            use num::Zero;
+            if self < &Self::zero() {
+                -*self
+            } else {
+                *self
+            }
+        }
+    }
+    impl num::Zero for Rational {
+        fn is_zero(&self) -> bool {
+            self == &Self::zero()
+        }
+        fn zero() -> Self {
+            Self::new(0, 1)
+        }
+    }
+    impl num::One for Rational {
+        fn one() -> Self {
+            Self::new(1, 1)
+        }
     }
     impl AddAssign<Self> for Rational {
         fn add_assign(&mut self, rhs: Self) {
