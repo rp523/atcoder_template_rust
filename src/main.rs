@@ -3842,7 +3842,7 @@ mod flow {
             flow_lb: i64,
             flow_ub: i64,
         ) -> Option<(i64, i64)> {
-            if let Some(&(cost, flow)) = self.min_cost_slope_sub(src, dst, flow_lb, flow_ub).last()
+            if let Some(&(cost, flow)) = self.min_cost_slope(src, dst, flow_lb, flow_ub).last()
             {
                 if flow_lb <= flow && flow <= flow_ub {
                     return Some((cost, flow));
@@ -3851,15 +3851,6 @@ mod flow {
             None
         }
         pub fn min_cost_slope(
-            &mut self,
-            src: usize,
-            dst: usize,
-            flow_lb: i64,
-            flow_ub: i64,
-        ) -> Vec<(i64, i64)> {
-            self.min_cost_slope_sub(src, dst, flow_lb, flow_ub)
-        }
-        fn min_cost_slope_sub(
             &mut self,
             src: usize,
             dst: usize,
