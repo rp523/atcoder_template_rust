@@ -1380,7 +1380,7 @@ use lazy_segment_tree::LazySegmentTree;
 mod modint {
     use super::gcd::ext_gcd;
     #[inline(always)]
-    pub fn powmod(x: i64, mut p: usize, m: i64) -> i64 {
+    pub fn powmod(x: usize, mut p: usize, m: usize) -> usize {
         let mut ret = 1;
         let mut mul = x;
         while p > 0 {
@@ -1393,21 +1393,15 @@ mod modint {
         ret
     }
     pub trait ModIntTrait {
-        fn get_mod() -> i64;
-        fn val(&self) -> i64;
-        fn raw(x: i64) -> Self;
+        fn get_mod() -> usize;
+        fn val(&self) -> usize;
+        fn raw(x: usize) -> Self;
         fn new<T>(x: T) -> Self
         where
-            T: Into<i64>,
+            T: Into<usize>,
             Self: Sized,
         {
-            let mut x: i64 = x.into();
-            if x < 0 {
-                let ab = (-x + Self::get_mod() - 1) / Self::get_mod();
-                x += ab * Self::get_mod();
-                debug_assert!(x >= 0);
-            }
-            Self::raw(x % Self::get_mod())
+            Self::raw(x.into() % Self::get_mod())
         }
         fn inverse(&self) -> Self
         where
@@ -1415,7 +1409,7 @@ mod modint {
         {
             // x * inv_x + M * _ = gcd(x, M) = 1
             // x * inv_x = 1 (mod M)
-            Self::new(ext_gcd(self.val(), Self::get_mod()).0)
+            Self::new((ext_gcd(self.val() as i64, Self::get_mod() as i64).0 as i64) as usize)
 
             // [Fermat's little theorem]
             // if p is prime, for any integer a, a^p = a (mod p)
@@ -1443,7 +1437,7 @@ mod modint {
     }
     fn factorial_impl<T: ModIntTrait>(
         p: usize,
-        memo: *mut Vec<i64>,
+        memo: *mut Vec<usize>,
         update_op: fn(T, T) -> T,
     ) -> T {
         unsafe {
@@ -1452,19 +1446,19 @@ mod modint {
             }
             while (*memo).len() <= p + 1 {
                 let last_val: T = T::new(*(*memo).last().unwrap());
-                (*memo).push(update_op(last_val, T::new((*memo).len() as i64)).val());
+                (*memo).push(update_op(last_val, T::new((*memo).len())).val());
             }
             T::new((*memo)[p])
         }
     }
     pub fn factorial<T: ModIntTrait + std::ops::Mul<Output = T>>(p: usize) -> T {
-        static mut MEMO: Vec<i64> = Vec::<i64>::new();
+        static mut MEMO: Vec<usize> = Vec::new();
         factorial_impl::<T>(p, unsafe { std::ptr::addr_of_mut!(MEMO) }, |x: T, y: T| {
             x * y
         })
     }
     pub fn factorial_inv<T: ModIntTrait + std::ops::Div<Output = T>>(p: usize) -> T {
-        static mut MEMO: Vec<i64> = Vec::<i64>::new();
+        static mut MEMO: Vec<usize> = Vec::new();
         factorial_impl::<T>(p, unsafe { std::ptr::addr_of_mut!(MEMO) }, |x: T, y: T| {
             x / y
         })
@@ -1481,7 +1475,7 @@ mod modint {
         if k == 0 {
             T::one()
         } else if k == 1 {
-            T::new(n as i64)
+            T::new(n)
         } else {
             factorial::<T>(n) * factorial_inv::<T>(k) * factorial_inv::<T>(n - k)
         }
@@ -1496,7 +1490,7 @@ mod modint {
         if k == 0 {
             T::one()
         } else if k == 1 {
-            T::new(n as i64)
+            T::new(n)
         } else {
             factorial::<T>(n) * factorial_inv::<T>(n - k)
         }
@@ -1510,27 +1504,27 @@ mod modint {
         use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, Sub, SubAssign};
 
         #[derive(Clone, Copy, Eq, Hash, PartialEq)]
-        pub struct StaticModInt<const MOD: i64> {
-            x: i64,
+        pub struct StaticModInt<const MOD: usize> {
+            x: usize,
         }
-        impl<const MOD: i64> ModIntTrait for StaticModInt<MOD> {
-            fn get_mod() -> i64 {
+        impl<const MOD: usize> ModIntTrait for StaticModInt<MOD> {
+            fn get_mod() -> usize {
                 MOD
             }
-            fn raw(x: i64) -> Self {
+            fn raw(x: usize) -> Self {
                 Self { x }
             }
-            fn val(&self) -> i64 {
+            fn val(&self) -> usize {
                 self.x
             }
         }
-        impl<const MOD: i64> One for StaticModInt<MOD> {
+        impl<const MOD: usize> One for StaticModInt<MOD> {
             #[inline(always)]
             fn one() -> Self {
                 Self { x: 1 }
             }
         }
-        impl<const MOD: i64> Zero for StaticModInt<MOD> {
+        impl<const MOD: usize> Zero for StaticModInt<MOD> {
             #[inline(always)]
             fn zero() -> Self {
                 Self { x: 0 }
@@ -1544,28 +1538,29 @@ mod modint {
                 self.x = 0;
             }
         }
-        impl<const MOD: i64> Add<Self> for StaticModInt<MOD> {
+        impl<const MOD: usize> Add<Self> for StaticModInt<MOD> {
             type Output = Self;
             #[inline(always)]
             fn add(self, rhs: Self) -> Self::Output {
                 Self::new(self.x + rhs.x)
             }
         }
-        impl<const MOD: i64> Sub<Self> for StaticModInt<MOD> {
+        impl<const MOD: usize> Sub<Self> for StaticModInt<MOD> {
             type Output = Self;
             #[inline(always)]
             fn sub(self, rhs: Self) -> Self::Output {
-                Self::new(self.x - rhs.x)
+                let m = Self::get_mod();
+                Self::new(m + self.x - rhs.x)
             }
         }
-        impl<const MOD: i64> Mul<Self> for StaticModInt<MOD> {
+        impl<const MOD: usize> Mul<Self> for StaticModInt<MOD> {
             type Output = Self;
             #[inline(always)]
             fn mul(self, rhs: Self) -> Self::Output {
                 Self::new(self.x * rhs.x)
             }
         }
-        impl<const MOD: i64> Div<Self> for StaticModInt<MOD> {
+        impl<const MOD: usize> Div<Self> for StaticModInt<MOD> {
             type Output = Self;
             #[inline(always)]
             #[allow(clippy::suspicious_arithmetic_impl)]
@@ -1573,51 +1568,52 @@ mod modint {
                 Self::new(self.x * rhs.inverse().x)
             }
         }
-        impl<const MOD: i64> AddAssign<Self> for StaticModInt<MOD> {
+        impl<const MOD: usize> AddAssign<Self> for StaticModInt<MOD> {
             #[inline(always)]
             fn add_assign(&mut self, rhs: Self) {
                 *self = Self::new(self.x + rhs.x);
             }
         }
-        impl<const MOD: i64> SubAssign<Self> for StaticModInt<MOD> {
+        impl<const MOD: usize> SubAssign<Self> for StaticModInt<MOD> {
             #[inline(always)]
             fn sub_assign(&mut self, rhs: Self) {
-                *self = Self::new(self.x - rhs.x);
+                let m = Self::get_mod();
+                *self = Self::new(m + self.x - rhs.x);
             }
         }
-        impl<const MOD: i64> MulAssign<Self> for StaticModInt<MOD> {
+        impl<const MOD: usize> MulAssign<Self> for StaticModInt<MOD> {
             #[inline(always)]
             fn mul_assign(&mut self, rhs: Self) {
                 *self = Self::new(self.x * rhs.x);
             }
         }
-        impl<const MOD: i64> DivAssign<Self> for StaticModInt<MOD> {
+        impl<const MOD: usize> DivAssign<Self> for StaticModInt<MOD> {
             #[inline(always)]
             #[allow(clippy::suspicious_op_assign_impl)]
             fn div_assign(&mut self, rhs: Self) {
                 *self = Self::new(self.x * rhs.inverse().x);
             }
         }
-        impl<const MOD: i64> std::str::FromStr for StaticModInt<MOD> {
+        impl<const MOD: usize> std::str::FromStr for StaticModInt<MOD> {
             type Err = std::num::ParseIntError;
             fn from_str(s: &str) -> Result<Self, Self::Err> {
-                match s.parse::<i64>() {
+                match s.parse::<usize>() {
                     Ok(x) => Ok(Self::new(x)),
                     Err(e) => Err(e),
                 }
             }
         }
-        impl<const MOD: i64> std::iter::Sum for StaticModInt<MOD> {
+        impl<const MOD: usize> std::iter::Sum for StaticModInt<MOD> {
             fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
                 iter.fold(Self::zero(), |cum, v| cum + v)
             }
         }
-        impl<const MOD: i64> fmt::Display for StaticModInt<MOD> {
+        impl<const MOD: usize> fmt::Display for StaticModInt<MOD> {
             fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
                 write!(f, "{}", self.x)
             }
         }
-        impl<const MOD: i64> fmt::Debug for StaticModInt<MOD> {
+        impl<const MOD: usize> fmt::Debug for StaticModInt<MOD> {
             fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
                 write!(f, "{}", self.x)
             }
@@ -1630,24 +1626,24 @@ mod modint {
         use num::{One, Zero};
         use std::fmt;
         use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, Sub, SubAssign};
-        static mut MOD: i64 = 2;
+        static mut MOD: usize = 2;
         #[derive(Clone, Copy, Eq, Hash, PartialEq)]
         pub struct DynModInt {
-            x: i64,
+            x: usize,
         }
         impl ModIntTrait for DynModInt {
-            fn get_mod() -> i64 {
+            fn get_mod() -> usize {
                 unsafe { MOD }
             }
-            fn raw(x: i64) -> Self {
+            fn raw(x: usize) -> Self {
                 Self { x }
             }
-            fn val(&self) -> i64 {
+            fn val(&self) -> usize {
                 self.x
             }
         }
         impl DynModInt {
-            pub fn set_mod(val: i64) {
+            pub fn set_mod(val: usize) {
                 unsafe {
                     MOD = val;
                 }
@@ -1656,13 +1652,13 @@ mod modint {
         impl One for DynModInt {
             #[inline(always)]
             fn one() -> Self {
-                Self::new(1)
+                Self::new(1usize)
             }
         }
         impl Zero for DynModInt {
             #[inline(always)]
             fn zero() -> Self {
-                Self::new(0)
+                Self::new(0usize)
             }
             #[inline(always)]
             fn is_zero(&self) -> bool {
@@ -1684,7 +1680,8 @@ mod modint {
             type Output = Self;
             #[inline(always)]
             fn sub(self, rhs: Self) -> Self::Output {
-                Self::new(self.x - rhs.x)
+                let m = Self::get_mod();
+                Self::new(m + self.x - rhs.x)
             }
         }
         impl Mul<Self> for DynModInt {
@@ -1711,7 +1708,8 @@ mod modint {
         impl SubAssign<Self> for DynModInt {
             #[inline(always)]
             fn sub_assign(&mut self, rhs: Self) {
-                *self = Self::new(self.x - rhs.x);
+                let m = Self::get_mod();
+                *self = Self::new(m + self.x - rhs.x);
             }
         }
         impl MulAssign<Self> for DynModInt {
@@ -1730,7 +1728,7 @@ mod modint {
         impl std::str::FromStr for DynModInt {
             type Err = std::num::ParseIntError;
             fn from_str(s: &str) -> Result<Self, Self::Err> {
-                match s.parse::<i64>() {
+                match s.parse::<usize>() {
                     Ok(x) => Ok(Self::new(x)),
                     Err(e) => Err(e),
                 }
@@ -1784,7 +1782,7 @@ mod modint {
             x9: Mint9,
         }
         impl HashNode {
-            pub fn new(x: i64) -> Self {
+            pub fn new(x: usize) -> Self {
                 Self {
                     x0: Mint0::new(x),
                     x1: Mint1::new(x),
@@ -1920,7 +1918,7 @@ mod modint {
         impl std::str::FromStr for HashNode {
             type Err = std::num::ParseIntError;
             fn from_str(s: &str) -> Result<Self, Self::Err> {
-                match s.parse::<i64>() {
+                match s.parse::<usize>() {
                     Ok(x) => Ok(Self::new(x)),
                     Err(e) => Err(e),
                 }
@@ -4068,7 +4066,7 @@ mod convolution {
         while a.len() > n + m - 1 {
             a.pop();
         }
-        let iz = Mint::one() / Mint::new(z as i64);
+        let iz = Mint::one() / Mint::new(z);
         for a in a.iter_mut() {
             *a *= iz;
         }
@@ -4176,8 +4174,8 @@ mod convolution {
             let mut rate3 = vec![Mint::zero(); std::cmp::max(0, rank2 as i64 - 3 + 1) as usize];
             let mut irate3 = vec![Mint::zero(); std::cmp::max(0, rank2 as i64 - 3 + 1) as usize];
 
-            let g = primitive_root(Mint::get_mod());
-            root[rank2] = Mint::new(g).pow((Mint::get_mod() as usize - 1) >> rank2);
+            let g = primitive_root(Mint::get_mod() as i64);
+            root[rank2] = Mint::new(g as usize).pow((Mint::get_mod() as usize - 1) >> rank2);
             iroot[rank2] = Mint::one() / root[rank2];
             for i in (0..rank2).rev() {
                 root[i] = root[i + 1] * root[i + 1];
@@ -4382,26 +4380,26 @@ mod convolution {
         debug_assert!(n + m - 1 <= (1 << MAX_AB_BIT));
 
         use itertools::Itertools;
-        DynModInt::set_mod(M1 as i64);
+        DynModInt::set_mod(M1 as usize);
         let c1 = convolution(
-            &a.iter().map(|&x| DynModInt::new(x)).collect_vec(),
-            &b.iter().map(|&x| DynModInt::new(x)).collect_vec(),
+            &a.iter().map(|&x| DynModInt::new(x as usize)).collect_vec(),
+            &b.iter().map(|&x| DynModInt::new(x as usize)).collect_vec(),
         )
         .into_iter()
         .map(|x| x.val())
         .collect_vec();
-        DynModInt::set_mod(M2 as i64);
+        DynModInt::set_mod(M2 as usize);
         let c2 = convolution(
-            &a.iter().map(|&x| DynModInt::new(x)).collect_vec(),
-            &b.iter().map(|&x| DynModInt::new(x)).collect_vec(),
+            &a.iter().map(|&x| DynModInt::new(x as usize)).collect_vec(),
+            &b.iter().map(|&x| DynModInt::new(x as usize)).collect_vec(),
         )
         .into_iter()
         .map(|x| x.val())
         .collect_vec();
-        DynModInt::set_mod(M3 as i64);
+        DynModInt::set_mod(M3 as usize);
         let c3 = convolution(
-            &a.iter().map(|&x| DynModInt::new(x)).collect_vec(),
-            &b.iter().map(|&x| DynModInt::new(x)).collect_vec(),
+            &a.iter().map(|&x| DynModInt::new(x as usize)).collect_vec(),
+            &b.iter().map(|&x| DynModInt::new(x as usize)).collect_vec(),
         )
         .into_iter()
         .map(|x| x.val())
@@ -4416,7 +4414,7 @@ mod convolution {
                 let mut x = [(c1, I1, M1, M2M3), (c2, I2, M2, M1M3), (c3, I3, M3, M1M2)]
                     .iter()
                     .map(|&(c, i, m1, m2)| {
-                        c.wrapping_mul(i).rem_euclid(m1 as _).wrapping_mul(m2 as _)
+                        (c as i64).wrapping_mul(i).rem_euclid(m1 as _).wrapping_mul(m2 as _)
                     })
                     .fold(0, i64::wrapping_add);
 
@@ -4445,7 +4443,7 @@ mod convolution {
                     x
                 }
 
-                let mut diff = c1 - safe_mod(x, M1 as _);
+                let mut diff = c1 as i64 - safe_mod(x, M1 as _);
                 if diff < 0 {
                     diff += M1 as i64;
                 }
