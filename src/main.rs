@@ -1409,7 +1409,14 @@ mod modint {
         {
             // x * inv_x + M * _ = gcd(x, M) = 1
             // x * inv_x = 1 (mod M)
-            Self::new((ext_gcd(self.val() as i64, Self::get_mod() as i64).0 as i64) as usize)
+            let v = ext_gcd(self.val() as i64, Self::get_mod() as i64).0;
+            let m = Self::get_mod();
+            let seed = if v >= 0 {
+                v as usize
+            } else {
+                m - (-v % m as i64) as usize
+            };
+            Self::new(seed)
 
             // [Fermat's little theorem]
             // if p is prime, for any integer a, a^p = a (mod p)
@@ -3840,8 +3847,7 @@ mod flow {
             flow_lb: i64,
             flow_ub: i64,
         ) -> Option<(i64, i64)> {
-            if let Some(&(cost, flow)) = self.min_cost_slope(src, dst, flow_lb, flow_ub).last()
-            {
+            if let Some(&(cost, flow)) = self.min_cost_slope(src, dst, flow_lb, flow_ub).last() {
                 if flow_lb <= flow && flow <= flow_ub {
                     return Some((cost, flow));
                 }
@@ -4414,7 +4420,10 @@ mod convolution {
                 let mut x = [(c1, I1, M1, M2M3), (c2, I2, M2, M1M3), (c3, I3, M3, M1M2)]
                     .iter()
                     .map(|&(c, i, m1, m2)| {
-                        (c as i64).wrapping_mul(i).rem_euclid(m1 as _).wrapping_mul(m2 as _)
+                        (c as i64)
+                            .wrapping_mul(i)
+                            .rem_euclid(m1 as _)
+                            .wrapping_mul(m2 as _)
                     })
                     .fold(0, i64::wrapping_add);
 
