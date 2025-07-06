@@ -6585,6 +6585,91 @@ mod floor_sum {
 }
 use floor_sum::floor_sum;
 
+mod sparse_table {
+    use std::cmp::min;
+    #[derive(Clone, Debug)]
+    pub struct SparseTable<T> {
+        left: Vec<Vec<T>>,
+        right: Vec<Vec<T>>,
+        len_to_di: Vec<usize>,
+        op: fn(T, T) -> T,
+    }
+    impl<T> SparseTable<T>
+    where
+        T: Clone + std::fmt::Debug,
+    {
+        pub fn new(op: fn(T, T) -> T, a: Vec<T>) -> Self {
+            let n = a.len();
+            let mut dmax = 0;
+            let len_to_di = {
+                let mut len_to_di = vec![0; n + 1];
+                for ln in 1..=n {
+                    if ln > 2 * (1 << dmax) {
+                        dmax += 1;
+                    }
+                    len_to_di[ln] = dmax;
+                }
+                len_to_di
+            };
+            let mut left = vec![a.clone(); dmax + 1];
+            let mut right = vec![a.clone(); dmax + 1];
+            for di in 0..dmax {
+                for i in 0..n {
+                    let ri = min(i + (1 << di), n - 1);
+                    left[di + 1][i] = op(left[di][i].clone(), left[di][ri].clone());
+                }
+            }
+            for di in 0..dmax {
+                for i in 0..n {
+                    let li = i.saturating_sub(1 << di);
+                    right[di + 1][i] = op(right[di][li].clone(), right[di][i].clone());
+                }
+            }
+            Self {
+                left,
+                right,
+                len_to_di,
+                op,
+            }
+        }
+        pub fn query(&self, l: usize, r: usize) -> T {
+            let di = self.len_to_di[r - l + 1];
+            (self.op)(self.left[di][l].clone(), self.right[di][r].clone())
+        }
+        pub fn get(&self, i: usize) -> T {
+            self.left[0][i].clone()
+        }
+    }
+    pub mod test {
+        use super::SparseTable;
+        use itertools::Itertools;
+        use rand::{Rng, SeedableRng};
+        use rand_chacha::ChaChaRng;
+        use std::cmp::{max, min};
+        #[test]
+        pub fn query() {
+            const NMAX: usize = 400;
+            const V: i64 = 1000;
+            let mut rng = ChaChaRng::from_seed([0; 32]);
+            for op in [min, max] {
+                for n in 1..=NMAX {
+                    let a = (0..=n).map(|_| rng.random_range(-V..=V)).collect_vec();
+                    let table = SparseTable::new(op, a.clone());
+                    for l in 0..n {
+                        assert_eq!(a[l], table.get(l));
+                        for r in l..n {
+                            let expected = (l + 1..=r).fold(a[l], |cum, i| op(cum, a[i]));
+                            let actual = table.query(l, r);
+                            assert_eq!(expected, actual);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+use sparse_table::SparseTable;
+
 mod procon_reader {
     use std::fmt::Debug;
     use std::io::Read;
