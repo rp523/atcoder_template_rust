@@ -6670,6 +6670,76 @@ mod sparse_table {
 }
 use sparse_table::SparseTable;
 
+fn show2d<T>(table2d: &[Vec<T>])
+where
+    T: std::fmt::Debug,
+{
+    use std::collections::VecDeque;
+    let w = table2d[0].len();
+    let mx = table2d
+        .iter()
+        .map(|line| {
+            line.iter()
+                .map(|val| format!("{:?}", val).len())
+                .max()
+                .unwrap()
+        })
+        .max()
+        .unwrap()
+        + 2;
+    fn to_string<X>(x: X, mx: usize) -> String
+    where
+        X: std::fmt::Debug,
+    {
+        let mut s = format!("{:?}", x).chars().collect::<VecDeque<char>>();
+        let mut sw = 0;
+        while s.len() < mx {
+            if sw == 0 {
+                s.push_back(' ');
+            } else {
+                s.push_front(' ');
+            }
+            sw ^= 1;
+        }
+        s.into_iter().collect::<String>()
+    }
+    let eprintln_split = |doubled: bool| {
+        eprint!("+");
+        for _ in 0..=w {
+            for _ in 0..mx {
+                eprint!("{}", if doubled { '=' } else { '-' });
+            }
+            eprint!("+");
+        }
+        eprintln!();
+    };
+    eprintln_split(false);
+    {
+        eprint!("|");
+        for x in 0..=w {
+            let s = if x > 0 {
+                to_string::<usize>(x - 1, mx)
+            } else {
+                (0..mx).map(|_| ' ').collect::<String>()
+            };
+            eprint!("{s}");
+            eprint!("|");
+        }
+        eprintln!();
+    }
+    eprintln_split(true);
+    for (y, line) in table2d.iter().enumerate() {
+        eprint!("|");
+        eprint!("{}", to_string(y, mx));
+        eprint!("|");
+        for val in line {
+            eprint!("{}|", to_string(val, mx));
+        }
+        eprintln!();
+        eprintln_split(false);
+    }
+}
+
 mod procon_reader {
     use std::fmt::Debug;
     use std::io::Read;
