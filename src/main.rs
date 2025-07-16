@@ -6670,6 +6670,65 @@ mod sparse_table {
 }
 use sparse_table::SparseTable;
 
+fn show1d<T>(line: &[T])
+where
+    T: std::fmt::Debug,
+{
+    #[cfg(debug_assertions)]
+    {
+        use std::collections::VecDeque;
+        let ln = line.len();
+        let mx = line
+            .iter()
+            .map(|val| format!("{:?}", val).len())
+            .max()
+            .unwrap()
+            + 2;
+        fn to_string<X>(x: X, mx: usize) -> String
+        where
+            X: std::fmt::Debug,
+        {
+            let mut s = format!("{:?}", x).chars().collect::<VecDeque<char>>();
+            let mut sw = 0;
+            while s.len() < mx {
+                if sw == 0 {
+                    s.push_back(' ');
+                } else {
+                    s.push_front(' ');
+                }
+                sw ^= 1;
+            }
+            s.into_iter().collect::<String>()
+        }
+        let eprintln_split = || {
+            eprint!("+");
+            for _ in 0..ln {
+                for _ in 0..mx {
+                    eprint!("=");
+                }
+                eprint!("+");
+            }
+            eprintln!();
+        };
+        eprintln_split();
+        {
+            eprint!("|");
+            for x in 0..ln {
+                eprint!("{}", to_string::<usize>(x, mx));
+                eprint!("|");
+            }
+            eprintln!();
+        }
+        eprintln_split();
+        eprint!("|");
+        for val in line {
+            eprint!("{}|", to_string(val, mx));
+        }
+        eprintln!();
+        eprintln_split();
+    }
+}
+
 fn show2d<T>(table2d: &[Vec<T>])
 where
     T: std::fmt::Debug,
