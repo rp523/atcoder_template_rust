@@ -265,21 +265,23 @@ mod union_find {
         pub fn same(&mut self, a: usize, b: usize) -> bool {
             self.root(a) == self.root(b)
         }
-        pub fn unite(&mut self, into: usize, from: usize) {
-            self.unite_with_delta(into, from, 0);
+        pub fn unite(&mut self, into: usize, from: usize) -> bool {
+            self.unite_with_delta(into, from, 0)
         }
-        pub fn unite_with_delta(&mut self, into: usize, from: usize, delta: i64) {
+        pub fn unite_with_delta(&mut self, into: usize, from: usize, delta: i64) -> bool {
             self.graph[into].push(from);
             self.graph[from].push(into);
             let r_into = self.root(into);
             let r_from = self.root(from);
-            if r_into != r_from {
-                self.parents[r_from] = r_into;
-                self.potential[r_from] = self.potential[into] - self.potential[from] + delta;
-                self.grp_sz[r_into] += self.grp_sz[r_from];
-                self.grp_sz[r_from] = 0;
-                self.grp_num -= 1;
+            if r_into == r_from {
+                return false;
             }
+            self.parents[r_from] = r_into;
+            self.potential[r_from] = self.potential[into] - self.potential[from] + delta;
+            self.grp_sz[r_into] += self.grp_sz[r_from];
+            self.grp_sz[r_from] = 0;
+            self.grp_num -= 1;
+            true
         }
         pub fn group_num(&self) -> usize {
             self.grp_num
