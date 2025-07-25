@@ -60,7 +60,7 @@ mod change_min_max {
         fn chmin(&mut self, rhs: T) -> bool;
         fn chmax(&mut self, rhs: T) -> bool;
     }
-    impl<T: PartialOrd + Copy> ChangeMinMax<T> for T {
+    impl<T: PartialOrd> ChangeMinMax<T> for T {
         #[inline(always)]
         fn chmin(&mut self, rhs: T) -> bool {
             if *self > rhs {
@@ -80,10 +80,10 @@ mod change_min_max {
             }
         }
     }
-    impl<T: PartialOrd + Copy> ChangeMinMax<T> for Option<T> {
+    impl<T: Clone + PartialOrd> ChangeMinMax<T> for Option<T> {
         #[inline(always)]
         fn chmin(&mut self, rhs: T) -> bool {
-            if let Some(val) = *self {
+            if let Some(val) = self.clone() {
                 if val > rhs {
                     *self = Some(rhs);
                     true
@@ -97,7 +97,7 @@ mod change_min_max {
         }
         #[inline(always)]
         fn chmax(&mut self, rhs: T) -> bool {
-            if let Some(val) = *self {
+            if let Some(val) = self.clone() {
                 if val < rhs {
                     *self = Some(rhs);
                     true
