@@ -6642,20 +6642,198 @@ mod sparse_table {
             self.left[0][i].clone()
         }
     }
-    pub mod test {
-        use super::SparseTable;
+
+    #[derive(Clone, Debug)]
+    pub struct SparseTable2D<T> {
+        left_lower: Vec<Vec<Vec<Vec<T>>>>,
+        right_lower: Vec<Vec<Vec<Vec<T>>>>,
+        left_upper: Vec<Vec<Vec<Vec<T>>>>,
+        right_upper: Vec<Vec<Vec<Vec<T>>>>,
+        len_to_di_h: Vec<usize>,
+        len_to_di_v: Vec<usize>,
+        op: fn(T, T) -> T,
+    }
+    impl<T> SparseTable2D<T>
+    where
+        T: Clone + std::fmt::Debug,
+    {
+        pub fn new(op: fn(T, T) -> T, a: Vec<Vec<T>>) -> Self {
+            let h = a.len();
+            let w = a[0].len();
+            let mut dmax_h = 0;
+            let len_to_di_h = {
+                let mut len_to_di_h = vec![0; w + 1];
+                for ln in 1..=w {
+                    if ln > 2 * (1 << dmax_h) {
+                        dmax_h += 1;
+                    }
+                    len_to_di_h[ln] = dmax_h;
+                }
+                len_to_di_h
+            };
+            let mut dmax_v = 0;
+            let len_to_di_v = {
+                let mut len_to_di_v = vec![0; h + 1];
+                for ln in 1..=h {
+                    if ln > 2 * (1 << dmax_v) {
+                        dmax_v += 1;
+                    }
+                    len_to_di_v[ln] = dmax_v;
+                }
+                len_to_di_v
+            };
+            let mut left_lower = vec![vec![a.clone(); dmax_h + 1]; dmax_v + 1];
+            let mut left_upper = vec![vec![a.clone(); dmax_h + 1]; dmax_v + 1];
+            let mut right_lower = vec![vec![a.clone(); dmax_h + 1]; dmax_v + 1];
+            let mut right_upper = vec![vec![a.clone(); dmax_h + 1]; dmax_v + 1];
+            for di_v in 0..=dmax_v {
+                let pdi_v = di_v.saturating_sub(1);
+                for di_h in 0..=dmax_h {
+                    let pdi_h = di_h.saturating_sub(1);
+                    if (di_v, di_h) == (0, 0) {
+                        continue;
+                    }
+                    for y0 in 0..h {
+                        let y1 = if di_v == 0 {
+                            y0
+                        } else {
+                            min(y0 + (1 << (di_v - 1)), h - 1)
+                        };
+                        for x0 in 0..w {
+                            let x1 = if di_h == 0 {
+                                x0
+                            } else {
+                                min(x0 + (1 << (di_h - 1)), w - 1)
+                            };
+                            left_lower[di_v][di_h][y0][x0] = op(
+                                op(
+                                    left_lower[pdi_v][pdi_h][y0][x0].clone(),
+                                    left_lower[pdi_v][pdi_h][y0][x1].clone(),
+                                ),
+                                op(
+                                    left_lower[pdi_v][pdi_h][y1][x0].clone(),
+                                    left_lower[pdi_v][pdi_h][y1][x1].clone(),
+                                ),
+                            );
+                        }
+                    }
+                    for y0 in 0..h {
+                        let y1 = if di_v == 0 {
+                            y0
+                        } else {
+                            min(y0 + (1 << (di_v - 1)), h - 1)
+                        };
+                        for x1 in 0..w {
+                            let x0 = if di_h == 0 {
+                                x1
+                            } else {
+                                x1.saturating_sub(1 << (di_h - 1))
+                            };
+                            right_lower[di_v][di_h][y0][x1] = op(
+                                op(
+                                    right_lower[pdi_v][pdi_h][y0][x0].clone(),
+                                    right_lower[pdi_v][pdi_h][y0][x1].clone(),
+                                ),
+                                op(
+                                    right_lower[pdi_v][pdi_h][y1][x0].clone(),
+                                    right_lower[pdi_v][pdi_h][y1][x1].clone(),
+                                ),
+                            );
+                        }
+                    }
+                    for y1 in 0..h {
+                        let y0 = if di_v == 0 {
+                            y1
+                        } else {
+                            y1.saturating_sub(1 << (di_v - 1))
+                        };
+                        for x0 in 0..w {
+                            let x1 = if di_h == 0 {
+                                x0
+                            } else {
+                                min(x0 + (1 << (di_h - 1)), w - 1)
+                            };
+                            left_upper[di_v][di_h][y1][x0] = op(
+                                op(
+                                    left_upper[pdi_v][pdi_h][y0][x0].clone(),
+                                    left_upper[pdi_v][pdi_h][y0][x1].clone(),
+                                ),
+                                op(
+                                    left_upper[pdi_v][pdi_h][y1][x0].clone(),
+                                    left_upper[pdi_v][pdi_h][y1][x1].clone(),
+                                ),
+                            );
+                        }
+                    }
+                    for y1 in 0..h {
+                        let y0 = if di_v == 0 {
+                            y1
+                        } else {
+                            y1.saturating_sub(1 << (di_v - 1))
+                        };
+                        for x1 in 0..w {
+                            let x0 = if di_h == 0 {
+                                x1
+                            } else {
+                                x1.saturating_sub(1 << (di_h - 1))
+                            };
+                            right_upper[di_v][di_h][y1][x1] = op(
+                                op(
+                                    right_upper[pdi_v][pdi_h][y0][x0].clone(),
+                                    right_upper[pdi_v][pdi_h][y0][x1].clone(),
+                                ),
+                                op(
+                                    right_upper[pdi_v][pdi_h][y1][x0].clone(),
+                                    right_upper[pdi_v][pdi_h][y1][x1].clone(),
+                                ),
+                            );
+                        }
+                    }
+                }
+            }
+            Self {
+                left_lower,
+                left_upper,
+                right_lower,
+                right_upper,
+                len_to_di_v,
+                len_to_di_h,
+                op,
+            }
+        }
+        pub fn query(&self, y0: usize, y1: usize, x0: usize, x1: usize) -> T {
+            let di_v = self.len_to_di_v[y1 - y0 + 1];
+            let di_h = self.len_to_di_h[x1 - x0 + 1];
+            (self.op)(
+                (self.op)(
+                    self.left_lower[di_v][di_h][y0][x0].clone(),
+                    self.right_lower[di_v][di_h][y0][x1].clone(),
+                ),
+                (self.op)(
+                    self.left_upper[di_v][di_h][y1][x0].clone(),
+                    self.right_upper[di_v][di_h][y1][x1].clone(),
+                )
+            )
+        }
+        pub fn get(&self, y: usize, x: usize) -> T {
+            self.left_lower[0][0][y][x].clone()
+        }
+    }
+
+    mod test {
+        use super::{SparseTable, SparseTable2D};
         use itertools::Itertools;
         use rand::{Rng, SeedableRng};
         use rand_chacha::ChaChaRng;
         use std::cmp::{max, min};
         #[test]
-        pub fn query() {
+        fn sparse_table() {
             const NMAX: usize = 400;
             const V: i64 = 1000;
             let mut rng = ChaChaRng::from_seed([0; 32]);
             for op in [min, max] {
                 for n in 1..=NMAX {
-                    let a = (0..=n).map(|_| rng.random_range(-V..=V)).collect_vec();
+                    let a = (0..n).map(|_| rng.random_range(-V..=V)).collect_vec();
                     let table = SparseTable::new(op, a.clone());
                     for l in 0..n {
                         assert_eq!(a[l], table.get(l));
@@ -6668,9 +6846,41 @@ mod sparse_table {
                 }
             }
         }
+        #[test]
+        fn sparse_table2d() {
+            const NMAX: usize = 20;
+            const V: i64 = 1000;
+            let mut rng = ChaChaRng::from_seed([0; 32]);
+            for op in [min, max] {
+                for h in 1..=NMAX {
+                    for w in 1..=NMAX {
+                        let a = (0..h).map(|_| (0..w).map(|_| rng.random_range(-V..=V)).collect_vec()).collect_vec();
+                        let table = SparseTable2D::new(op, a.clone());
+                        for y0 in 0..h {
+                            for x0 in 0..w {
+                                assert_eq!(a[y0][x0], table.get(y0, x0));
+                                for y1 in y0..h {
+                                    for x1 in x0..w {
+                                        let expected = (y0 + 1..=y1).fold(
+                                            (x0 + 1..=x1).fold(a[y0][x0], |cum, x| op(cum, a[y0][x])),
+                                            |cum, y| op(
+                                                cum,
+                                                (x0 + 1..=x1).fold(a[y][x0], |cum, x| op(cum, a[y][x])),
+                                            )
+                                        );
+                                        let actual = table.query(y0, y1, x0, x1);
+                                        assert_eq!(expected, actual);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
-use sparse_table::SparseTable;
+use sparse_table::{SparseTable, SparseTable2D};
 
 fn show1d<T>(line: &[T])
 where
