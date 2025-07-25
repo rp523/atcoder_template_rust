@@ -6592,7 +6592,6 @@ mod sparse_table {
     #[derive(Clone, Debug)]
     pub struct SparseTable<T> {
         left: Vec<Vec<T>>,
-        right: Vec<Vec<T>>,
         len_to_di: Vec<usize>,
         op: fn(T, T) -> T,
     }
@@ -6614,29 +6613,24 @@ mod sparse_table {
                 len_to_di
             };
             let mut left = vec![a.clone(); dmax + 1];
-            let mut right = vec![a.clone(); dmax + 1];
             for di in 0..dmax {
                 for i in 0..n {
                     let ri = min(i + (1 << di), n - 1);
                     left[di + 1][i] = op(left[di][i].clone(), left[di][ri].clone());
                 }
             }
-            for di in 0..dmax {
-                for i in 0..n {
-                    let li = i.saturating_sub(1 << di);
-                    right[di + 1][i] = op(right[di][li].clone(), right[di][i].clone());
-                }
-            }
             Self {
                 left,
-                right,
                 len_to_di,
                 op,
             }
         }
         pub fn query(&self, l: usize, r: usize) -> T {
             let di = self.len_to_di[r - l + 1];
-            (self.op)(self.left[di][l].clone(), self.right[di][r].clone())
+            (self.op)(
+                self.left[di][l].clone(),
+                self.left[di][r - ((1 << di) - 1)].clone(),
+            )
         }
         pub fn get(&self, i: usize) -> T {
             self.left[0][i].clone()
