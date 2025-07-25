@@ -6812,7 +6812,7 @@ mod sparse_table {
                 (self.op)(
                     self.left_upper[di_v][di_h][y1][x0].clone(),
                     self.right_upper[di_v][di_h][y1][x1].clone(),
-                )
+                ),
             )
         }
         pub fn get(&self, y: usize, x: usize) -> T {
@@ -6854,7 +6854,9 @@ mod sparse_table {
             for op in [min, max] {
                 for h in 1..=NMAX {
                     for w in 1..=NMAX {
-                        let a = (0..h).map(|_| (0..w).map(|_| rng.random_range(-V..=V)).collect_vec()).collect_vec();
+                        let a = (0..h)
+                            .map(|_| (0..w).map(|_| rng.random_range(-V..=V)).collect_vec())
+                            .collect_vec();
                         let table = SparseTable2D::new(op, a.clone());
                         for y0 in 0..h {
                             for x0 in 0..w {
@@ -6862,11 +6864,15 @@ mod sparse_table {
                                 for y1 in y0..h {
                                     for x1 in x0..w {
                                         let expected = (y0 + 1..=y1).fold(
-                                            (x0 + 1..=x1).fold(a[y0][x0], |cum, x| op(cum, a[y0][x])),
-                                            |cum, y| op(
-                                                cum,
-                                                (x0 + 1..=x1).fold(a[y][x0], |cum, x| op(cum, a[y][x])),
-                                            )
+                                            (x0 + 1..=x1)
+                                                .fold(a[y0][x0], |cum, x| op(cum, a[y0][x])),
+                                            |cum, y| {
+                                                op(
+                                                    cum,
+                                                    (x0 + 1..=x1)
+                                                        .fold(a[y][x0], |cum, x| op(cum, a[y][x])),
+                                                )
+                                            },
                                         );
                                         let actual = table.query(y0, y1, x0, x1);
                                         assert_eq!(expected, actual);
