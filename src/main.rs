@@ -6493,6 +6493,9 @@ mod aho_corasick {
         pub fn hit_keyword_num(&self, node: usize) -> usize {
             self.hit_keyword_num[node]
         }
+        pub fn len(&self) -> usize {
+            self.trie.len()
+        }
     }
     pub mod test {
         use super::super::XorShift64;
