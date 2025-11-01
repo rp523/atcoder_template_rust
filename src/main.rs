@@ -319,7 +319,7 @@ mod segment_tree {
             }
             let width = (0..height)
                 .scan(2 * n, |cum, _| {
-                    *cum = (*cum + 1) / 2;
+                    *cum = (*cum).div_ceil(2);
                     Some(*cum)
                 })
                 .collect::<Vec<_>>();
@@ -817,7 +817,7 @@ mod lazy_segment_tree {
             }
             let width = (0..height)
                 .scan(2 * n, |cum, _| {
-                    *cum = (*cum + 1) / 2;
+                    *cum = (*cum).div_ceil(2);
                     Some(*cum)
                 })
                 .collect::<Vec<_>>();
@@ -1446,31 +1446,31 @@ mod modint {
     }
     fn factorial_impl<T: ModIntTrait>(
         p: usize,
-        memo: *mut Vec<usize>,
+        memo: &mut Vec<usize>,
         update_op: fn(T, T) -> T,
     ) -> T {
-        unsafe {
-            while (*memo).len() < 2_usize {
-                (*memo).push(1);
-            }
-            while (*memo).len() <= p + 1 {
-                let last_val: T = T::new(*(*memo).last().unwrap());
-                (*memo).push(update_op(last_val, T::new((*memo).len())).val());
-            }
-            T::new((*memo)[p])
+        while memo.len() < 2_usize {
+            memo.push(1);
         }
+        while memo.len() <= p + 1 {
+            let last_val: T = T::new(*(*memo).last().unwrap());
+            memo.push(update_op(last_val, T::new((*memo).len())).val());
+        }
+        T::new(memo[p])
     }
     pub fn factorial<T: ModIntTrait + std::ops::Mul<Output = T>>(p: usize) -> T {
         static mut MEMO: Vec<usize> = Vec::new();
-        factorial_impl::<T>(p, unsafe { std::ptr::addr_of_mut!(MEMO) }, |x: T, y: T| {
-            x * y
-        })
+        #[allow(static_mut_refs)]
+        unsafe {
+            factorial_impl::<T>(p, &mut MEMO, |x: T, y: T| x * y)
+        }
     }
     pub fn factorial_inv<T: ModIntTrait + std::ops::Div<Output = T>>(p: usize) -> T {
         static mut MEMO: Vec<usize> = Vec::new();
-        factorial_impl::<T>(p, unsafe { std::ptr::addr_of_mut!(MEMO) }, |x: T, y: T| {
-            x / y
-        })
+        #[allow(static_mut_refs)]
+        unsafe {
+            factorial_impl::<T>(p, &mut MEMO, |x: T, y: T| x / y)
+        }
     }
     pub fn combination<
         T: ModIntTrait + std::ops::Mul<Output = T> + std::ops::Div<Output = T> + num::One + num::Zero,
@@ -2768,10 +2768,10 @@ mod my_string {
         pub fn into_iter(self) -> std::vec::IntoIter<char> {
             self.vc.into_iter()
         }
-        pub fn iter(&self) -> std::slice::Iter<char> {
+        pub fn iter(&self) -> std::slice::Iter<'_, char> {
             self.vc.iter()
         }
-        pub fn iter_mut(&mut self) -> std::slice::IterMut<char> {
+        pub fn iter_mut(&mut self) -> std::slice::IterMut<'_, char> {
             self.vc.iter_mut()
         }
         pub fn swap(&mut self, a: usize, b: usize) {
@@ -2864,118 +2864,6 @@ mod my_string {
     }
 }
 use my_string::Str;
-
-mod rolling_hash {
-    use u64 as htype;
-    const MODS: [htype; 2] = [1000000007, 998244353];
-    pub struct RollingHash {
-        cum_hashes: Vec<Vec<htype>>,
-        base: usize,
-        base_powers: Vec<Vec<htype>>,
-        base_powers_inv: Vec<Vec<htype>>,
-    }
-    pub struct RollingHashValue<'a> {
-        org: &'a RollingHash,
-        i0: usize,
-        i1: usize,
-    }
-    pub trait GenRollingHash {
-        fn rolling_hash(&self, base: usize) -> RollingHash;
-    }
-    impl GenRollingHash for Vec<usize> {
-        fn rolling_hash(&self, base: usize) -> RollingHash {
-            RollingHash::new(self, base)
-        }
-    }
-    impl RollingHash {
-        pub fn new(values: &[usize], base: usize) -> RollingHash {
-            let n = values.len();
-
-            let mut base_powers = vec![vec![1; n]; 2];
-            for m in 0..2 {
-                for p in 1..n {
-                    base_powers[m][p] = (base_powers[m][p - 1] * base as htype) % MODS[m];
-                }
-            }
-
-            let calc_inv_base = |md: u64, base: htype| -> htype {
-                let mut p = md - 2;
-                let mut ret: htype = 1;
-                let mut mul = base;
-                while p > 0 {
-                    if p & 1 != 0 {
-                        ret = (ret * mul) % md;
-                    }
-                    p >>= 1;
-                    mul = (mul * mul) % md;
-                }
-                ret
-            };
-            let inv_bases = (0..2)
-                .map(|m| calc_inv_base(MODS[m], base as htype))
-                .collect::<Vec<_>>();
-
-            let mut base_powers_inv = vec![vec![1; n]; 2];
-            for m in 0..2 {
-                for p in 1..n {
-                    base_powers_inv[m][p] = (base_powers_inv[m][p - 1] * inv_bases[m]) % MODS[m];
-                }
-            }
-
-            let mut cum_hashes = (0..2)
-                .map(|m| {
-                    (0..n)
-                        .map(|i| (values[i] as htype * base_powers[m][i]) % MODS[m])
-                        .collect::<Vec<_>>()
-                })
-                .collect::<Vec<Vec<_>>>();
-
-            for m in 0..2 {
-                for i in 1..n {
-                    cum_hashes[m][i] += cum_hashes[m][i - 1];
-                    cum_hashes[m][i] %= MODS[m];
-                }
-            }
-
-            Self {
-                cum_hashes,
-                base,
-                base_powers,
-                base_powers_inv,
-            }
-        }
-        // hash value of array range (closed interval, [i0, i1])
-        pub fn hash(&self, i0: usize, i1: usize) -> RollingHashValue {
-            RollingHashValue { org: self, i0, i1 }
-        }
-    }
-    impl<'a> RollingHashValue<'a> {
-        fn get(&'a self) -> (htype, htype) {
-            let retv = if self.i0 > 0 {
-                (0..2)
-                    .map(|m| {
-                        ((MODS[m] + self.org.cum_hashes[m][self.i1]
-                            - self.org.cum_hashes[m][self.i0 - 1])
-                            * self.org.base_powers_inv[m][self.i0])
-                            % MODS[m]
-                    })
-                    .collect::<Vec<_>>()
-            } else {
-                (0..2)
-                    .map(|m| self.org.cum_hashes[m][self.i1])
-                    .collect::<Vec<_>>()
-            };
-            (retv[0], retv[1])
-        }
-    }
-    impl PartialEq for RollingHashValue<'_> {
-        fn eq(&self, other: &Self) -> bool {
-            debug_assert!(self.i1 - self.i0 == other.i1 - other.i0);
-            self.get() == other.get()
-        }
-    }
-}
-use rolling_hash::*;
 
 mod rational {
     use crate::gcd::gcd;
@@ -4300,7 +4188,7 @@ mod convolution {
             + Copy,
     {
         fn new() -> Self {
-            let rank2 = bsf((Mint::get_mod() - 1) as usize);
+            let rank2 = bsf(Mint::get_mod() - 1);
             let mut root = vec![Mint::zero(); rank2 + 1];
             let mut iroot = vec![Mint::zero(); rank2 + 1];
             let mut rate2 = vec![Mint::zero(); std::cmp::max(0, rank2 as i64 - 2 + 1) as usize];
@@ -4309,7 +4197,7 @@ mod convolution {
             let mut irate3 = vec![Mint::zero(); std::cmp::max(0, rank2 as i64 - 3 + 1) as usize];
 
             let g = primitive_root(Mint::get_mod() as i64);
-            root[rank2] = Mint::new(g as usize).pow((Mint::get_mod() as usize - 1) >> rank2);
+            root[rank2] = Mint::new(g as usize).pow((Mint::get_mod() - 1) >> rank2);
             iroot[rank2] = Mint::one() / root[rank2];
             for i in (0..rank2).rev() {
                 root[i] = root[i + 1] * root[i + 1];
@@ -4794,7 +4682,7 @@ mod heavy_light_decomposition {
             dfs2(
                 self.root,
                 n,
-                &mut self.g,
+                &self.g,
                 &mut self.order,
                 &mut self.head,
                 &mut 0,
@@ -4840,10 +4728,10 @@ mod heavy_light_decomposition {
                 order[v].1 = *now - 1;
             }
         }
-        pub fn iter_vertex(&self, a: usize, b: usize) -> VertexIterator {
+        pub fn iter_vertex(&self, a: usize, b: usize) -> VertexIterator<'_> {
             VertexIterator::new(a, b, self)
         }
-        pub fn iter_edges(&self, a: usize, b: usize) -> EdgeIterator {
+        pub fn iter_edges(&self, a: usize, b: usize) -> EdgeIterator<'_> {
             EdgeIterator::new(a, b, self)
         }
         pub fn lca(&self, mut a: usize, mut b: usize) -> usize {
@@ -4877,16 +4765,14 @@ mod heavy_light_decomposition {
         pub fn new(a: usize, b: usize, hld: &'a Hld) -> Self {
             Self {
                 ab: Some((a, b)),
-                hld: &hld,
+                hld,
             }
         }
     }
     impl<'a> Iterator for VertexIterator<'a> {
         type Item = (usize, usize);
         fn next(&mut self) -> Option<Self::Item> {
-            let Some((mut a, mut b)) = self.ab else {
-                return None;
-            };
+            let (mut a, mut b) = self.ab?;
             if self.hld.head[a] == self.hld.head[b] {
                 let (ea, eb) = (self.hld.order[a].0, self.hld.order[b].0);
                 self.ab = None;
@@ -4895,20 +4781,18 @@ mod heavy_light_decomposition {
                 } else {
                     Some((eb, ea))
                 }
+            } else if self.hld.order[a].0 < self.hld.order[b].0 {
+                // lift up b
+                let ret = (self.hld.order[self.hld.head[b]].0, self.hld.order[b].0);
+                b = self.hld.par[self.hld.head[b]];
+                self.ab = Some((a, b));
+                Some(ret)
             } else {
-                if self.hld.order[a].0 < self.hld.order[b].0 {
-                    // lift up b
-                    let ret = (self.hld.order[self.hld.head[b]].0, self.hld.order[b].0);
-                    b = self.hld.par[self.hld.head[b]];
-                    self.ab = Some((a, b));
-                    Some(ret)
-                } else {
-                    // lift up a
-                    let ret = (self.hld.order[self.hld.head[a]].0, self.hld.order[a].0);
-                    a = self.hld.par[self.hld.head[a]];
-                    self.ab = Some((a, b));
-                    Some(ret)
-                }
+                // lift up a
+                let ret = (self.hld.order[self.hld.head[a]].0, self.hld.order[a].0);
+                a = self.hld.par[self.hld.head[a]];
+                self.ab = Some((a, b));
+                Some(ret)
             }
         }
     }
@@ -4925,9 +4809,7 @@ mod heavy_light_decomposition {
     impl<'a> Iterator for EdgeIterator<'a> {
         type Item = (usize, usize);
         fn next(&mut self) -> Option<Self::Item> {
-            let Some((a, b)) = self.vit.next() else {
-                return None;
-            };
+            let (a, b) = self.vit.next()?;
             if a == b {
                 return None;
             }
@@ -6733,11 +6615,11 @@ mod sparse_table {
             let mut dmax = 0;
             let len_to_di = {
                 let mut len_to_di = vec![0; n + 1];
-                for ln in 1..=n {
+                for (ln, len_to_di) in len_to_di.iter_mut().enumerate().take(n + 1).skip(1) {
                     if ln > 2 * (1 << dmax) {
                         dmax += 1;
                     }
-                    len_to_di[ln] = dmax;
+                    *len_to_di = dmax;
                 }
                 len_to_di
             };
@@ -6782,11 +6664,15 @@ mod sparse_table {
             let mut dmax = 0;
             let len_to_di = {
                 let mut len_to_di = vec![0; std::cmp::max(h, w) + 1];
-                for ln in 1..=std::cmp::max(h, w) {
+                for (ln, len_to_di) in len_to_di
+                    .iter_mut()
+                    .enumerate()
+                    .take(std::cmp::max(h, w) + 1)
+                {
                     if ln > 2 * (1 << dmax) {
                         dmax += 1;
                     }
-                    len_to_di[ln] = dmax;
+                    *len_to_di = dmax;
                 }
                 len_to_di
             };
