@@ -5,7 +5,6 @@ use cargo_snippet::snippet;
 #[derive(Clone)]
 pub struct SegmentTree2D<T: Clone> {
     h: usize,
-    w: usize,
     segs: Vec<SegmentTree<T>>,
     pair_op: fn(T, T) -> T,
 }
@@ -15,7 +14,6 @@ impl<T: Clone> SegmentTree2D<T> {
     pub fn new(h: usize, w: usize, pair_op: fn(T, T) -> T, ini_val: T) -> Self {
         Self {
             h,
-            w,
             pair_op,
             segs: vec![SegmentTree::new(w, pair_op, ini_val); 2 * h],
         }
@@ -83,17 +81,16 @@ impl<T: Copy + std::ops::Add<Output = T> + std::ops::Sub<Output = T>> SegmentTre
     }
 }
 mod tests {
-    use super::SegmentTree2D;
-    use rand::{Rng, SeedableRng};
-    use rand_chacha::ChaChaRng;
     #[test]
     fn random_test() {
+        use rand::{Rng, SeedableRng};
+        use rand_chacha::ChaChaRng;
         use std::cmp::{max, min};
         const N: usize = 10;
         let mut rng = ChaChaRng::from_seed([0; 32]);
         for &f in [min, max, |x, y| x + y].iter() {
             let mut raw = vec![vec![0; N]; N];
-            let mut seg = SegmentTree2D::<i64>::new(N, N, f, 0);
+            let mut seg = super::SegmentTree2D::<i64>::new(N, N, f, 0);
             for y in 0..N {
                 for x in 0..N {
                     let v = rng.random_range(0..100) as i64;

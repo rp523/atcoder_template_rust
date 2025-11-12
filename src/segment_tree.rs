@@ -299,17 +299,16 @@ impl<T: Clone + std::fmt::Debug> std::fmt::Debug for SegmentTree<T> {
     }
 }
 pub mod test {
-    use super::SegmentTree;
-    use rand::{Rng, SeedableRng};
-    use rand_chacha::ChaChaRng;
-    const T: usize = 100;
-    const N: usize = 100;
     #[test]
     pub fn query() {
+        use rand::{Rng, SeedableRng};
+        use rand_chacha::ChaChaRng;
+        const T: usize = 100;
+        const N: usize = 100;
         let mut rng = ChaChaRng::from_seed([0; 32]);
         for n in 1..=N {
             let mut a = vec![0; n];
-            let mut seg = SegmentTree::<usize>::from_vec(std::cmp::max, a.clone());
+            let mut seg = super::SegmentTree::<usize>::from_vec(std::cmp::max, a.clone());
             for _ in 0..T {
                 a.iter_mut().enumerate().for_each(|(i, a)| {
                     *a = rng.random_range(0..N);
@@ -327,10 +326,14 @@ pub mod test {
     }
     #[test]
     fn binary_search() {
+        use rand::{Rng, SeedableRng};
+        use rand_chacha::ChaChaRng;
+        const T: usize = 100;
+        const N: usize = 100;
         let mut rng = ChaChaRng::from_seed([0; 32]);
         for n in 1..=N {
             let mut a = vec![0; n];
-            let mut seg = SegmentTree::<usize>::from_vec(std::cmp::max, a.clone());
+            let mut seg = super::SegmentTree::<usize>::from_vec(std::cmp::max, a.clone());
             for _ in 0..T {
                 a.iter_mut().enumerate().for_each(|(i, a)| {
                     *a = rng.random_range(0..N);
