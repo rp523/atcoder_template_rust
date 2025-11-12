@@ -114,11 +114,11 @@ mod change_min_max {
 use change_min_max::ChangeMinMax;
 
 mod gcd {
-    use num::{One, Zero};
     use std::cmp::{PartialEq, PartialOrd};
     use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Rem, RemAssign, Sub, SubAssign};
-    pub fn gcd<T: Copy + Rem<Output = T> + PartialEq + Zero>(a: T, b: T) -> T {
-        if b == T::zero() {
+    pub fn gcd<T: Copy + Rem<Output = T> + PartialEq + From<u8>>(a: T, b: T) -> T {
+        let zero = T::from(0u8);
+        if b == zero {
             a
         } else {
             gcd(b, a % b)
@@ -133,14 +133,15 @@ mod gcd {
             + Mul<Output = T>
             + Div<Output = T>
             + Rem<Output = T>
-            + Zero
-            + One,
+            + From<u8>,
     >(
         a: T,
         b: T,
     ) -> (T, T) {
-        if a == T::zero() {
-            return (T::zero(), T::one());
+        let zero = T::from(0u8);
+        let one = T::from(1u8);
+        if a == zero {
+            return (zero, one);
         }
         // (b % a) * x + a * y = gcd(a, b)
         // b % a = b - (b / a) * a
@@ -165,23 +166,24 @@ mod gcd {
             + Div<Output = T>
             + Rem<Output = T>
             + RemAssign
-            + Zero
-            + One,
+            + From<u8>,
     >(
         m1: T,
         r1: T,
         m2: T,
         r2: T,
     ) -> Option<(T, T)> {
+        let zero = T::from(0u8);
+        let one = T::from(1u8);
         let (p, _q) = ext_gcd(m1, m2);
         let g = gcd(m1, m2);
-        if (r2 - r1) % g != T::zero() {
+        if (r2 - r1) % g != zero {
             None
         } else {
             let lcm = m1 * (m2 / g);
             let mut r = r1 + m1 * ((r2 - r1) / g) * p;
-            if r < T::zero() {
-                let dv = (-r + lcm - T::one()) / lcm;
+            if r < zero {
+                let dv = (-r + lcm - one) / lcm;
                 r += dv * lcm;
             }
             r %= lcm;
@@ -203,15 +205,16 @@ mod gcd {
             + Div<Output = T>
             + Rem<Output = T>
             + RemAssign
-            + One
-            + Zero,
+            + From<u8>,
     >(
         mods: &[T],
         rems: &[T],
     ) -> Option<(T, T)> {
+        let zero = T::from(0u8);
+        let one = T::from(1u8);
         debug_assert!(mods.len() == rems.len());
-        let mut lcm = T::one();
-        let mut rem = T::zero();
+        let mut lcm = one;
+        let mut rem = zero;
         for (m, r) in mods.iter().copied().zip(rems.iter().copied()) {
             if let Some((nlcm, nrem)) = chinese_rem_elem2(lcm, rem, m, r) {
                 lcm = nlcm;
@@ -221,6 +224,22 @@ mod gcd {
             }
         }
         Some((lcm, rem))
+    }
+    mod test {
+        #[test]
+        fn gcd() {
+            const N: usize = 1000;
+            for a in 1..=N {
+                for b in 1..=N {
+                    for expected in (1..=std::cmp::min(a, b)).rev() {
+                        if a % expected == 0 && b % expected == 0 {
+                            assert_eq!(expected, super::gcd(a, b));
+                            break;
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 use gcd::*;
