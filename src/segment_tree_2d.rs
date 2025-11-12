@@ -1,5 +1,5 @@
-use cargo_snippet::snippet;
 use crate::segment_tree::SegmentTree;
+use cargo_snippet::snippet;
 
 #[snippet("SegmentTree2D")]
 #[derive(Clone)]
