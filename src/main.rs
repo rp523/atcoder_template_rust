@@ -9,7 +9,9 @@ use std::any::TypeId;
 use std::cmp::{max, min, Ordering, Reverse};
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, VecDeque};
 use std::mem::swap;
-use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Rem, RemAssign, Sub, SubAssign};
+use std::ops::{
+    Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Rem, RemAssign, Sub, SubAssign,
+};
 use std::time::Instant;
 
 macro_rules! __debug_impl {
@@ -867,16 +869,18 @@ mod modint {
         }
     }
     pub fn combination<
-        T: ModIntTrait + std::ops::Mul<Output = T> + std::ops::Div<Output = T> + num::One + num::Zero,
+        T: ModIntTrait + std::ops::Mul<Output = T> + std::ops::Div<Output = T> + From<u8>,
     >(
         n: usize,
         k: usize,
     ) -> T {
+        let zero = T::from(0u8);
+        let one = T::from(1u8);
         if n < k {
-            return T::zero();
+            return zero;
         }
         if k == 0 {
-            T::one()
+            one
         } else if k == 1 {
             T::new(n)
         } else {
@@ -885,13 +889,14 @@ mod modint {
     }
 
     pub fn permutation<
-        T: ModIntTrait + std::ops::Mul<Output = T> + std::ops::Div<Output = T> + num::One,
+        T: ModIntTrait + std::ops::Mul<Output = T> + std::ops::Div<Output = T> + From<u8>,
     >(
         n: usize,
         k: usize,
     ) -> T {
+        let one = T::from(1u8);
         if k == 0 {
-            T::one()
+            one
         } else if k == 1 {
             T::new(n)
         } else {
@@ -902,7 +907,6 @@ mod modint {
     pub mod static_mod_int {
         use super::powmod;
         use super::ModIntTrait;
-        use num::{One, Zero};
         use std::fmt;
         use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, Sub, SubAssign};
 
@@ -919,26 +923,6 @@ mod modint {
             }
             fn val(&self) -> usize {
                 self.x
-            }
-        }
-        impl<const MOD: usize> One for StaticModInt<MOD> {
-            #[inline(always)]
-            fn one() -> Self {
-                Self { x: 1 }
-            }
-        }
-        impl<const MOD: usize> Zero for StaticModInt<MOD> {
-            #[inline(always)]
-            fn zero() -> Self {
-                Self { x: 0 }
-            }
-            #[inline(always)]
-            fn is_zero(&self) -> bool {
-                self.x == 0
-            }
-            #[inline(always)]
-            fn set_zero(&mut self) {
-                self.x = 0;
             }
         }
         impl<const MOD: usize> Add<Self> for StaticModInt<MOD> {
@@ -997,6 +981,11 @@ mod modint {
                 *self = Self::new(self.x * rhs.inverse().x);
             }
         }
+        impl<const MOD: usize> From<u8> for StaticModInt<MOD> {
+            fn from(value: u8) -> Self {
+                Self::new(value as usize)
+            }
+        }
         impl<const MOD: usize> std::str::FromStr for StaticModInt<MOD> {
             type Err = std::num::ParseIntError;
             fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -1008,7 +997,7 @@ mod modint {
         }
         impl<const MOD: usize> std::iter::Sum for StaticModInt<MOD> {
             fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
-                iter.fold(Self::zero(), |cum, v| cum + v)
+                iter.fold(Self::new(0usize), |cum, v| cum + v)
             }
         }
         impl<const MOD: usize> fmt::Display for StaticModInt<MOD> {
@@ -1026,7 +1015,6 @@ mod modint {
     pub mod dynamic_mod_int {
         use super::powmod;
         use super::ModIntTrait;
-        use num::{One, Zero};
         use std::fmt;
         use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, Sub, SubAssign};
         static mut MOD: usize = 2;
@@ -1050,26 +1038,6 @@ mod modint {
                 unsafe {
                     MOD = val;
                 }
-            }
-        }
-        impl One for DynModInt {
-            #[inline(always)]
-            fn one() -> Self {
-                Self::new(1usize)
-            }
-        }
-        impl Zero for DynModInt {
-            #[inline(always)]
-            fn zero() -> Self {
-                Self::new(0usize)
-            }
-            #[inline(always)]
-            fn is_zero(&self) -> bool {
-                self.x == 0
-            }
-            #[inline(always)]
-            fn set_zero(&mut self) {
-                self.x = 0;
             }
         }
         impl Add<Self> for DynModInt {
@@ -1128,6 +1096,11 @@ mod modint {
                 *self = Self::new(self.x * rhs.inverse().x)
             }
         }
+        impl From<u8> for DynModInt {
+            fn from(value: u8) -> Self {
+                Self::new(value as usize)
+            }
+        }
         impl std::str::FromStr for DynModInt {
             type Err = std::num::ParseIntError;
             fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -1139,7 +1112,7 @@ mod modint {
         }
         impl std::iter::Sum for DynModInt {
             fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
-                iter.fold(Self::zero(), |cum, v| cum + v)
+                iter.fold(Self::new(0usize), |cum, v| cum + v)
             }
         }
         impl fmt::Display for DynModInt {
@@ -1158,7 +1131,6 @@ mod modint {
         use super::powmod;
         use super::static_mod_int::StaticModInt;
         use super::ModIntTrait;
-        use num::{One, Zero};
         use std::fmt;
         use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem, Sub, SubAssign};
         type Mint0 = StaticModInt<1000010029>;
@@ -1198,26 +1170,6 @@ mod modint {
                     x8: Mint8::new(x),
                     x9: Mint9::new(x),
                 }
-            }
-        }
-        impl One for HashNode {
-            #[inline(always)]
-            fn one() -> Self {
-                Self::new(1)
-            }
-        }
-        impl Zero for HashNode {
-            #[inline(always)]
-            fn zero() -> Self {
-                Self::new(0)
-            }
-            #[inline(always)]
-            fn is_zero(&self) -> bool {
-                self == &Self::new(0)
-            }
-            #[inline(always)]
-            fn set_zero(&mut self) {
-                *self = Self::new(0);
             }
         }
         impl Add<Self> for HashNode {
@@ -1329,7 +1281,7 @@ mod modint {
         }
         impl std::iter::Sum for HashNode {
             fn sum<I: Iterator<Item = HashNode>>(iter: I) -> Self {
-                iter.fold(Self::zero(), |cum, v| cum + v)
+                iter.fold(Self::new(0), |cum, v| cum + v)
             }
         }
     }
@@ -1340,7 +1292,6 @@ use modint::{
 };
 
 mod integer_operation {
-    use num::{One, Zero};
     use std::collections::BTreeMap;
     use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Rem};
     pub trait IntegerOperation {
@@ -1363,36 +1314,37 @@ mod integer_operation {
                 + Mul<Output = T>
                 + Div<Output = T>
                 + Rem<Output = T>
-                + Zero
-                + One,
+                + From<u8>,
         > IntegerOperation for T
     {
         fn into_primes(self) -> BTreeMap<T, usize> // O(N^0.5 x logN)
         {
+            let zero = T::from(0u8);
+            let one = T::from(1u8);
+            let two = one + one;
+            let three = two + one;
             #[allow(clippy::eq_op)]
-            if self == T::zero() {
+            if self == zero {
                 panic!("Zero has no divisors.");
             }
             #[allow(clippy::eq_op)]
-            let two = T::one() + T::one();
-            let three = two + T::one();
             let mut n = self;
             let mut ans = BTreeMap::new();
-            while n % two == T::zero() {
+            while n % two == zero {
                 *ans.entry(two).or_insert(0) += 1;
                 n /= two;
             }
             {
                 let mut i = three;
                 while i * i <= n {
-                    while n % i == T::zero() {
+                    while n % i == zero {
                         *ans.entry(i).or_insert(0) += 1;
                         n /= i;
                     }
                     i += two;
                 }
             }
-            if n != T::one() {
+            if n != one {
                 *ans.entry(n).or_insert(0) += 1;
             }
             ans
@@ -1404,21 +1356,23 @@ mod integer_operation {
         }
         fn into_divisors(self) -> Vec<T> // O(N^0.5)
         {
-            if self == T::zero() {
+            let zero = T::from(0u8);
+            let one = T::from(1u8);
+            if self == zero {
                 panic!("Zero has no primes.");
             }
             let n = self;
             let mut ret: Vec<T> = Vec::new();
             {
-                let mut i = T::one();
+                let mut i = one;
                 while i * i <= n {
-                    if n % i == T::zero() {
+                    if n % i == zero {
                         ret.push(i);
                         if i * i != n {
                             ret.push(n / i);
                         }
                     }
-                    i += T::one();
+                    i += one;
                 }
             }
             ret.sort();
@@ -2119,24 +2073,11 @@ mod rational {
         }
         pub fn abs(&self) -> Self {
             use num::Zero;
-            if self < &Self::zero() {
+            if self < &Self::new(0, 1) {
                 -*self
             } else {
                 *self
             }
-        }
-    }
-    impl num::Zero for Rational {
-        fn is_zero(&self) -> bool {
-            self == &Self::zero()
-        }
-        fn zero() -> Self {
-            Self::new(0, 1)
-        }
-    }
-    impl num::One for Rational {
-        fn one() -> Self {
-            Self::new(1, 1)
         }
     }
     impl AddAssign<Self> for Rational {
@@ -3272,13 +3213,12 @@ mod convolution {
         IntegerOperation,
     };
     use atcoder::remainder::ext_gcd;
-    use num::{traits::MulAdd, One, Zero};
     pub fn convolution<Mint>(arga: &[Mint], argb: &[Mint]) -> Vec<Mint>
     where
         Mint: Clone
             + ModIntTrait
-            + Zero
-            + One
+            + std::ops::Add<Output = Mint>
+            + std::ops::Mul<Output = Mint>
             + std::ops::Sub<Output = Mint>
             + std::ops::MulAssign
             + std::ops::Div<Output = Mint>
@@ -3287,8 +3227,8 @@ mod convolution {
         let n = arga.len();
         let m = argb.len();
         let z = 1 << ceil_pow2(n + m - 1);
-        let mut a = vec![Mint::zero(); z];
-        let mut b = vec![Mint::zero(); z];
+        let mut a = vec![Mint::new(0usize); z];
+        let mut b = vec![Mint::new(0usize); z];
         for (a, &arga) in a.iter_mut().zip(arga.iter()) {
             *a = arga;
         }
@@ -3304,7 +3244,7 @@ mod convolution {
         while a.len() > n + m - 1 {
             a.pop();
         }
-        let iz = Mint::one() / Mint::new(z);
+        let iz = Mint::new(1usize) / Mint::new(z);
         for a in a.iter_mut() {
             *a *= iz;
         }
@@ -3396,8 +3336,7 @@ mod convolution {
     where
         Mint: Clone
             + ModIntTrait
-            + Zero
-            + One
+            + std::ops::Mul<Output = Mint>
             + std::ops::MulAssign
             + std::ops::Div<Output = Mint>
             + std::ops::Div<Output = Mint>
@@ -3405,24 +3344,28 @@ mod convolution {
     {
         fn new() -> Self {
             let rank2 = bsf(Mint::get_mod() - 1);
-            let mut root = vec![Mint::zero(); rank2 + 1];
-            let mut iroot = vec![Mint::zero(); rank2 + 1];
-            let mut rate2 = vec![Mint::zero(); std::cmp::max(0, rank2 as i64 - 2 + 1) as usize];
-            let mut irate2 = vec![Mint::zero(); std::cmp::max(0, rank2 as i64 - 2 + 1) as usize];
-            let mut rate3 = vec![Mint::zero(); std::cmp::max(0, rank2 as i64 - 3 + 1) as usize];
-            let mut irate3 = vec![Mint::zero(); std::cmp::max(0, rank2 as i64 - 3 + 1) as usize];
+            let mut root = vec![Mint::new(0usize); rank2 + 1];
+            let mut iroot = vec![Mint::new(0usize); rank2 + 1];
+            let mut rate2 =
+                vec![Mint::new(0usize); std::cmp::max(0, rank2 as i64 - 2 + 1) as usize];
+            let mut irate2 =
+                vec![Mint::new(0usize); std::cmp::max(0, rank2 as i64 - 2 + 1) as usize];
+            let mut rate3 =
+                vec![Mint::new(0usize); std::cmp::max(0, rank2 as i64 - 3 + 1) as usize];
+            let mut irate3 =
+                vec![Mint::new(0usize); std::cmp::max(0, rank2 as i64 - 3 + 1) as usize];
 
             let g = primitive_root(Mint::get_mod() as i64);
             root[rank2] = Mint::new(g as usize).pow((Mint::get_mod() - 1) >> rank2);
-            iroot[rank2] = Mint::one() / root[rank2];
+            iroot[rank2] = Mint::new(1usize) / root[rank2];
             for i in (0..rank2).rev() {
                 root[i] = root[i + 1] * root[i + 1];
                 iroot[i] = iroot[i + 1] * iroot[i + 1];
             }
 
             {
-                let mut prod = Mint::one();
-                let mut iprod = Mint::one();
+                let mut prod = Mint::new(1usize);
+                let mut iprod = Mint::new(1usize);
                 for i in 0..=(rank2 - 2) {
                     rate2[i] = root[i + 2] * prod;
                     irate2[i] = iroot[i + 2] * iprod;
@@ -3431,8 +3374,8 @@ mod convolution {
                 }
             }
             {
-                let mut prod = Mint::one();
-                let mut iprod = Mint::one();
+                let mut prod = Mint::new(1usize);
+                let mut iprod = Mint::new(1usize);
                 for i in 0..=(rank2 - 3) {
                     rate3[i] = root[i + 3] * prod;
                     irate3[i] = iroot[i + 3] * iprod;
@@ -3462,8 +3405,8 @@ mod convolution {
     where
         Mint: Clone
             + ModIntTrait
-            + Zero
-            + One
+            + std::ops::Add<Output = Mint>
+            + std::ops::Mul<Output = Mint>
             + std::ops::MulAssign
             + std::ops::Sub<Output = Mint>
             + std::ops::Div<Output = Mint>
@@ -3478,7 +3421,7 @@ mod convolution {
         while len < h {
             if h - len == 1 {
                 let p = 1 << (h - len - 1);
-                let mut rot = Mint::one();
+                let mut rot = Mint::new(1usize);
                 for s in 0..(1 << len) {
                     let offset = s << (h - len);
                     for i in 0..p {
@@ -3495,7 +3438,7 @@ mod convolution {
             } else {
                 // 4-base
                 let p = 1 << (h - len - 2);
-                let mut rot = Mint::one();
+                let mut rot = Mint::new(1usize);
                 let imag = info.root[2];
                 for s in 0..(1 << len) {
                     let rot2 = rot * rot;
@@ -3526,8 +3469,8 @@ mod convolution {
     where
         Mint: Clone
             + ModIntTrait
-            + Zero
-            + One
+            + std::ops::Add<Output = Mint>
+            + std::ops::Mul<Output = Mint>
             + std::ops::MulAssign
             + std::ops::Sub<Output = Mint>
             + std::ops::Div<Output = Mint>
@@ -3542,7 +3485,7 @@ mod convolution {
         while len > 0 {
             if len == 1 {
                 let p = 1 << (h - len);
-                let mut irot = Mint::one();
+                let mut irot = Mint::new(1usize);
                 for s in 0..(1 << (len - 1)) {
                     let offset = s << (h - len + 1);
                     for i in 0..p {
@@ -3560,7 +3503,7 @@ mod convolution {
             } else {
                 // 4-base
                 let p = 1 << (h - len);
-                let mut irot = Mint::one();
+                let mut irot = Mint::new(1usize);
                 let iimag = info.iroot[2];
                 for s in 0..(1 << (len - 2)) {
                     let irot2 = irot * irot;
