@@ -25,13 +25,7 @@ impl Scc {
         let mut order = Vec::<usize>::new();
         for i in 0..self.n {
             if !fwd_seen[i] {
-                Scc::fwd_dfs(
-                    &self.graph,
-                    i,
-                    None,
-                    &mut fwd_seen,
-                    &mut order,
-                );
+                Scc::fwd_dfs(&self.graph, i, None, &mut fwd_seen, &mut order);
             }
         }
         order.reverse();
@@ -40,13 +34,7 @@ impl Scc {
             let i = *i_;
             if !bwd_seen[i] {
                 let mut grp = Vec::<usize>::new();
-                Scc::bwd_dfs(
-                    &self.bwd_graph,
-                    i,
-                    None,
-                    &mut bwd_seen,
-                    &mut grp,
-                );
+                Scc::bwd_dfs(&self.bwd_graph, i, None, &mut bwd_seen, &mut grp);
                 grp.reverse();
                 scc.push(grp);
             }
