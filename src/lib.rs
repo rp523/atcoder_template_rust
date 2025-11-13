@@ -1,6 +1,7 @@
 pub mod remainder;
 pub mod segment_tree;
 pub mod segment_tree_2d;
+pub mod scc;
 /*
 cargo snippet --type vscode > rust.json
 VS Codeを開き、Ctrl+Shift+P (またはCmd+Shift+P)でコマンドパレットを開きます。
