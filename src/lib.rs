@@ -4,6 +4,7 @@ pub mod dynamic_connectivity;
 pub mod floor_sum;
 pub mod hld;
 pub mod low_link;
+pub mod mo;
 pub mod modint;
 pub mod remainder;
 pub mod scc;
