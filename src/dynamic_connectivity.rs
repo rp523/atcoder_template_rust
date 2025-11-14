@@ -491,10 +491,10 @@ impl DynamicConnectivity {
 #[cfg(test)]
 mod tests {
     use super::DynamicConnectivity;
+    use crate::union_find::UnionFind;
     use rand::{Rng, SeedableRng};
     use rand_chacha::ChaChaRng;
     use std::collections::BTreeSet;
-    use crate::union_find::UnionFind;
     const N: usize = 10;
     fn trial(ques: Vec<(usize, usize, usize)>) {
         let mut dc = DynamicConnectivity::new(N);

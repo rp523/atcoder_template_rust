@@ -2,6 +2,7 @@ pub mod aho_coarsick;
 pub mod deletable_binary_heap;
 pub mod dynamic_connectivity;
 pub mod floor_sum;
+pub mod hld;
 pub mod low_link;
 pub mod modint;
 pub mod remainder;

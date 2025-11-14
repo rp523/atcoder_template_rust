@@ -73,7 +73,6 @@ mod test {
     #[test]
     fn random_test() {
         let mut rng = ChaChaRng::from_seed([0; 32]);
-        const N: usize = W * 3;
         const D: usize = 10;
         for n in 1..W * 5 {
             let a = (0..n)
