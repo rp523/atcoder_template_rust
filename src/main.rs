@@ -1,7 +1,5 @@
 #![allow(unused_macros, unused_imports, dead_code)]
 use fixedbitset::FixedBitSet;
-use itertools::*;
-use num::{One, Zero};
 use ordered_float::OrderedFloat;
 use permutohedron::LexicalPermutation;
 use proconio::fastout;
@@ -2072,7 +2070,6 @@ mod rational {
             }
         }
         pub fn abs(&self) -> Self {
-            use num::Zero;
             if self < &Self::new(0, 1) {
                 -*self
             } else {
@@ -2480,7 +2477,6 @@ mod convex_hull {
 use convex_hull::{ConvexHull, ConvexHullTrickMax, ConvexHullTrickMin};
 
 mod matrix {
-    use num::{One, Zero};
     use std::iter::Sum;
     use std::ops::{Add, Index, IndexMut, Mul, MulAssign, Sub};
     use std::slice::SliceIndex;
@@ -2490,22 +2486,23 @@ mod matrix {
         w: usize,
         vals: Vec<Vec<T>>,
     }
-    impl<T: Clone + Copy + One + Sub<Output = T> + Mul + Sum<<T as Mul>::Output> + Zero + One>
-        Matrix<T>
-    {
+    impl<T: Clone + Copy + Sub<Output = T> + Mul + Sum<<T as Mul>::Output> + From<u8>> Matrix<T> {
         pub fn new(h: usize, w: usize) -> Self {
+            let zero = T::from(0u8);
             Self {
                 h,
                 w,
-                vals: vec![vec![T::zero(); w]; h],
+                vals: vec![vec![zero; w]; h],
             }
         }
         pub fn identity(h: usize, w: usize) -> Self {
+            let zero = T::from(0u8);
+            let one = T::from(1u8);
             debug_assert!(h == w);
-            let mut vals = vec![vec![T::zero(); w]; h];
+            let mut vals = vec![vec![zero; w]; h];
             for (y, line) in vals.iter_mut().enumerate() {
                 for (x, val) in line.iter_mut().enumerate() {
-                    *val = if y == x { T::one() } else { T::zero() };
+                    *val = if y == x { one } else { zero };
                 }
             }
             Self { h, w, vals }
@@ -2534,7 +2531,7 @@ mod matrix {
             &mut self.vals[index]
         }
     }
-    impl<T: Clone + Copy + One + Sub<Output = T> + Mul + Sum<<T as Mul>::Output> + Zero + One>
+    impl<T: Clone + Copy + Sub<Output = T> + Mul + Sum<<T as Mul>::Output> + From<u8>>
         Mul<Matrix<T>> for Matrix<T>
     {
         type Output = Matrix<T>;
@@ -2547,6 +2544,18 @@ mod matrix {
                 }
             }
             ret
+        }
+    }
+    impl<T: Clone + Copy + Sub<Output = T> + Mul + Sum<<T as Mul>::Output>> MulAssign<Matrix<T>>
+        for Matrix<T>
+    {
+        fn mul_assign(&mut self, rhs: Matrix<T>) {
+            let self0 = self.clone();
+            for i in 0..self.h {
+                for j in 0..self.w {
+                    self[i][j] = (0..self.h).map(|k| self0[i][k] * rhs[k][j]).sum::<T>();
+                }
+            }
         }
     }
     impl<T: Clone + Copy + Mul + Sum<<T as Mul>::Output>> Mul<Vec<T>> for Matrix<T> {
@@ -2570,13 +2579,11 @@ mod matrix {
     impl<
             T: Clone
                 + Copy
-                + One
                 + Add<Output = T>
                 + Sub<Output = T>
                 + Mul
                 + Sum<<T as Mul>::Output>
-                + Zero
-                + One,
+                + From<u8>,
         > Add<Matrix<T>> for Matrix<T>
     {
         type Output = Matrix<T>;
@@ -2588,13 +2595,6 @@ mod matrix {
                 }
             }
             ret
-        }
-    }
-    impl<T: Clone + Copy + One + Sub<Output = T> + Mul + Sum<<T as Mul>::Output> + Zero + One>
-        MulAssign<Matrix<T>> for Matrix<T>
-    {
-        fn mul_assign(&mut self, rhs: Matrix<T>) {
-            *self = self.clone() * rhs;
         }
     }
 }
@@ -3560,31 +3560,42 @@ mod convolution {
         debug_assert_eq!(1, M3 % (1u64 << MAX_AB_BIT));
         debug_assert!(n + m - 1 <= (1 << MAX_AB_BIT));
 
-        use itertools::Itertools;
         DynModInt::set_mod(M1 as usize);
         let c1 = convolution(
-            &a.iter().map(|&x| DynModInt::new(x as usize)).collect_vec(),
-            &b.iter().map(|&x| DynModInt::new(x as usize)).collect_vec(),
+            &a.iter()
+                .map(|&x| DynModInt::new(x as usize))
+                .collect::<Vec<_>>(),
+            &b.iter()
+                .map(|&x| DynModInt::new(x as usize))
+                .collect::<Vec<_>>(),
         )
         .into_iter()
         .map(|x| x.val())
-        .collect_vec();
+        .collect::<Vec<_>>();
         DynModInt::set_mod(M2 as usize);
         let c2 = convolution(
-            &a.iter().map(|&x| DynModInt::new(x as usize)).collect_vec(),
-            &b.iter().map(|&x| DynModInt::new(x as usize)).collect_vec(),
+            &a.iter()
+                .map(|&x| DynModInt::new(x as usize))
+                .collect::<Vec<_>>(),
+            &b.iter()
+                .map(|&x| DynModInt::new(x as usize))
+                .collect::<Vec<_>>(),
         )
         .into_iter()
         .map(|x| x.val())
-        .collect_vec();
+        .collect::<Vec<_>>();
         DynModInt::set_mod(M3 as usize);
         let c3 = convolution(
-            &a.iter().map(|&x| DynModInt::new(x as usize)).collect_vec(),
-            &b.iter().map(|&x| DynModInt::new(x as usize)).collect_vec(),
+            &a.iter()
+                .map(|&x| DynModInt::new(x as usize))
+                .collect::<Vec<_>>(),
+            &b.iter()
+                .map(|&x| DynModInt::new(x as usize))
+                .collect::<Vec<_>>(),
         )
         .into_iter()
         .map(|x| x.val())
-        .collect_vec();
+        .collect::<Vec<_>>();
 
         c1.into_iter()
             .zip(c2)
@@ -3978,7 +3989,6 @@ mod heavy_light_decomposition {
     }
     mod test {
         use super::Hld;
-        use itertools::Itertools;
         use rand::{seq::SliceRandom, Rng, RngCore, SeedableRng};
         use rand_chacha::ChaChaRng;
         use std::collections::{BTreeSet, VecDeque};
@@ -5898,7 +5908,6 @@ mod sparse_table {
 
     mod test {
         use super::{SparseTable, SparseTable2D};
-        use itertools::Itertools;
         use rand::{Rng, SeedableRng};
         use rand_chacha::ChaChaRng;
         use std::cmp::{max, min};
@@ -5909,7 +5918,7 @@ mod sparse_table {
             let mut rng = ChaChaRng::from_seed([0; 32]);
             for op in [min, max] {
                 for n in 1..=NMAX {
-                    let a = (0..n).map(|_| rng.random_range(-V..=V)).collect_vec();
+                    let a = (0..n).map(|_| rng.random_range(-V..=V)).collect::<Vec<_>>();
                     let table = SparseTable::new(op, a.clone());
                     for l in 0..n {
                         assert_eq!(a[l], table.get(l));
@@ -5931,8 +5940,8 @@ mod sparse_table {
                 for h in 1..=NMAX {
                     for w in 1..=NMAX {
                         let a = (0..h)
-                            .map(|_| (0..w).map(|_| rng.random_range(-V..=V)).collect_vec())
-                            .collect_vec();
+                            .map(|_| (0..w).map(|_| rng.random_range(-V..=V)).collect::<Vec<_>>())
+                            .collect::<Vec<_>>();
                         let table = SparseTable2D::new(op, a.clone());
                         for y0 in 0..h {
                             for x0 in 0..w {
