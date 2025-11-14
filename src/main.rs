@@ -4519,18 +4519,20 @@ mod wavelet_matrix {
             val
         }
     }
+    #[cfg(test)]
     mod wavelet_matrix_test {
-        use super::super::*;
         use super::*;
+        use rand::{Rng, SeedableRng};
+        use rand_chacha::ChaChaRng;
         const T: usize = 300;
         const N: usize = 30;
         const UPPER: u64 = 30;
         #[test]
         fn get() {
-            let mut r = XorShift64::new();
+            let mut rng = ChaChaRng::from_seed([0; 32]);
             for _ in 0..T {
                 let a = (0..N)
-                    .map(|_| r.next_usize() as u64 % UPPER)
+                    .map(|_| rng.random_range(0..UPPER))
                     .collect::<Vec<_>>();
                 let wm = WaveletMatrix::new(a.clone());
                 for (i, a) in a.into_iter().enumerate() {
@@ -4541,10 +4543,10 @@ mod wavelet_matrix {
         }
         #[test]
         fn low_freq() {
-            let mut r = XorShift64::new();
+            let mut rng = ChaChaRng::from_seed([0; 32]);
             for _ in 0..T {
                 let a = (0..N)
-                    .map(|_| r.next_usize() as u64 % UPPER)
+                    .map(|_| rng.random_range(0..UPPER))
                     .collect::<Vec<_>>();
                 let wm = WaveletMatrix::new(a.clone());
                 for l in 0..N {
@@ -4560,10 +4562,10 @@ mod wavelet_matrix {
         }
         #[test]
         fn range_freq() {
-            let mut r = XorShift64::new();
+            let mut rng = ChaChaRng::from_seed([0; 32]);
             for _ in 0..T {
                 let a = (0..N)
-                    .map(|_| r.next_usize() as u64 % UPPER)
+                    .map(|_| rng.random_range(0..UPPER))
                     .collect::<Vec<_>>();
                 let wm = WaveletMatrix::new(a.clone());
                 for l in 0..N {
@@ -4584,10 +4586,10 @@ mod wavelet_matrix {
         }
         #[test]
         fn range_kth_smallest() {
-            let mut r = XorShift64::new();
+            let mut rng = ChaChaRng::from_seed([0; 32]);
             for _ in 0..T {
                 let a = (0..N)
-                    .map(|_| r.next_usize() as u64 % UPPER)
+                    .map(|_| rng.random_range(0..UPPER))
                     .collect::<Vec<_>>();
                 let wm = WaveletMatrix::new(a.clone());
                 for l in 0..N {
