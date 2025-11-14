@@ -428,9 +428,9 @@ impl WaveletMatrix2D {
 #[cfg(test)]
 mod wavelet_matrix_2d_test {
     use super::WaveletMatrix2D;
+    use crate::segment_tree::SegmentTree;
     use rand::{Rng, SeedableRng};
     use rand_chacha::ChaChaRng;
-    use crate::segment_tree::SegmentTree;
     const HMAX: usize = 8;
     const WMAX: usize = 8;
     const UPPER: u64 = 8;
@@ -486,11 +486,8 @@ mod wavelet_matrix_2d_test {
                     for y1 in y0..=h {
                         for x0 in 0..w {
                             for x1 in x0..=w {
-                                let mut seg = SegmentTree::<usize>::new(
-                                    UPPER as usize,
-                                    |x, y| x + y,
-                                    0,
-                                );
+                                let mut seg =
+                                    SegmentTree::<usize>::new(UPPER as usize, |x, y| x + y, 0);
                                 for y in y0..y1 {
                                     for x in x0..x1 {
                                         seg.add(a[y][x] as usize, 1);

@@ -9,6 +9,7 @@ pub mod segment_tree_2d;
 pub mod sparce_table;
 pub mod union_find;
 pub mod wavelet_matrix;
+pub mod deletable_binary_heap;
 /*
 cargo snippet --type vscode > rust.json
 VS Codeを開き、Ctrl+Shift+P (またはCmd+Shift+P)でコマンドパレットを開きます。
