@@ -1,3 +1,4 @@
+pub mod aho_coarsick;
 pub mod floor_sum;
 pub mod low_link;
 pub mod modint;
