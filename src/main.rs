@@ -1737,16 +1737,21 @@ mod convex_hull {
 use convex_hull::{ConvexHull, ConvexHullTrickMax, ConvexHullTrickMin};
 
 mod matrix {
-    use std::iter::Sum;
-    use std::ops::{Add, Index, IndexMut, Mul, MulAssign, Sub};
-    use std::slice::SliceIndex;
     #[derive(Clone)]
     pub struct Matrix<T> {
         h: usize,
         w: usize,
         vals: Vec<Vec<T>>,
     }
-    impl<T: Clone + Copy + Sub<Output = T> + Mul + Sum<<T as Mul>::Output> + From<u8>> Matrix<T> {
+    impl<
+            T: Clone
+                + Copy
+                + std::ops::Sub<Output = T>
+                + std::ops::Mul
+                + std::iter::Sum<<T as std::ops::Mul>::Output>
+                + From<u8>,
+        > Matrix<T>
+    {
         pub fn new(h: usize, w: usize) -> Self {
             let zero = T::from(0u8);
             Self {
@@ -1780,19 +1785,25 @@ mod matrix {
             ret
         }
     }
-    impl<T, Idx: SliceIndex<[Vec<T>]>> Index<Idx> for Matrix<T> {
+    impl<T, Idx: std::slice::SliceIndex<[Vec<T>]>> std::ops::Index<Idx> for Matrix<T> {
         type Output = Idx::Output;
         fn index(&self, i: Idx) -> &Self::Output {
             &self.vals[i]
         }
     }
-    impl<T, Idx: SliceIndex<[Vec<T>]>> IndexMut<Idx> for Matrix<T> {
+    impl<T, Idx: std::slice::SliceIndex<[Vec<T>]>> std::ops::IndexMut<Idx> for Matrix<T> {
         fn index_mut(&mut self, index: Idx) -> &mut Self::Output {
             &mut self.vals[index]
         }
     }
-    impl<T: Clone + Copy + Sub<Output = T> + Mul + Sum<<T as Mul>::Output> + From<u8>>
-        Mul<Matrix<T>> for Matrix<T>
+    impl<
+            T: Clone
+                + Copy
+                + std::ops::Sub<Output = T>
+                + std::ops::Mul
+                + std::iter::Sum<<T as std::ops::Mul>::Output>
+                + From<u8>,
+        > std::ops::Mul<Matrix<T>> for Matrix<T>
     {
         type Output = Matrix<T>;
         fn mul(self, rhs: Matrix<T>) -> Self::Output {
@@ -1806,8 +1817,13 @@ mod matrix {
             ret
         }
     }
-    impl<T: Clone + Copy + Sub<Output = T> + Mul + Sum<<T as Mul>::Output>> MulAssign<Matrix<T>>
-        for Matrix<T>
+    impl<
+            T: Clone
+                + Copy
+                + std::ops::Sub<Output = T>
+                + std::ops::Mul
+                + std::iter::Sum<<T as std::ops::Mul>::Output>,
+        > std::ops::MulAssign<Matrix<T>> for Matrix<T>
     {
         fn mul_assign(&mut self, rhs: Matrix<T>) {
             let self0 = self.clone();
@@ -1818,7 +1834,9 @@ mod matrix {
             }
         }
     }
-    impl<T: Clone + Copy + Mul + Sum<<T as Mul>::Output>> Mul<Vec<T>> for Matrix<T> {
+    impl<T: Clone + Copy + std::ops::Mul + std::iter::Sum<<T as std::ops::Mul>::Output>>
+        std::ops::Mul<Vec<T>> for Matrix<T>
+    {
         type Output = Vec<T>;
         fn mul(self, rhs: Vec<T>) -> Self::Output {
             debug_assert!(self.w == rhs.len());
@@ -1827,7 +1845,9 @@ mod matrix {
                 .collect::<Vec<_>>()
         }
     }
-    impl<T: Clone + Copy + Mul + Sum<<T as Mul>::Output>> Mul<Matrix<T>> for Vec<T> {
+    impl<T: Clone + Copy + std::ops::Mul + std::iter::Sum<<T as std::ops::Mul>::Output>>
+        std::ops::Mul<Matrix<T>> for Vec<T>
+    {
         type Output = Vec<T>;
         fn mul(self, rhs: Matrix<T>) -> Self::Output {
             debug_assert!(self.len() == rhs.h);
@@ -1839,12 +1859,12 @@ mod matrix {
     impl<
             T: Clone
                 + Copy
-                + Add<Output = T>
-                + Sub<Output = T>
-                + Mul
-                + Sum<<T as Mul>::Output>
+                + std::ops::Add<Output = T>
+                + std::ops::Sub<Output = T>
+                + std::ops::Mul
+                + std::iter::Sum<<T as std::ops::Mul>::Output>
                 + From<u8>,
-        > Add<Matrix<T>> for Matrix<T>
+        > std::ops::Add<Matrix<T>> for Matrix<T>
     {
         type Output = Matrix<T>;
         fn add(self, rhs: Self) -> Self::Output {
