@@ -545,7 +545,7 @@ where
         self.factorial(n) * self.factorial_inv(n - k)
     }
 }
-#[test]
+#[cfg(test)]
 mod test {
     use super::Fact;
     use super::ModIntTrait;
