@@ -2,6 +2,7 @@ use crate::remainder::ext_gcd;
 use cargo_snippet::snippet;
 
 #[snippet("ModIntTrait")]
+#[snippet(include = "ext_gcd")]
 pub trait ModIntTrait {
     fn get_mod() -> usize;
     fn val(&self) -> usize;
@@ -68,7 +69,6 @@ pub trait ModIntTrait {
 
 #[snippet("StaticModInt")]
 #[snippet(include = "ModIntTrait")]
-#[snippet(include = "ext_gcd")]
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
 pub struct StaticModInt<const MOD: usize> {
     x: usize,
@@ -194,7 +194,6 @@ impl<const MOD: usize> std::fmt::Debug for StaticModInt<MOD> {
 static mut MOD: usize = 2;
 #[snippet("DynModInt")]
 #[snippet(include = "ModIntTrait")]
-#[snippet(include = "ext_gcd")]
 #[derive(Clone, Copy, Eq, Hash, PartialEq)]
 pub struct DynModInt {
     x: usize,
@@ -348,7 +347,6 @@ type Mint9 = StaticModInt<1000010243>;
 #[snippet(include = "DnyModInt")]
 #[snippet(include = "StaticModInt")]
 #[snippet(include = "ModIntTrait")]
-#[snippet(include = "ext_gcd")]
 #[derive(Clone, Debug, Copy, Eq, Hash, PartialEq)]
 pub struct HashNode {
     x0: Mint0,

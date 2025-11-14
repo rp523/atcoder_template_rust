@@ -1,8 +1,10 @@
 pub mod aho_coarsick;
+pub mod convolution;
 pub mod deletable_binary_heap;
 pub mod dynamic_connectivity;
 pub mod floor_sum;
 pub mod hld;
+pub mod integer;
 pub mod low_link;
 pub mod mo;
 pub mod modint;
