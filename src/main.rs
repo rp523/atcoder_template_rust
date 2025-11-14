@@ -1295,8 +1295,6 @@ use my_string::Str;
 
 mod rational {
     use atcoder::remainder::gcd;
-    use std::cmp::Ordering;
-    use std::fmt;
     use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
     #[derive(Clone, Copy, PartialEq, Eq, Hash)]
     pub struct Rational {
@@ -1401,7 +1399,7 @@ mod rational {
         }
     }
     impl PartialOrd for Rational {
-        fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
             Some(i64::cmp(
                 &(self.num * other.denom),
                 &(self.denom * other.num),
@@ -1409,17 +1407,17 @@ mod rational {
         }
     }
     impl Ord for Rational {
-        fn cmp(&self, other: &Self) -> Ordering {
+        fn cmp(&self, other: &Self) -> std::cmp::Ordering {
             Self::partial_cmp(self, other).unwrap()
         }
     }
-    impl fmt::Display for Rational {
-        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    impl std::fmt::Display for Rational {
+        fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
             write!(f, "{}", self.num as f64 / self.denom as f64)
         }
     }
-    impl fmt::Debug for Rational {
-        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    impl std::fmt::Debug for Rational {
+        fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
             write!(f, "{}", self.num as f64 / self.denom as f64)
         }
     }
