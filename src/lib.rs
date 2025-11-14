@@ -6,6 +6,7 @@ pub mod floor_sum;
 pub mod hld;
 pub mod integer;
 pub mod low_link;
+pub mod matrix;
 pub mod mo;
 pub mod modint;
 pub mod remainder;
@@ -16,6 +17,7 @@ pub mod sparce_table;
 pub mod suffix_array;
 pub mod union_find;
 pub mod wavelet_matrix;
+pub mod z_algo;
 /*
 cargo snippet --type vscode > rust.json
 VS Codeを開き、Ctrl+Shift+P (またはCmd+Shift+P)でコマンドパレットを開きます。
