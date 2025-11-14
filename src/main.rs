@@ -553,16 +553,18 @@ mod lazy_segment_tree {
             self.fmt_base(f, |x: &X| format!("{:?}", x), |m: &M| format!("{:?}", m))
         }
     }
+    #[cfg(test)]
     mod test {
-        use super::super::XorShift64;
         use super::LazySegmentTree;
+        use rand::{Rng, SeedableRng};
+        use rand_chacha::ChaChaRng;
         #[test]
         fn random() {
             const N: usize = 100;
             const T: usize = 1000;
-            let mut rand = XorShift64::new();
+            let mut rng = ChaChaRng::from_seed([0; 32]);
             for n in 1..=N {
-                let mut a = (0..n).map(|_| rand.next_usize() % 2).collect::<Vec<_>>();
+                let mut a = (0..n).map(|_| rng.random_range(0..2)).collect::<Vec<_>>();
                 #[derive(Clone, Debug)]
                 struct Node {
                     n0: usize,
@@ -609,12 +611,12 @@ mod lazy_segment_tree {
                         .collect::<Vec<_>>(),
                 );
                 for _ in 0..T {
-                    let mut l = rand.next_usize() % n;
-                    let mut r = rand.next_usize() % n;
+                    let mut l = rng.random_range(0..n);
+                    let mut r = rng.random_range(0..n);
                     if l >= r {
                         std::mem::swap(&mut l, &mut r);
                     }
-                    let op = rand.next_usize() % 2;
+                    let op = rng.random_range(0..2);
                     if op == 0 {
                         seg.reserve(l, r, true);
                         a.iter_mut().take(r + 1).skip(l).for_each(|a| {
@@ -641,10 +643,10 @@ mod lazy_segment_tree {
             const T: usize = 100;
             const OP: usize = 1000;
             const V: usize = 10;
-            let mut rand = XorShift64::new();
+            let mut rng = ChaChaRng::from_seed([0; 32]);
             for n in 1..=NMAX {
                 for _ in 0..T {
-                    let mut a = (0..n).map(|_| rand.next_usize() % V).collect::<Vec<_>>();
+                    let mut a = (0..n).map(|_| rng.random_range(0..V)).collect::<Vec<_>>();
                     let mut seg = LazySegmentTree::<(usize, usize), usize>::from_vec(
                         |x, y| (x.0 + y.0, x.1 + y.1),
                         |x, m| (x.0 + x.1 * m, x.1),
@@ -653,13 +655,13 @@ mod lazy_segment_tree {
                     );
                     let mut ops = vec![];
                     for _ in 0..OP {
-                        let mut l = rand.next_usize() % n;
-                        let mut r = rand.next_usize() % n;
+                        let mut l = rng.random_range(0..n);
+                        let mut r = rng.random_range(0..n);
                         if l > r {
                             (l, r) = (r, l);
                         }
-                        let op = rand.next_usize() % 3;
-                        let v = rand.next_usize() % V;
+                        let op = rng.random_range(0..3);
+                        let v = rng.random_range(0..V);
                         ops.push((op, l, r, v));
                         match op {
                             0 => {
@@ -882,7 +884,7 @@ mod xor_shift_64 {
     pub struct XorShift64(usize);
     impl XorShift64 {
         pub fn new() -> Self {
-            XorShift64(88172645463325252_usize)
+            Self(88172645463325252_usize)
         }
         fn next(&mut self) {
             self.0 ^= self.0 << 7;
@@ -2039,18 +2041,20 @@ mod suffix_array {
             (ord_to_pos, lcp)
         }
     }
+    #[cfg(test)]
     mod test {
         const T: usize = 100;
         const N: usize = 100;
         const C: usize = 26;
-        use super::super::XorShift64;
         use super::ToSuffixArray;
+        use rand::{Rng, SeedableRng};
+        use rand_chacha::ChaChaRng;
         #[test]
         fn suffix_array() {
-            let mut rand = XorShift64::new();
+            let mut rng = ChaChaRng::from_seed([0; 32]);
             for n in 1..=N {
                 for _ in 0..T {
-                    let a = (0..n).map(|_| rand.next_usize() % C).collect::<Vec<_>>();
+                    let a = (0..n).map(|_| rng.random_range(0..C)).collect::<Vec<_>>();
                     let sa_expected = {
                         let mut sa_expected = (0..=n).collect::<Vec<_>>();
                         sa_expected.sort_by(|&i, &j| a[i..].cmp(&a[j..]));
@@ -4380,18 +4384,20 @@ mod wavelet_matrix {
                 (self.bits[d] >> r) & 1 != 0
             }
         }
+        #[cfg(test)]
         mod test {
-            use super::super::super::XorShift64;
+            use rand_chacha::ChaChaRng;
+            use rand::{Rng, SeedableRng};
             use super::BitVector;
             use super::W;
             #[test]
             fn random_test() {
-                let mut rand = XorShift64::new();
+                let mut rng = ChaChaRng::from_seed([0; 32]);
                 const N: usize = W * 3;
                 const D: usize = 10;
                 for n in 1..W * 5 {
                     let a = (0..n)
-                        .map(|_| rand.next_usize() as u64 % (1u64 << D))
+                        .map(|_| rng.random_range(0..(1u64 << D)))
                         .collect::<Vec<_>>();
                     let bit_vectors = (0..D)
                         .map(|di| BitVector::from_vec(&a, di))
@@ -4733,21 +4739,23 @@ mod wavelet_matrix {
             cnt
         }
     }
+    #[cfg(test)]
     mod wavelet_matrix_2d_test {
-        use super::super::XorShift64;
         use super::WaveletMatrix2D;
+        use rand::{Rng, SeedableRng};
+        use rand_chacha::ChaChaRng;
         const HMAX: usize = 8;
         const WMAX: usize = 8;
         const UPPER: u64 = 8;
         #[test]
         fn range_kth_smallest() {
-            let mut r = XorShift64::new();
+            let mut rng = ChaChaRng::from_seed([0; 32]);
             for h in 1..=HMAX {
                 for w in 1..=WMAX {
                     let a = (0..h)
                         .map(|_| {
                             (0..w)
-                                .map(|_| r.next_usize() as u64 % UPPER)
+                                .map(|_| rng.random_range(0..UPPER))
                                 .collect::<Vec<_>>()
                         })
                         .collect::<Vec<_>>();
@@ -4776,13 +4784,13 @@ mod wavelet_matrix {
         }
         #[test]
         fn range_freq() {
-            let mut r = XorShift64::new();
+            let mut rng = ChaChaRng::from_seed([0; 32]);
             for h in 1..=HMAX {
                 for w in 1..=WMAX {
                     let a = (0..h)
                         .map(|_| {
                             (0..w)
-                                .map(|_| r.next_usize() as u64 % UPPER)
+                                .map(|_| rng.random_range(0..UPPER))
                                 .collect::<Vec<_>>()
                         })
                         .collect::<Vec<_>>();
