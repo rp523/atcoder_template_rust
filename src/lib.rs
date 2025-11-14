@@ -11,6 +11,7 @@ pub mod scc;
 pub mod segment_tree;
 pub mod segment_tree_2d;
 pub mod sparce_table;
+pub mod suffix_array;
 pub mod union_find;
 pub mod wavelet_matrix;
 /*
