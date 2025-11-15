@@ -6,6 +6,7 @@ pub mod floor_sum;
 pub mod hld;
 pub mod integer;
 pub mod lazy_segment_tree;
+pub mod convex_hull;
 pub mod low_link;
 pub mod matrix;
 pub mod mo;
