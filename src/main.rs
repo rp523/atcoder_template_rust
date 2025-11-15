@@ -1295,7 +1295,6 @@ use my_string::Str;
 
 mod rational {
     use atcoder::remainder::gcd;
-    use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
     #[derive(Clone, Copy, PartialEq, Eq, Hash)]
     pub struct Rational {
         pub num: i64,
@@ -1335,7 +1334,7 @@ mod rational {
             }
         }
     }
-    impl AddAssign<Self> for Rational {
+    impl std::ops::AddAssign<Self> for Rational {
         fn add_assign(&mut self, rhs: Self) {
             let d0 = self.denom.abs();
             let d1 = rhs.denom.abs();
@@ -1345,7 +1344,7 @@ mod rational {
             *self = Self::new(n0 + n1, denom);
         }
     }
-    impl Add<Self> for Rational {
+    impl std::ops::Add<Self> for Rational {
         type Output = Self;
         fn add(self, rhs: Self) -> Self::Output {
             let mut ret = self;
@@ -1353,12 +1352,12 @@ mod rational {
             ret
         }
     }
-    impl SubAssign<Self> for Rational {
+    impl std::ops::SubAssign<Self> for Rational {
         fn sub_assign(&mut self, rhs: Self) {
             *self += Self::new(-rhs.num, rhs.denom);
         }
     }
-    impl Sub<Self> for Rational {
+    impl std::ops::Sub<Self> for Rational {
         type Output = Self;
         fn sub(self, rhs: Self) -> Self::Output {
             let mut ret = self;
@@ -1366,12 +1365,12 @@ mod rational {
             ret
         }
     }
-    impl MulAssign<Self> for Rational {
+    impl std::ops::MulAssign<Self> for Rational {
         fn mul_assign(&mut self, rhs: Self) {
             *self = Self::new(self.num * rhs.num, self.denom * rhs.denom);
         }
     }
-    impl Mul<Self> for Rational {
+    impl std::ops::Mul<Self> for Rational {
         type Output = Self;
         fn mul(self, rhs: Self) -> Self::Output {
             let mut ret = self;
@@ -1379,12 +1378,12 @@ mod rational {
             ret
         }
     }
-    impl DivAssign<Self> for Rational {
+    impl std::ops::DivAssign<Self> for Rational {
         fn div_assign(&mut self, rhs: Self) {
             *self = Self::new(self.num * rhs.denom, rhs.num * self.denom);
         }
     }
-    impl Div<Self> for Rational {
+    impl std::ops::Div<Self> for Rational {
         type Output = Self;
         fn div(self, rhs: Self) -> Self::Output {
             let mut ret = self;
@@ -1392,7 +1391,7 @@ mod rational {
             ret
         }
     }
-    impl Neg for Rational {
+    impl std::ops::Neg for Rational {
         type Output = Self;
         fn neg(self) -> Self::Output {
             Self::new(-self.num, self.denom)
