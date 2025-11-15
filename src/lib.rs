@@ -12,6 +12,7 @@ pub mod modint;
 pub mod my_string;
 pub mod rational;
 pub mod remainder;
+pub mod rooted_tree;
 pub mod scc;
 pub mod segment_tree;
 pub mod segment_tree_2d;
