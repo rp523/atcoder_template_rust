@@ -1,5 +1,5 @@
-use cargo_snippet::snippet;
 use crate::rational::Rational;
+use cargo_snippet::snippet;
 
 #[snippet("ConvexHull")]
 #[snippet(include = "Rational")]
@@ -44,7 +44,9 @@ impl ConvexHull {
         }
         ret
     }
-    fn weakly_monotone_tangents(x_ys: &[(i64, Vec<i64>)]) -> std::collections::VecDeque<(i64, i64)> {
+    fn weakly_monotone_tangents(
+        x_ys: &[(i64, Vec<i64>)],
+    ) -> std::collections::VecDeque<(i64, i64)> {
         let mut vs = std::collections::VecDeque::new();
         for (x, ys) in x_ys.iter() {
             let x = *x;

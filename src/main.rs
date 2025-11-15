@@ -671,7 +671,7 @@ mod flow {
                         let mut v = sink;
                         while let Some((pv, pei)) = prev[v] {
                             let e = &self.g[pv][pei];
-                            delta_flow.chmin(e.cap - e.flow);
+                            delta_flow = std::cmp::min(delta_flow, e.cap - e.flow);
                             v = pv;
                         }
                     }
@@ -741,7 +741,7 @@ mod flow {
                     let mut v = sink;
                     while let Some((pv, pei)) = prev[v] {
                         let e = &self.g[pv][pei];
-                        delta_flow.chmin(e.cap - e.flow);
+                        delta_flow = std::cmp::min(delta_flow, e.cap - e.flow);
                         v = pv;
                     }
                 }
@@ -818,7 +818,7 @@ mod flow {
                         let mut v = sink;
                         while let Some((pv, pei)) = prev[v] {
                             let e = &self.g[pv][pei];
-                            delta_flow.chmin(e.cap - e.flow);
+                            delta_flow = std::cmp::min(delta_flow, e.cap - e.flow);
                             v = pv;
                         }
                     }
@@ -890,7 +890,7 @@ mod flow {
                     let mut v = sink;
                     while let Some((pv, pei)) = prev[v] {
                         let e = &self.g[pv][pei];
-                        delta_flow.chmin(e.cap - e.flow);
+                        delta_flow = std::cmp::min(delta_flow, e.cap - e.flow);
                         v = pv;
                     }
                 }
