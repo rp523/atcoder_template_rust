@@ -9,6 +9,7 @@ pub mod hld;
 pub mod integer;
 pub mod lazy_segment_tree;
 pub mod low_link;
+pub mod manhattan_mst;
 pub mod matrix;
 pub mod mo;
 pub mod modint;
