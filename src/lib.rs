@@ -22,6 +22,7 @@ pub mod sparce_table;
 pub mod suffix_array;
 pub mod union_find;
 pub mod wavelet_matrix;
+pub mod xor_shift;
 pub mod z_algo;
 /*
 cargo snippet --type vscode > rust.json
