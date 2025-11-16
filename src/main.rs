@@ -1,5 +1,4 @@
 #![allow(unused_macros, unused_imports, dead_code)]
-use permutohedron::LexicalPermutation;
 use std::cmp::{max, min, Ordering, Reverse};
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, VecDeque};
 use std::mem::swap;
@@ -332,40 +331,6 @@ fn exit_by<T: std::fmt::Display>(msg: T) {
     std::process::exit(0);
 }
 
-pub struct PermutationIterator<T> {
-    v: Vec<T>,
-    is_first: bool,
-}
-impl<T: Copy + Ord + Clone> PermutationIterator<T> {
-    pub fn new(mut v: Vec<T>) -> PermutationIterator<T> {
-        v.sort();
-        PermutationIterator { v, is_first: true }
-    }
-}
-impl<T: Copy + Ord + Clone> Iterator for PermutationIterator<T> {
-    type Item = Vec<T>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.is_first {
-            self.is_first = false;
-            Some(self.v.clone())
-        } else if self.v.next_permutation() {
-            Some(self.v.clone())
-        } else {
-            None
-        }
-    }
-}
-
-pub trait IntoPermutations<T: Copy + Ord + Clone> {
-    fn into_permutations(self) -> PermutationIterator<T>;
-}
-// implement for ones that has IntoIterator.
-impl<T: Copy + Ord + Clone, I: IntoIterator<Item = T>> IntoPermutations<T> for I {
-    fn into_permutations(self) -> PermutationIterator<T> {
-        PermutationIterator::new(self.into_iter().collect())
-    }
-}
 mod add_header {
     pub trait AddHeader<T> {
         fn add_header(&mut self, add_val: T);

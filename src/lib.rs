@@ -7,6 +7,7 @@ pub mod floor_sum;
 pub mod flow;
 pub mod hld;
 pub mod integer;
+pub mod into_permutation;
 pub mod lazy_segment_tree;
 pub mod low_link;
 pub mod manhattan_mst;
