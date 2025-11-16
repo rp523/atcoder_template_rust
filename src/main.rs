@@ -390,26 +390,6 @@ mod add_header {
 }
 use add_header::AddHeader;
 
-// construct XOR basis.
-// Some XOR combination of these can make every element of the array.
-// When msb of a[i] is b-th, b-th bit of all the other element is zero.
-fn xor_basis(a: &[usize]) -> Vec<usize> {
-    let mut basis: Vec<usize> = vec![];
-    for mut a in a.iter().copied() {
-        for &base in basis.iter() {
-            a.chmin(a ^ base);
-        }
-        for base in basis.iter_mut() {
-            base.chmin(a ^ *base);
-        }
-        if a > 0 {
-            basis.push(a);
-        }
-    }
-    basis.sort();
-    basis
-}
-
 mod transpose {
     pub trait Transpose<T> {
         fn transpose(self) -> Vec<Vec<T>>;
