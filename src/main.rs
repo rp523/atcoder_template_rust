@@ -1,9 +1,5 @@
 #![allow(unused_macros, unused_imports, dead_code)]
-use fixedbitset::FixedBitSet;
-use ordered_float::OrderedFloat;
 use permutohedron::LexicalPermutation;
-use proconio::fastout;
-use std::any::TypeId;
 use std::cmp::{max, min, Ordering, Reverse};
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, VecDeque};
 use std::mem::swap;
@@ -584,7 +580,7 @@ use procon_reader::*;
 //////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////////////
 
-#[fastout]
+#[proconio::fastout]
 fn main() {
     read::<usize>();
 }
