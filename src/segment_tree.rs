@@ -262,24 +262,8 @@ impl<T: Clone> SegmentTree<T> {
             Some(0)
         }
     }
-    fn fmt_base(
-        &self,
-        f: &mut std::fmt::Formatter,
-        x_to_string: fn(&T) -> String,
-    ) -> std::fmt::Result {
-        let mut now = 1;
-        let mut delta = 1;
-        for hi in (0..self.height).rev() {
-            for x in (now..).take(self.width[hi]) {
-                write!(f, "{} ", x_to_string(&self.dat[x]),)?;
-            }
-            writeln!(f)?;
-            now += delta;
-            delta *= 2;
-        }
-        Ok(())
-    }
 }
+#[snippet("SegmentTree")]
 impl<T: Copy + std::ops::Add<Output = T> + std::ops::Sub<Output = T>> SegmentTree<T> {
     pub fn add(&mut self, pos: usize, add_val: T) {
         self.set(pos, self.get(pos) + add_val);
@@ -288,14 +272,30 @@ impl<T: Copy + std::ops::Add<Output = T> + std::ops::Sub<Output = T>> SegmentTre
         self.set(pos, self.get(pos) - sub_val);
     }
 }
+#[snippet("SegmentTree")]
 impl<T: Clone + std::fmt::Display> std::fmt::Display for SegmentTree<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        self.fmt_base(f, |x: &T| format!("{}", x))
+        write!(f, "[")?;
+        for i in 0..self.n {
+            write!(f, "{}", self.get(i))?;
+            if i < self.n - 1 {
+                write!(f, ", ")?
+            }
+        }
+        writeln!(f, "]")
     }
 }
+#[snippet("SegmentTree")]
 impl<T: Clone + std::fmt::Debug> std::fmt::Debug for SegmentTree<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        self.fmt_base(f, |x: &T| format!("{:?}", x))
+        write!(f, "[")?;
+        for i in 0..self.n {
+            write!(f, "{:?}", self.get(i))?;
+            if i < self.n - 1 {
+                write!(f, ", ")?
+            }
+        }
+        writeln!(f, "]")
     }
 }
 pub mod test {
