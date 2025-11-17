@@ -9,10 +9,11 @@ pub trait ModIntTrait {
     fn raw(x: usize) -> Self;
     fn new<T>(x: T) -> Self
     where
-        T: Into<usize>,
+        T: TryInto<usize> + Copy,
+        <T as TryInto<usize>>::Error: std::fmt::Debug,
         Self: Sized,
     {
-        Self::raw(x.into() % Self::get_mod())
+        Self::raw(x.try_into().unwrap() % Self::get_mod())
     }
     fn inverse(&self) -> Self
     where
@@ -64,6 +65,20 @@ pub trait ModIntTrait {
             mul = (mul * mul) % m;
         }
         ret
+    }
+    #[inline(always)]
+    fn zero() -> Self
+    where
+        Self: Sized,
+    {
+        Self::new(0)
+    }
+    #[inline(always)]
+    fn one() -> Self
+    where
+        Self: Sized,
+    {
+        Self::new(0)
     }
 }
 
