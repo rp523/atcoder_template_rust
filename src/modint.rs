@@ -78,7 +78,7 @@ pub trait ModIntTrait {
     where
         Self: Sized,
     {
-        Self::new(0)
+        Self::new(1)
     }
 }
 
