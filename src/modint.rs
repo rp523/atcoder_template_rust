@@ -189,7 +189,7 @@ impl<const MOD: usize> std::str::FromStr for StaticModInt<MOD> {
 #[snippet("StaticModInt")]
 impl<const MOD: usize> std::iter::Sum for StaticModInt<MOD> {
     fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
-        iter.fold(Self::new(0usize), |cum, v| cum + v)
+        iter.fold(Self::zero(), |cum, v| cum + v)
     }
 }
 #[snippet("StaticModInt")]

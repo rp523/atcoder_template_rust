@@ -19,8 +19,8 @@ where
     let n = arga.len();
     let m = argb.len();
     let z = 1 << ceil_pow2(n + m - 1);
-    let mut a = vec![Mint::new(0usize); z];
-    let mut b = vec![Mint::new(0usize); z];
+    let mut a = vec![Mint::zero(); z];
+    let mut b = vec![Mint::zero(); z];
     for (a, &arga) in a.iter_mut().zip(arga.iter()) {
         *a = arga;
     }
@@ -36,7 +36,7 @@ where
     while a.len() > n + m - 1 {
         a.pop();
     }
-    let iz = Mint::new(1usize) / Mint::new(z);
+    let iz = Mint::one() / Mint::new(z);
     for a in a.iter_mut() {
         *a *= iz;
     }
@@ -126,24 +126,24 @@ where
 {
     fn new() -> Self {
         let rank2 = bsf(Mint::get_mod() - 1);
-        let mut root = vec![Mint::new(0usize); rank2 + 1];
-        let mut iroot = vec![Mint::new(0usize); rank2 + 1];
-        let mut rate2 = vec![Mint::new(0usize); std::cmp::max(0, rank2 as i64 - 2 + 1) as usize];
-        let mut irate2 = vec![Mint::new(0usize); std::cmp::max(0, rank2 as i64 - 2 + 1) as usize];
-        let mut rate3 = vec![Mint::new(0usize); std::cmp::max(0, rank2 as i64 - 3 + 1) as usize];
-        let mut irate3 = vec![Mint::new(0usize); std::cmp::max(0, rank2 as i64 - 3 + 1) as usize];
+        let mut root = vec![Mint::zero(); rank2 + 1];
+        let mut iroot = vec![Mint::zero(); rank2 + 1];
+        let mut rate2 = vec![Mint::zero(); std::cmp::max(0, rank2 as i64 - 2 + 1) as usize];
+        let mut irate2 = vec![Mint::zero(); std::cmp::max(0, rank2 as i64 - 2 + 1) as usize];
+        let mut rate3 = vec![Mint::zero(); std::cmp::max(0, rank2 as i64 - 3 + 1) as usize];
+        let mut irate3 = vec![Mint::zero(); std::cmp::max(0, rank2 as i64 - 3 + 1) as usize];
 
         let g = primitive_root(Mint::get_mod() as i64);
         root[rank2] = Mint::new(g as usize).pow((Mint::get_mod() - 1) >> rank2);
-        iroot[rank2] = Mint::new(1usize) / root[rank2];
+        iroot[rank2] = Mint::one() / root[rank2];
         for i in (0..rank2).rev() {
             root[i] = root[i + 1] * root[i + 1];
             iroot[i] = iroot[i + 1] * iroot[i + 1];
         }
 
         {
-            let mut prod = Mint::new(1usize);
-            let mut iprod = Mint::new(1usize);
+            let mut prod = Mint::one();
+            let mut iprod = Mint::one();
             for i in 0..=(rank2 - 2) {
                 rate2[i] = root[i + 2] * prod;
                 irate2[i] = iroot[i + 2] * iprod;
@@ -152,8 +152,8 @@ where
             }
         }
         {
-            let mut prod = Mint::new(1usize);
-            let mut iprod = Mint::new(1usize);
+            let mut prod = Mint::one();
+            let mut iprod = Mint::one();
             for i in 0..=(rank2 - 3) {
                 rate3[i] = root[i + 3] * prod;
                 irate3[i] = iroot[i + 3] * iprod;
@@ -201,7 +201,7 @@ where
     while len < h {
         if h - len == 1 {
             let p = 1 << (h - len - 1);
-            let mut rot = Mint::new(1usize);
+            let mut rot = Mint::one();
             for s in 0..(1 << len) {
                 let offset = s << (h - len);
                 for i in 0..p {
@@ -218,7 +218,7 @@ where
         } else {
             // 4-base
             let p = 1 << (h - len - 2);
-            let mut rot = Mint::new(1usize);
+            let mut rot = Mint::one();
             let imag = info.root[2];
             for s in 0..(1 << len) {
                 let rot2 = rot * rot;
@@ -266,7 +266,7 @@ where
     while len > 0 {
         if len == 1 {
             let p = 1 << (h - len);
-            let mut irot = Mint::new(1usize);
+            let mut irot = Mint::one();
             for s in 0..(1 << (len - 1)) {
                 let offset = s << (h - len + 1);
                 for i in 0..p {
@@ -284,7 +284,7 @@ where
         } else {
             // 4-base
             let p = 1 << (h - len);
-            let mut irot = Mint::new(1usize);
+            let mut irot = Mint::one();
             let iimag = info.iroot[2];
             for s in 0..(1 << (len - 2)) {
                 let irot2 = irot * irot;
