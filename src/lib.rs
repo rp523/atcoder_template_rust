@@ -1,4 +1,5 @@
 pub mod aho_coarsick;
+pub mod cartesian_tree;
 pub mod convex_hull;
 pub mod convolution;
 pub mod deletable_binary_heap;
