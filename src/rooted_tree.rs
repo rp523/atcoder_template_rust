@@ -118,8 +118,96 @@ impl RootedTree {
     }
 }
 
-#[cfg(test)]
-mod test {
-    #[test]
-    fn random() {}
+//#[cfg(test)]
+pub mod test {
+    use std::collections::VecDeque;
+
+    //#[test]
+    pub fn random() {
+        use super::RootedTree;
+        use crate::union_find::UnionFind;
+        use rand::{Rng, SeedableRng};
+        use rand_chacha::ChaChaRng;
+        let mut rng = ChaChaRng::from_seed([0; 32]);
+        const N: usize = 20;
+        const T: usize = 100;
+        const D: usize = 100;
+        for n in 1..=N {
+            for ti in 0..T {
+                let mut uf = UnionFind::new(n);
+                let mut es = vec![];
+                while uf.group_num() > 1 {
+                    let a = rng.random_range(0..n);
+                    let b = (a + 1 + rng.random_range(0..n - 1)) % n;
+                    assert!(a != b);
+                    if !uf.unite(a, b) {
+                        continue;
+                    }
+                    let d = rng.random_range(1..=D);
+                    es.push((a, b, d));
+                }
+                fn calc_distance(
+                    v: usize,
+                    p: usize,
+                    t: usize,
+                    g: &[Vec<(usize, usize)>],
+                ) -> Option<usize> {
+                    if v == t {
+                        return Some(0);
+                    }
+                    for &(nv, delta) in g[v].iter() {
+                        if nv == p {
+                            continue;
+                        }
+                        if let Some(nxt) = calc_distance(nv, v, t, g) {
+                            return Some(nxt + delta);
+                        }
+                    }
+                    None
+                }
+                for root in 0..n {
+                    let mut g = vec![vec![]; n];
+                    let mut t = RootedTree::new(n, root);
+                    for &(a, b, d) in es.iter() {
+                        g[a].push((b, d));
+                        g[b].push((a, d));
+                        t.unite_with_distance(a, b, d);
+                    }
+                    let mut back = vec![0; n];
+                    let mut que = VecDeque::new();
+                    let mut vis = vec![false; n];
+                    que.push_back(root);
+                    vis[root] = true;
+                    back[root] = root;
+                    while let Some(v0) = que.pop_front() {
+                        for &(v1, _) in g[v0].iter() {
+                            if vis[v1] {
+                                continue;
+                            }
+                            vis[v1] = true;
+                            que.push_back(v1);
+                            back[v1] = v0;
+                        }
+                    }
+                    for v0 in 0..n {
+                        for v1 in 0..n {
+                            let expected = calc_distance(v0, n, v1, &g).unwrap();
+                            let actual = t.distance(v0, v1);
+                            assert_eq!(expected, actual);
+                        }
+                        /*
+                        for step in 0..=n {
+                            let mut expected = v0;
+                            for _ in 0..step {
+                                expected = back[expected];
+                            }
+                            let actual = t.step_back(v0, step);
+                            assert_eq!(expected, actual);
+                        }
+                         */
+                    }
+                }
+            }
+        }
+    }
 }
