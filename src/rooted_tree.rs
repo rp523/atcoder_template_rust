@@ -118,11 +118,11 @@ impl RootedTree {
     }
 }
 
-//#[cfg(test)]
+#[cfg(test)]
 pub mod test {
     use std::collections::VecDeque;
 
-    //#[test]
+    #[test]
     pub fn random() {
         use super::RootedTree;
         use crate::union_find::UnionFind;
