@@ -1,133 +1,125 @@
-use crate::union_find::UnionFind;
 use cargo_snippet::snippet;
 
 #[snippet("RootedTree")]
-#[snippet(include = "UnionFind")]
 pub struct RootedTree {
     n: usize,
-    doubling_bit_width: usize,
     root: usize,
-    rise_tbl: Vec<Vec<Option<usize>>>,
-    dist: Vec<Option<i64>>,
-    step: Vec<Option<usize>>,
-    pub graph: Vec<Vec<(i64, usize)>>,
+    rise_tbl: Vec<Vec<usize>>,
+    dist: Vec<usize>,
+    depth: Vec<usize>,
+    pub graph: Vec<Vec<(usize, usize)>>,
     edge_cnt: usize,
-    uf: UnionFind,
 }
 #[snippet("RootedTree")]
 impl RootedTree {
     pub fn new(n: usize, root: usize) -> RootedTree {
-        let mut doubling_bit_width = 1;
+        let mut doubling_bit_width = 0;
         while (1 << doubling_bit_width) < n {
             doubling_bit_width += 1;
         }
         RootedTree {
             n,
-            doubling_bit_width,
             root,
-            rise_tbl: vec![vec![None; n]; doubling_bit_width],
-            dist: vec![None; n],
-            step: vec![None; n],
+            rise_tbl: vec![vec![0; n]; doubling_bit_width],
+            dist: vec![0; n],
+            depth: vec![0; n],
             graph: vec![vec![]; n],
             edge_cnt: 0,
-            uf: UnionFind::new(n),
         }
     }
     pub fn unite(&mut self, a: usize, b: usize) {
         self.unite_with_distance(a, b, 1);
     }
-    pub fn unite_with_distance(&mut self, a: usize, b: usize, delta: i64) {
-        self.graph[a].push((delta, b));
-        self.graph[b].push((delta, a));
+    pub fn unite_with_distance(&mut self, a: usize, b: usize, delta: usize) {
+        self.graph[a].push((b, delta));
+        self.graph[b].push((a, delta));
         self.edge_cnt += 1;
-        self.uf.unite(a, b);
         if self.edge_cnt >= self.n - 1 {
-            if self.uf.group_num() != 1 {
-                panic!("nodes are NOT connected into one union.")
-            }
             self.analyze(self.root);
         }
     }
-    pub fn stepback(&self, from: usize, step: usize) -> usize {
+    pub fn step_back(&self, from: usize, step: usize) -> usize {
         let mut v = from;
-        for d in (0..self.doubling_bit_width - 1).rev() {
-            if ((step >> d) & 1) != 0 {
-                v = self.rise_tbl[d][v].unwrap();
+        for (di, rise_tbl) in self.rise_tbl.iter().enumerate().rev() {
+            if ((step >> di) & 1) != 0 {
+                v = rise_tbl[v];
             }
         }
         v
     }
     fn dfs(
         v: usize,
-        pre: Option<usize>,
-        graph: &Vec<Vec<(i64, usize)>>,
-        dist: &mut Vec<Option<i64>>,
-        step: &mut Vec<Option<usize>>,
-        rise_tbl: &mut Vec<Vec<Option<usize>>>,
+        pre: usize,
+        graph: &Vec<Vec<(usize, usize)>>,
+        dist: &mut Vec<usize>,
+        depth: &mut Vec<usize>,
+        rise_tbl: &mut [usize],
     ) {
-        for (delta, nv) in graph[v].iter() {
-            if let Some(pre) = pre {
-                if *nv == pre {
-                    continue;
-                }
+        for &(nv, delta) in graph[v].iter() {
+            if nv == pre {
+                continue;
             }
-            if dist[*nv].is_none() {
-                dist[*nv] = Some(dist[v].unwrap() + *delta);
-                step[*nv] = Some(step[v].unwrap() + 1);
-                rise_tbl[0][*nv] = Some(v);
-                Self::dfs(*nv, Some(v), graph, dist, step, rise_tbl);
-            }
+            depth[nv] = depth[v] + 1;
+            dist[nv] = dist[v] + delta;
+            rise_tbl[nv] = v;
+            Self::dfs(nv, v, graph, dist, depth, rise_tbl);
         }
     }
     fn analyze(&mut self, root: usize) {
-        self.dist[root] = Some(0);
-        self.step[root] = Some(0);
-        self.rise_tbl[0][root] = Some(root);
+        self.dist[root] = 0;
+        self.depth[root] = 0;
+        self.rise_tbl[0][root] = root;
         Self::dfs(
             root,
-            None,
+            self.graph.len(),
             &self.graph,
             &mut self.dist,
-            &mut self.step,
-            &mut self.rise_tbl,
+            &mut self.depth,
+            &mut self.rise_tbl[0],
         );
         // doubling
-        for d in (0..self.doubling_bit_width).skip(1) {
+        for di in (0..self.rise_tbl.len()).skip(1) {
             for v in 0_usize..self.n {
-                self.rise_tbl[d][v] = self.rise_tbl[d - 1][self.rise_tbl[d - 1][v].unwrap()];
+                self.rise_tbl[di][v] = self.rise_tbl[di - 1][self.rise_tbl[di - 1][v]];
             }
         }
     }
     pub fn lca(&self, mut a: usize, mut b: usize) -> usize {
-        if self.step[a] > self.step[b] {
+        if self.depth[a] > self.depth[b] {
             std::mem::swap(&mut a, &mut b);
         }
-        assert!(self.step[a] <= self.step[b]);
-        // bring up the deeper one to the same level of the shallower one.
-        for d in (0..self.doubling_bit_width).rev() {
-            let rise_v = self.rise_tbl[d][b].unwrap();
-            if self.step[rise_v] >= self.step[a] {
-                b = rise_v;
+        assert!(self.depth[a] <= self.depth[b]);
+        // bring up the deeper one to the same depth of the shallower one.
+        for rise_tbl in self.rise_tbl.iter().rev() {
+            let rise_b = rise_tbl[b];
+            if self.depth[a] <= self.depth[rise_b] {
+                b = rise_b;
             }
         }
-        assert!(self.step[a] == self.step[b]);
+        assert!(self.depth[a] == self.depth[b]);
         if a != b {
-            // simultaneously rise to the previous level of LCA.
-            for d in (0..self.doubling_bit_width).rev() {
-                if self.rise_tbl[d][a] != self.rise_tbl[d][b] {
-                    a = self.rise_tbl[d][a].unwrap();
-                    b = self.rise_tbl[d][b].unwrap();
+            // simultaneously rise to the next depth of LCA.
+            for rise_tbl in self.rise_tbl.iter().rev() {
+                if rise_tbl[a] != rise_tbl[b] {
+                    a = rise_tbl[a];
+                    b = rise_tbl[b];
                 }
             }
-            // 1-step higher level is LCA.
-            a = self.rise_tbl[0][a].unwrap();
-            b = self.rise_tbl[0][b].unwrap();
+            // 1-depth higher level is LCA.
+            a = self.rise_tbl[0][a];
+            b = self.rise_tbl[0][b];
         }
         assert!(a == b);
         a
     }
-    pub fn distance(&self, a: usize, b: usize) -> i64 {
+    pub fn distance(&self, a: usize, b: usize) -> usize {
         let lca_v = self.lca(a, b);
-        self.dist[a].unwrap() + self.dist[b].unwrap() - 2 * self.dist[lca_v].unwrap()
+        self.dist[a] + self.dist[b] - 2 * self.dist[lca_v]
     }
+}
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn random() {}
 }
