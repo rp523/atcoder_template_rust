@@ -1,6 +1,7 @@
 use cargo_snippet::snippet;
 
 #[snippet("RootedTree")]
+#[derive(Debug)]
 pub struct RootedTree {
     n: usize,
     root: usize,
@@ -39,6 +40,9 @@ impl RootedTree {
         }
     }
     pub fn step_back(&self, from: usize, step: usize) -> usize {
+        if step >= (1 << self.rise_tbl.len()) {
+            return self.root;
+        }
         let mut v = from;
         for (di, rise_tbl) in self.rise_tbl.iter().enumerate().rev() {
             if ((step >> di) & 1) != 0 {
@@ -129,11 +133,11 @@ pub mod test {
         use rand::{Rng, SeedableRng};
         use rand_chacha::ChaChaRng;
         let mut rng = ChaChaRng::from_seed([0; 32]);
-        const N: usize = 20;
+        const N: usize = 30;
         const T: usize = 100;
         const D: usize = 100;
         for n in 1..=N {
-            for ti in 0..T {
+            for _ in 0..T {
                 let mut uf = UnionFind::new(n);
                 let mut es = vec![];
                 while uf.group_num() > 1 {
@@ -195,7 +199,6 @@ pub mod test {
                             let actual = t.distance(v0, v1);
                             assert_eq!(expected, actual);
                         }
-                        /*
                         for step in 0..=n {
                             let mut expected = v0;
                             for _ in 0..step {
@@ -204,7 +207,6 @@ pub mod test {
                             let actual = t.step_back(v0, step);
                             assert_eq!(expected, actual);
                         }
-                         */
                     }
                 }
             }
