@@ -10,6 +10,7 @@ pub struct RootedTree {
     depth: Vec<usize>,
     pub graph: Vec<Vec<(usize, usize)>>,
     edge_cnt: usize,
+    vis_ord: Vec<(usize, usize)>,
 }
 #[snippet("RootedTree")]
 impl RootedTree {
@@ -26,6 +27,7 @@ impl RootedTree {
             depth: vec![0; n],
             graph: vec![vec![]; n],
             edge_cnt: 0,
+            vis_ord: vec![],
         }
     }
     pub fn unite(&mut self, a: usize, b: usize) {
@@ -120,6 +122,63 @@ impl RootedTree {
         let lca_v = self.lca(a, b);
         self.dist[a] + self.dist[b] - 2 * self.dist[lca_v]
     }
+    pub fn auxiliary(&mut self, vs: &Vec<usize>) -> (Vec<Vec<(usize, usize)>>, Vec<usize>) {
+        let mut vs = vs.clone();
+        if self.vis_ord.is_empty() {
+            self.vis_ord = vec![(0, 0); self.n];
+            assert_eq!(
+                self.n,
+                vis(self.root, self.n, 0, &self.graph, &mut self.vis_ord)
+            );
+            fn vis(
+                v: usize,
+                p: usize,
+                mut nxt: usize,
+                g: &[Vec<(usize, usize)>],
+                vis_ord: &mut [(usize, usize)],
+            ) -> usize {
+                vis_ord[v].0 = nxt;
+                nxt += 1;
+                for &(nv, _) in g[v].iter() {
+                    if nv == p {
+                        continue;
+                    }
+                    nxt = vis(nv, v, nxt, g, vis_ord);
+                }
+                vis_ord[v].1 = nxt;
+                nxt
+            }
+        }
+        vs.sort_unstable_by(|&v0, &v1| self.vis_ord[v0].cmp(&self.vis_ord[v1]));
+        let mut nvs = std::collections::BTreeSet::new();
+        nvs.insert(vs[0]);
+        for i in 1..vs.len() {
+            let v0 = vs[i - 1];
+            let v1 = vs[i];
+            nvs.insert(v1);
+            nvs.insert(self.lca(v0, v1));
+        }
+        let mut vs = nvs.into_iter().collect::<Vec<_>>();
+        vs.sort_unstable_by(|&v0, &v1| self.vis_ord[v0].cmp(&self.vis_ord[v1]));
+        let mut par = vec![(0, vs[0])];
+        let mut g = vec![vec![]; vs.len()];
+        for (vi, &v) in vs.iter().enumerate().skip(1) {
+            while let Some(&(_, top)) = par.last() {
+                if self.vis_ord[v].0 >= self.vis_ord[top].0
+                    && self.vis_ord[v].1 <= self.vis_ord[top].1
+                {
+                    break;
+                } else {
+                    par.pop().unwrap();
+                }
+            }
+            let &(pi, pv) = par.last().unwrap();
+            let delta = self.distance(v, pv);
+            g[pi].push((vi, delta));
+            g[vi].push((pi, delta));
+        }
+        (g, vs)
+    }
 }
 
 #[cfg(test)]
@@ -206,6 +265,71 @@ pub mod test {
                             }
                             let actual = t.step_back(v0, step);
                             assert_eq!(expected, actual);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    #[test]
+    pub fn auxiliary() {
+        use super::RootedTree;
+        use crate::union_find::UnionFind;
+        use rand::{Rng, SeedableRng};
+        use rand_chacha::ChaChaRng;
+        let mut rng = ChaChaRng::from_seed([0; 32]);
+        const N: usize = 16;
+        const T: usize = 10;
+        for n in 1..=N {
+            for _ in 0..T {
+                let mut es = vec![];
+                let mut uf = UnionFind::new(n);
+                while uf.group_num() > 1 {
+                    let a = rng.random_range(0..n);
+                    let b = (a + rng.random_range(1..n)) % n;
+                    if uf.same(a, b) {
+                        continue;
+                    }
+                    uf.unite(a, b);
+                    es.push((a, b));
+                }
+                const INF: usize = 1 << 60;
+                let mut dist = vec![vec![INF; n]; n];
+                for i in 0..n {
+                    dist[i][i] = 0;
+                }
+                for i in 0..n {
+                    for &j in uf.graph[i].iter() {
+                        dist[i][j] = 1;
+                        dist[j][i] = 1;
+                    }
+                }
+                for k in 0..n {
+                    for i in 0..n {
+                        for j in 0..n {
+                            if dist[i][j] > dist[i][k] + dist[k][j] {
+                                dist[i][j] = dist[i][k] + dist[k][j];
+                            }
+                        }
+                    }
+                }
+                for root in 0..n {
+                    let mut g = RootedTree::new(n, root);
+                    for &(a, b) in es.iter() {
+                        g.unite(a, b);
+                    }
+                    for sb in 1..(1 << n) {
+                        let vs = (0..n).filter(|&v| ((sb >> v) & 1) != 0).collect::<Vec<_>>();
+                        let (sg, svs) = g.auxiliary(&vs);
+                        assert!(sg.len() <= 2 * vs.len() - 1);
+                        assert_eq!(sg.len(), svs.len());
+                        assert!(vs.iter().all(|v| svs.contains(&v)));
+                        for i in 0..sg.len() {
+                            for &(j, delta) in sg[i].iter() {
+                                let expected = dist[svs[i]][svs[j]];
+                                let actual = delta;
+                                assert_eq!(expected, actual);
+                            }
                         }
                     }
                 }
