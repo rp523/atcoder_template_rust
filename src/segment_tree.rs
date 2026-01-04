@@ -282,7 +282,7 @@ impl<T: Clone + std::fmt::Display> std::fmt::Display for SegmentTree<T> {
                 write!(f, ", ")?
             }
         }
-        writeln!(f, "]")
+        write!(f, "]")
     }
 }
 #[snippet("SegmentTree")]
@@ -295,7 +295,7 @@ impl<T: Clone + std::fmt::Debug> std::fmt::Debug for SegmentTree<T> {
                 write!(f, ", ")?
             }
         }
-        writeln!(f, "]")
+        write!(f, "]")
     }
 }
 pub mod test {
