@@ -1,7 +1,18 @@
 use cargo_snippet::snippet;
 
 #[snippet("IntoPermutation")]
-use permutohedron::LexicalPermutation;
+pub fn next_permutation<T: Ord>(arr: &mut [T]) -> bool {
+    let last_ascending = match arr.windows(2).rposition(|w| w[0] < w[1]) {
+        Some(i) => i,
+        None => {
+            return false;
+        }
+    };
+    let swap_target = arr.iter().rposition(|x| x > &arr[last_ascending]).unwrap();
+    arr.swap(last_ascending, swap_target);
+    arr[last_ascending + 1..].reverse();
+    true
+}
 #[snippet("IntoPermutation")]
 pub struct PermutationIterator<T> {
     v: Vec<T>,
@@ -22,7 +33,7 @@ impl<T: Copy + Ord + Clone> Iterator for PermutationIterator<T> {
         if self.is_first {
             self.is_first = false;
             Some(self.v.clone())
-        } else if self.v.next_permutation() {
+        } else if next_permutation(&mut self.v) {
             Some(self.v.clone())
         } else {
             None
