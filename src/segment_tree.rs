@@ -76,7 +76,7 @@ impl<T: Clone> SegmentTree<T> {
     pub fn get(&self, pos: usize) -> T {
         self.dat[pos + self.n2].clone()
     }
-    pub fn query_all(&mut self) -> T {
+    pub fn query_all(&self) -> T {
         self.query(0, self.n - 1)
     }
     pub fn query_left(&self, r: usize) -> T {
