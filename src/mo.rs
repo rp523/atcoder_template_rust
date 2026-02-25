@@ -23,13 +23,12 @@ impl Mo {
         self.ls.push(l);
         self.rs.push(r);
     }
-    pub fn into_iter(self) -> MoIterator {
+    pub fn into_iter(self, unit: usize) -> MoIterator {
         let n = self.rs.iter().max().unwrap() + 1;
         let q = self.rs.len();
-        let d = n / ((q as f64).sqrt() as usize + 1) + 1;
         let mut indexes = (0..q).collect::<Vec<_>>();
         indexes.sort_by_cached_key(|&i| {
-            let div = self.ls[i] / d;
+            let div = self.ls[i] / unit;
             if div % 2 == 0 {
                 (div, self.rs[i])
             } else {
