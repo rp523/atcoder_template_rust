@@ -545,16 +545,30 @@ where
         self.fact[n]
     }
     pub fn factorial_inv(&mut self, n: usize) -> T {
-        while self.ifact.len() <= n {
-            self.ifact
-                .push(self.ifact[self.ifact.len() - 1] / T::from(self.ifact.len()))
+        while self.fact.len() <= n {
+            self.fact
+                .push(self.fact[self.fact.len() - 1] * T::from(self.fact.len()))
+        }
+        if self.ifact.len() <= n {
+            let i0 = self.ifact.len();
+            self.ifact.resize(n + 1, T::from(1usize));
+            self.ifact[n] = T::from(1usize) / self.fact[n];
+            for i in (i0..n).rev() {
+                self.ifact[i] = self.ifact[i + 1] * T::from(i + 1);
+            }
         }
         self.ifact[n]
     }
     pub fn combination(&mut self, n: usize, k: usize) -> T {
+        if n < k {
+            return T::from(0usize);
+        }
         self.factorial(n) * self.factorial_inv(n - k) * self.factorial_inv(k)
     }
     pub fn permutation(&mut self, n: usize, k: usize) -> T {
+        if n < k {
+            return T::from(0usize);
+        }
         self.factorial(n) * self.factorial_inv(n - k)
     }
 }
