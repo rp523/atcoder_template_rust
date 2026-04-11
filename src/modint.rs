@@ -515,8 +515,8 @@ impl std::iter::Sum for HashNode {
     }
 }
 
-#[allow(dead_code)]
 #[snippet("Fact")]
+#[allow(dead_code)]
 struct Fact<T>
 where
     T: Clone + Copy + std::ops::Mul<T, Output = T> + std::ops::Div<T, Output = T> + From<usize>,
@@ -524,41 +524,37 @@ where
     fact: Vec<T>,
     ifact: Vec<T>,
 }
-#[allow(dead_code)]
 #[snippet("Fact")]
+#[allow(dead_code)]
 impl<T> Fact<T>
 where
     T: Clone + Copy + std::ops::Mul<T, Output = T> + std::ops::Div<T, Output = T> + From<usize>,
 {
-    pub fn new(sz: usize) -> Self {
+    pub fn new() -> Self {
         let one = T::from(1usize);
-        let mut fact = vec![one; sz + 1];
-        for i in 2..=sz {
-            fact[i] = fact[i - 1] * T::from(i);
+        Self {
+            fact: vec![one],
+            ifact: vec![one],
         }
-        let mut ifact = vec![one; sz + 1];
-        ifact[sz] = one / fact[sz];
-        for i in (2..sz).rev() {
-            ifact[i] = ifact[i + 1] * T::from(i + 1);
-        }
-        Self { fact, ifact }
     }
-    pub fn factorial(&self, n: usize) -> T {
+    pub fn factorial(&mut self, n: usize) -> T {
+        while self.fact.len() <= n {
+            self.fact
+                .push(self.fact[self.fact.len() - 1] * T::from(self.fact.len()))
+        }
         self.fact[n]
     }
-    pub fn factorial_inv(&self, n: usize) -> T {
+    pub fn factorial_inv(&mut self, n: usize) -> T {
+        while self.ifact.len() <= n {
+            self.ifact
+                .push(self.ifact[self.ifact.len() - 1] / T::from(self.ifact.len()))
+        }
         self.ifact[n]
     }
-    pub fn combination(&self, n: usize, k: usize) -> T {
-        if n < k {
-            return T::from(0usize);
-        }
+    pub fn combination(&mut self, n: usize, k: usize) -> T {
         self.factorial(n) * self.factorial_inv(n - k) * self.factorial_inv(k)
     }
-    pub fn permutation(&self, n: usize, k: usize) -> T {
-        if n < k {
-            return T::from(0usize);
-        }
+    pub fn permutation(&mut self, n: usize, k: usize) -> T {
         self.factorial(n) * self.factorial_inv(n - k)
     }
 }
@@ -574,7 +570,7 @@ mod test {
     fn factorial() {
         const N: usize = 10;
         type Mint = StaticModInt<1000000007>;
-        let fact = Fact::<Mint>::new(N);
+        let mut fact = Fact::<Mint>::new();
         for n in 0..=N {
             let actual = fact.factorial(n);
             let expected = fact_raw(n);
@@ -585,7 +581,7 @@ mod test {
     fn combination() {
         const N: usize = 10;
         type Mint = StaticModInt<1000000007>;
-        let fact = Fact::<Mint>::new(N);
+        let mut fact = Fact::<Mint>::new();
         for n in 0..=N {
             for k in 0..=n {
                 let actual = fact.combination(n, k);
@@ -598,7 +594,7 @@ mod test {
     fn permutation() {
         const N: usize = 10;
         type Mint = StaticModInt<1000000007>;
-        let fact = Fact::<Mint>::new(N);
+        let mut fact = Fact::<Mint>::new();
         for n in 0..=N {
             for k in 0..=n {
                 let actual = fact.permutation(n, k);
