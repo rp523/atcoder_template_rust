@@ -125,6 +125,7 @@ impl<T: Clone> PersistentSegmentTree<T> {
         }
     }
     pub fn get(&self, ver: usize, i: usize) -> T {
+        assert!(i < self.n, "index out of bounds: the len is {} but the index is {}", self.n, i);
         self.get_impl(self.ver_roots[ver], self.n2, i)
     }
     fn get_impl(&self, now: usize, node_size: usize, i: usize) -> T {
