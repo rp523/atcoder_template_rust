@@ -147,7 +147,7 @@ impl<T: Clone> PersistentSegmentTree<T> {
             self.pair_op,
         )
     }
-    fn get(&self, ver: usize, i: usize) -> T {
+    pub fn get(&self, ver: usize, i: usize) -> T {
         fn get_impl<T: Clone>(
             now: usize,
             node_size: usize,
@@ -235,6 +235,7 @@ mod test {
                                 let actual = pseg.query(ver, i, j);
                                 assert_eq!(expected, actual);
                             }
+                            assert_eq!(seg.get(i), pseg.get(ver, i));
                         }
                     }
                 }
