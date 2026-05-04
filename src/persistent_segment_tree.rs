@@ -60,113 +60,80 @@ impl<T: Clone> PersistentSegmentTree<T> {
         }
     }
     pub fn set(&mut self, ver: usize, i: usize, new_val: T) -> usize {
-        fn set_impl<T: Clone>(
-            now: usize,
-            node_size: usize,
-            i: usize,
-            new_val: &T,
-            nodes: &mut Vec<PersistentNode<T>>,
-            pair_op: fn(T, T) -> T,
-        ) -> usize {
-            if node_size == 1 {
-                nodes.push(PersistentNode {
-                    l: 0,
-                    r: 0,
-                    val: new_val.clone(),
-                });
-                nodes.len() - 1
-            } else {
-                let half = node_size / 2;
-                let (l, r) = if i < half {
-                    (
-                        set_impl(nodes[now].l, half, i, new_val, nodes, pair_op),
-                        nodes[now].r,
-                    )
-                } else {
-                    (
-                        nodes[now].l,
-                        set_impl(nodes[now].r, half, i - half, new_val, nodes, pair_op),
-                    )
-                };
-                nodes.push(PersistentNode {
-                    l,
-                    r,
-                    val: (pair_op)(nodes[l].val.clone(), nodes[r].val.clone()),
-                });
-                nodes.len() - 1
-            }
-        }
-        let ver_toot_new = set_impl(
-            self.ver_roots[ver],
-            self.n2,
-            i,
-            &new_val,
-            &mut self.nodes,
-            self.pair_op,
-        );
+        let ver_toot_new = self.set_impl(self.ver_roots[ver], self.n2, i, &new_val);
         self.ver_roots.push(ver_toot_new);
         self.ver_roots.len() - 1
     }
-    pub fn query(&self, ver: usize, l: usize, r: usize) -> T {
-        fn query_impl<T: Clone>(
-            now: usize,
-            node_size: usize,
-            l: usize,
-            r: usize,
-            nodes: &Vec<PersistentNode<T>>,
-            pair_op: fn(T, T) -> T,
-        ) -> T {
-            debug_assert!(r - l <= node_size);
-            if r - l == node_size {
-                nodes[now].val.clone()
+    fn set_impl(&mut self, now: usize, node_size: usize, i: usize, new_val: &T) -> usize {
+        if node_size == 1 {
+            self.nodes.push(PersistentNode {
+                l: 0,
+                r: 0,
+                val: new_val.clone(),
+            });
+            self.nodes.len() - 1
+        } else {
+            let half = node_size / 2;
+            let (l, r) = if i < half {
+                (
+                    self.set_impl(self.nodes[now].l, half, i, new_val),
+                    self.nodes[now].r,
+                )
             } else {
-                let half = node_size / 2;
-                debug_assert!(half > 0);
-                debug_assert!(nodes[now].l > 0);
-                if r == 0 || r <= half {
-                    // only left half
-                    query_impl(nodes[now].l, half, l, r, nodes, pair_op)
-                } else if half <= l {
-                    // only right half
-                    query_impl(nodes[now].r, half, l - half, r - half, nodes, pair_op)
-                } else {
-                    // split
-                    (pair_op)(
-                        query_impl(nodes[now].l, half, l, half, nodes, pair_op),
-                        query_impl(nodes[now].r, half, 0, r - half, nodes, pair_op),
-                    )
-                }
-            }
+                (
+                    self.nodes[now].l,
+                    self.set_impl(self.nodes[now].r, half, i - half, new_val),
+                )
+            };
+            self.nodes.push(PersistentNode {
+                l,
+                r,
+                val: (self.pair_op)(self.nodes[l].val.clone(), self.nodes[r].val.clone()),
+            });
+            self.nodes.len() - 1
         }
-        query_impl(
-            self.ver_roots[ver],
-            self.n2,
-            l,
-            r + 1,
-            &self.nodes,
-            self.pair_op,
-        )
     }
-    pub fn get(&self, ver: usize, i: usize) -> T {
-        fn get_impl<T: Clone>(
-            now: usize,
-            node_size: usize,
-            i: usize,
-            nodes: &[PersistentNode<T>],
-        ) -> T {
-            debug_assert!(now < nodes.len());
-            if node_size == 1 {
-                return nodes[now].val.clone();
-            }
+    pub fn query(&self, ver: usize, l: usize, r: usize) -> T {
+        self.query_impl(self.ver_roots[ver], self.n2, l, r + 1)
+    }
+    fn query_impl(&self, now: usize, node_size: usize, l: usize, r: usize) -> T {
+        debug_assert!(r - l <= node_size);
+        if r - l == node_size {
+            self.nodes[now].val.clone()
+        } else {
             let half = node_size / 2;
             debug_assert!(half > 0);
-            if i < half {
-                get_impl(nodes[now].l, half, i, nodes)
+            debug_assert!(self.nodes[now].l > 0);
+            if r == 0 || r <= half {
+                // only left half
+                self.query_impl(self.nodes[now].l, half, l, r)
+            } else if half <= l {
+                // only right half
+                self.query_impl(self.nodes[now].r, half, l - half, r - half)
             } else {
-                get_impl(nodes[now].r, half, i - half, nodes)
+                // split
+                (self.pair_op)(
+                    self.query_impl(self.nodes[now].l, half, l, half),
+                    self.query_impl(self.nodes[now].r, half, 0, r - half),
+                )
             }
         }
-        get_impl(self.ver_roots[ver], self.n2, i, &self.nodes)
+    }
+    pub fn get(&self, ver: usize, i: usize) -> T {
+        self.get_impl(self.ver_roots[ver], self.n2, i)
+    }
+    fn get_impl(&self, now: usize, node_size: usize, i: usize) -> T {
+        debug_assert!(now < self.nodes.len());
+        if node_size == 1 {
+            return self.nodes[now].val.clone();
+        }
+        let half = node_size / 2;
+        debug_assert!(half > 0);
+        if i < half {
+            self.get_impl(self.nodes[now].l, half, i)
+        } else {
+            self.get_impl(self.nodes[now].r, half, i - half)
+        }
     }
 }
 #[snippet("PersistentSegmentTree")]
