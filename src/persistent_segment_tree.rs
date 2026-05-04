@@ -95,7 +95,11 @@ impl<T: Clone> PersistentSegmentTree<T> {
         }
     }
     pub fn query(&self, ver: usize, l: usize, r: usize) -> T {
-        self.query_impl(self.ver_roots[ver], self.n2, l, r + 1)
+        assert!(ver < self.ver_roots.len(), "version index out of bounds");
+        assert!(l <= r, "query range must satisfy l <= r");
+        assert!(r < self.n, "query range out of bounds");
+        let r_exclusive = r.checked_add(1).expect("query upper bound overflow");
+        self.query_impl(self.ver_roots[ver], self.n2, l, r_exclusive)
     }
     fn query_impl(&self, now: usize, node_size: usize, l: usize, r: usize) -> T {
         debug_assert!(r - l <= node_size);
