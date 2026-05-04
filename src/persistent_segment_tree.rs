@@ -147,24 +147,26 @@ impl<T: Clone> PersistentSegmentTree<T> {
             self.pair_op,
         )
     }
-    fn get_leaf(&self, ver: usize, i: usize) -> usize {
-        fn calc_node_impl<T: Clone>(
+    fn get(&self, ver: usize, i: usize) -> T {
+        fn get_impl<T: Clone>(
             now: usize,
             node_size: usize,
             i: usize,
             nodes: &[PersistentNode<T>],
-        ) -> usize {
+        ) -> T {
             debug_assert!(now < nodes.len());
             if node_size == 1 {
-                return now;
+                return nodes[now].val.clone();
             }
-            if i < node_size / 2 {
-                calc_node_impl(nodes[now].l, node_size / 2, i, nodes)
+            let half = node_size / 2;
+            debug_assert!(half > 0);
+            if i < half {
+                get_impl(nodes[now].l, half, i, nodes)
             } else {
-                calc_node_impl(nodes[now].r, node_size / 2, i - node_size / 2, nodes)
+                get_impl(nodes[now].r, half, i - half, nodes)
             }
         }
-        calc_node_impl(self.ver_roots[ver], self.n2, i, &self.nodes)
+        get_impl(self.ver_roots[ver], self.n2, i, &self.nodes)
     }
 }
 #[snippet("PersistentSegmentTree")]
@@ -174,7 +176,7 @@ impl<T: Clone + std::fmt::Debug> std::fmt::Debug for PersistentSegmentTree<T> {
         for ver in 0..self.ver_roots.len() {
             write!(f, "[")?;
             for i in 0..self.n {
-                write!(f, "{:?}", self.nodes[self.get_leaf(ver, i)].val)?;
+                write!(f, "{:?}", self.get(ver, i))?;
                 if i < self.n - 1 {
                     write!(f, ", ")?
                 }
@@ -191,7 +193,7 @@ impl<T: Clone + std::fmt::Display> std::fmt::Display for PersistentSegmentTree<T
         for ver in 0..self.ver_roots.len() {
             write!(f, "[")?;
             for i in 0..self.n {
-                write!(f, "{}", self.nodes[self.get_leaf(ver, i)].val)?;
+                write!(f, "{}", self.get(ver, i))?;
                 if i < self.n - 1 {
                     write!(f, ", ")?
                 }
