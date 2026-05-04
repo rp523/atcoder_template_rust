@@ -201,3 +201,42 @@ impl<T: Clone + std::fmt::Display> std::fmt::Display for PersistentSegmentTree<T
         write!(f, "]")
     }
 }
+
+mod test {
+    #[test]
+    pub fn random() {
+        use super::PersistentSegmentTree;
+        use crate::segment_tree::SegmentTree;
+        use rand::{Rng, SeedableRng};
+        use rand_chacha::ChaChaRng;
+        const T: usize = 64;
+        const N: usize = 32;
+        const V: i32 = 100;
+        let mut rng = ChaChaRng::from_seed([0; 32]);
+        for f in [std::cmp::max, std::cmp::min, |x, y| x + y] {
+            for _ in 0..T {
+                let n = rng.random_range(1..=N);
+                let mut pseg = PersistentSegmentTree::<i32>::from_vec(f, vec![0; n]);
+                let mut segs = vec![SegmentTree::<i32>::from_vec(f, vec![0; n])];
+                for _ in 0..T {
+                    let pver = rng.random_range(0..segs.len());
+                    let at = rng.random_range(0..n);
+                    let val = rng.random_range(-V..=V);
+                    let mut nseg = segs[pver].clone();
+                    nseg.set(at, val);
+                    segs.push(nseg);
+                    assert_eq!(segs.len() - 1, pseg.set(pver, at, val));
+                    for (ver, seg) in segs.iter().enumerate() {
+                        for i in 0..n {
+                            for j in i..n {
+                                let expected = seg.query(i, j);
+                                let actual = pseg.query(ver, i, j);
+                                assert_eq!(expected, actual);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
