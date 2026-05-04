@@ -16,6 +16,7 @@ pub mod matrix;
 pub mod mo;
 pub mod modint;
 pub mod my_string;
+pub mod persistent_segment_tree;
 pub mod rational;
 pub mod remainder;
 pub mod rooted_tree;

@@ -298,7 +298,9 @@ impl<T: Clone + std::fmt::Debug> std::fmt::Debug for SegmentTree<T> {
         write!(f, "]")
     }
 }
-pub mod test {
+
+#[cfg(test)]
+mod test {
     #[test]
     pub fn query() {
         use rand::{Rng, SeedableRng};
