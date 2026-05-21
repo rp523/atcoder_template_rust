@@ -1,6 +1,7 @@
 use cargo_snippet::snippet;
 
 #[snippet("XorShift64")]
+#[derive(Clone, Debug)]
 pub struct XorShift64(usize);
 #[snippet("XorShift64")]
 impl XorShift64 {

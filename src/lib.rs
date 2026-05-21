@@ -7,6 +7,7 @@ pub mod dynamic_connectivity;
 pub mod floor_sum;
 pub mod flow;
 pub mod hld;
+pub mod implicit_treap;
 pub mod integer;
 pub mod into_permutation;
 pub mod lazy_segment_tree;
