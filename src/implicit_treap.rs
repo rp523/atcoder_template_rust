@@ -129,7 +129,7 @@ where
             sub_sz: 1,
             left: None,
             right: None,
-            priority: self.rng.next_usize() as u32,
+            priority: (self.rng.next_usize() & 0x00000000ffffffff) as u32,
         };
         let v = if let Some(v) = self.empties.pop() {
             self.nodes[v] = new_info;
