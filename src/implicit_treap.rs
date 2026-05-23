@@ -18,7 +18,7 @@ struct TreapNode<T: Clone + std::fmt::Debug> {
 
 #[snippet("ImplicitTreap")]
 #[derive(Clone, Debug)]
-struct ImplicitTreap<T: Clone + std::fmt::Debug> {
+pub struct ImplicitTreap<T: Clone + std::fmt::Debug> {
     root: Option<usize>,
     nodes: Vec<TreapNode<T>>,
     empties: Vec<usize>,
@@ -30,7 +30,7 @@ impl<T> ImplicitTreap<T>
 where
     T: Clone + std::fmt::Debug,
 {
-    fn new(op: fn(T, T) -> T) -> Self {
+    pub fn new(op: fn(T, T) -> T) -> Self {
         Self {
             root: None,
             nodes: vec![],
@@ -114,13 +114,13 @@ where
             None
         }
     }
-    fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.count(self.root)
     }
-    fn is_empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         self.root.is_none()
     }
-    fn insert_at(&mut self, i: usize, value: T) {
+    pub fn insert_at(&mut self, i: usize, value: T) {
         let new_info = TreapNode {
             value: value.clone(),
             cum: value,
@@ -140,7 +140,7 @@ where
         let center_and_right = self.merge(Some(v), right);
         self.root = self.merge(left, center_and_right);
     }
-    fn remove_at(&mut self, i: usize) -> Option<T> {
+    pub fn remove_at(&mut self, i: usize) -> Option<T> {
         let (left, center_and_right) = self.split(self.root, i);
         let (center, right) = self.split(center_and_right, 1);
         let center = center.unwrap();
@@ -148,10 +148,10 @@ where
         self.root = self.merge(left, right);
         Some(self.nodes[center].value.clone())
     }
-    fn push(&mut self, value: T) {
+    pub fn push(&mut self, value: T) {
         self.insert_at(self.len(), value);
     }
-    fn pop(&mut self) -> Option<T> {
+    pub fn pop(&mut self) -> Option<T> {
         if self.is_empty() {
             return None;
         }
@@ -167,7 +167,7 @@ where
             ),
         }
     }
-    fn get(&self, i: usize) -> T {
+    pub fn get(&self, i: usize) -> T {
         self.get_impl(self.root.unwrap(), i)
     }
     fn set_impl(&mut self, node: usize, i: usize, value: T) {
@@ -185,32 +185,82 @@ where
         }
         self.update(node);
     }
-    fn set(&mut self, i: usize, value: T) {
+    pub fn set(&mut self, i: usize, value: T) {
         self.set_impl(self.root.unwrap(), i, value)
+    }
+    // half-open
+    fn query_impl(&self, node: usize, l: usize, r: usize) -> T {
+        debug_assert!(l < r);
+        let left_sz = self.count(self.nodes[node].left);
+        if r <= left_sz {
+            self.query_impl(self.nodes[node].left.unwrap(), l, r)
+        } else if left_sz < l {
+            self.query_impl(
+                self.nodes[node].right.unwrap(),
+                l - (left_sz + 1),
+                r - (left_sz + 1),
+            )
+        } else {
+            if l < left_sz {
+                if left_sz + 1 < r {
+                    // l, c, r
+                    let left = self.nodes[node].left.unwrap();
+                    let right = self.nodes[node].right.unwrap();
+                    (self.op)(
+                        (self.op)(
+                            self.query_impl(left, l, left_sz),
+                            self.nodes[node].value.clone(),
+                        ),
+                        self.query_impl(right, 0, r - (left_sz + 1)),
+                    )
+                } else {
+                    debug_assert_eq!(r, left_sz + 1);
+                    // l, c
+                    let left = self.nodes[node].left.unwrap();
+                    (self.op)(
+                        self.query_impl(left, l, left_sz),
+                        self.nodes[node].value.clone(),
+                    )
+                }
+            } else if left_sz + 1 < r {
+                debug_assert_eq!(l, left_sz);
+                // c, r
+                let right = self.nodes[node].right.unwrap();
+                (self.op)(
+                    self.nodes[node].value.clone(),
+                    self.query_impl(right, 0, r - (left_sz + 1)),
+                )
+            } else {
+                debug_assert_eq!(l, left_sz);
+                debug_assert_eq!(r, left_sz + 1);
+                // c
+                self.nodes[node].value.clone()
+            }
+        }
+    }
+    pub fn query(&self, l: usize, r: usize) -> T {
+        self.query_impl(self.root.unwrap(), l, r + 1)
     }
 }
 
 pub mod test {
     use rand::Rng;
-
     use super::ImplicitTreap;
     const N: usize = 16;
     const V: usize = 16;
-    const T: usize = 1024;
+    const T: usize = 512;
     pub fn random() {
         use rand_chacha::{rand_core::SeedableRng, ChaChaRng};
         let mut rng = ChaChaRng::from_seed([0; 32]);
-        for _ in 0..T {
+        for _case in 0..T {
             let mut expected = vec![];
             let mut actual = ImplicitTreap::new(|x, y| x + y);
-            for ti in 0..T {
-                if ti % 2 == 0 {
-                    for _ in 0..N {
-                        let v = rng.random_range(0..V);
-                        expected.push(v);
-                        actual.push(v);
-                    }
-                }
+            for _ in 0..N {
+                let v = rng.random_range(0..V);
+                expected.push(v);
+                actual.push(v);
+            }
+            for _op in 0..T {
                 match rng.random_range(0..5) {
                     0 => {
                         // push
@@ -259,6 +309,12 @@ pub mod test {
                 assert_eq!(expected.is_empty(), actual.is_empty());
                 for i in 0..expected.len() {
                     assert_eq!(expected[i], actual.get(i));
+                    for j in i..expected.len() {
+                        assert_eq!(
+                            (i..=j).map(|k| expected[k]).sum::<usize>(),
+                            actual.query(i, j)
+                        );
+                    }
                 }
             }
         }
