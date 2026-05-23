@@ -19,11 +19,11 @@ struct TreapNode<T: Clone + std::fmt::Debug> {
 #[snippet("ImplicitTreap")]
 #[derive(Clone, Debug)]
 struct ImplicitTreap<T: Clone + std::fmt::Debug> {
-    rng: XorShift64,
+    root: Option<usize>,
     nodes: Vec<TreapNode<T>>,
     empties: Vec<usize>,
+    rng: XorShift64,
     op: fn(T, T) -> T,
-    root: Option<usize>,
 }
 
 impl<T> ImplicitTreap<T>
@@ -32,11 +32,11 @@ where
 {
     fn new(op: fn(T, T) -> T) -> Self {
         Self {
-            rng: XorShift64::new(),
+            root: None,
             nodes: vec![],
             empties: vec![],
+            rng: XorShift64::new(),
             op,
-            root: None,
         }
     }
     fn count(&self, node: Option<usize>) -> usize {
@@ -54,23 +54,26 @@ where
                 (
                     self.nodes[left].sub_sz + 1 + self.nodes[right].sub_sz,
                     (self.op)(
-                        (self.op)(self.nodes[left].cum.clone(), self.nodes[node].cum.clone()),
+                        (self.op)(self.nodes[left].cum.clone(), self.nodes[node].value.clone()),
                         self.nodes[right].cum.clone(),
                     ),
                 )
             } else {
                 (
                     self.nodes[left].sub_sz + 1,
-                    (self.op)(self.nodes[left].cum.clone(), self.nodes[node].cum.clone()),
+                    (self.op)(self.nodes[left].cum.clone(), self.nodes[node].value.clone()),
                 )
             }
         } else if let Some(right) = self.nodes[node].right {
             (
                 1 + self.nodes[right].sub_sz,
-                (self.op)(self.nodes[node].cum.clone(), self.nodes[right].cum.clone()),
+                (self.op)(
+                    self.nodes[node].cum.clone(),
+                    self.nodes[right].value.clone(),
+                ),
             )
         } else {
-            (1, self.nodes[node].cum.clone())
+            (1, self.nodes[node].value.clone())
         };
         Some(node)
     }
@@ -170,8 +173,8 @@ where
     fn set_impl(&mut self, node: usize, i: usize, value: T) {
         match i.cmp(&self.count(self.nodes[node].left)) {
             std::cmp::Ordering::Equal => {
-                self.nodes[node].cum = value.clone();
-                self.nodes[node].value = value;
+                self.nodes[node].value = value.clone();
+                self.nodes[node].cum = value;
             }
             std::cmp::Ordering::Less => self.set_impl(self.nodes[node].left.unwrap(), i, value),
             std::cmp::Ordering::Greater => self.set_impl(
@@ -191,6 +194,7 @@ pub mod test {
     use rand::Rng;
 
     use super::ImplicitTreap;
+    const N: usize = 16;
     const V: usize = 16;
     const T: usize = 1024;
     pub fn random() {
@@ -199,7 +203,14 @@ pub mod test {
         for _ in 0..T {
             let mut expected = vec![];
             let mut actual = ImplicitTreap::new(|x, y| x + y);
-            for _ in 0..T {
+            for ti in 0..T {
+                if ti % 2 == 0 {
+                    for _ in 0..N {
+                        let v = rng.random_range(0..V);
+                        expected.push(v);
+                        actual.push(v);
+                    }
+                }
                 match rng.random_range(0..5) {
                     0 => {
                         // push
