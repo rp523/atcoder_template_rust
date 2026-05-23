@@ -537,14 +537,14 @@ where
             ifact: vec![one],
         }
     }
-    pub fn factorial(&mut self, n: usize) -> T {
+    pub fn fact(&mut self, n: usize) -> T {
         while self.fact.len() <= n {
             self.fact
                 .push(self.fact[self.fact.len() - 1] * T::from(self.fact.len()))
         }
         self.fact[n]
     }
-    pub fn factorial_inv(&mut self, n: usize) -> T {
+    pub fn fact_inv(&mut self, n: usize) -> T {
         while self.fact.len() <= n {
             self.fact
                 .push(self.fact[self.fact.len() - 1] * T::from(self.fact.len()))
@@ -559,17 +559,20 @@ where
         }
         self.ifact[n]
     }
-    pub fn combination(&mut self, n: usize, k: usize) -> T {
+    pub fn comb(&mut self, n: usize, k: usize) -> T {
         if n < k {
             return T::from(0usize);
         }
-        self.factorial(n) * self.factorial_inv(n - k) * self.factorial_inv(k)
+        self.fact(n) * self.fact_inv(n - k) * self.fact_inv(k)
     }
-    pub fn permutation(&mut self, n: usize, k: usize) -> T {
+    pub fn comb_r(&mut self, n: usize, k: usize) -> T {
+        self.comb(n + k - 1, k)
+    }
+    pub fn perm(&mut self, n: usize, k: usize) -> T {
         if n < k {
             return T::from(0usize);
         }
-        self.factorial(n) * self.factorial_inv(n - k)
+        self.fact(n) * self.fact_inv(n - k)
     }
 }
 #[cfg(test)]
@@ -581,37 +584,37 @@ mod test {
         (1..=n).fold(1, |cum, x| cum * x)
     }
     #[test]
-    fn factorial() {
+    fn fact() {
         const N: usize = 10;
         type Mint = StaticModInt<1000000007>;
         let mut fact = Fact::<Mint>::new();
         for n in 0..=N {
-            let actual = fact.factorial(n);
+            let actual = fact.fact(n);
             let expected = fact_raw(n);
             assert_eq!(expected, actual.val());
         }
     }
     #[test]
-    fn combination() {
+    fn comb() {
         const N: usize = 10;
         type Mint = StaticModInt<1000000007>;
         let mut fact = Fact::<Mint>::new();
         for n in 0..=N {
             for k in 0..=n {
-                let actual = fact.combination(n, k);
+                let actual = fact.comb(n, k);
                 let expected = fact_raw(n) / fact_raw(n - k) / fact_raw(k);
                 assert_eq!(expected, actual.val());
             }
         }
     }
     #[test]
-    fn permutation() {
+    fn perm() {
         const N: usize = 10;
         type Mint = StaticModInt<1000000007>;
         let mut fact = Fact::<Mint>::new();
         for n in 0..=N {
             for k in 0..=n {
-                let actual = fact.permutation(n, k);
+                let actual = fact.perm(n, k);
                 let expected = fact_raw(n) / fact_raw(n - k);
                 assert_eq!(expected, actual.val());
             }
