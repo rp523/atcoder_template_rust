@@ -173,6 +173,24 @@ where
     fn get(&self, i: usize) -> T {
         self.get_impl(self.root.unwrap(), i)
     }
+    fn set_impl(&mut self, node: usize, i: usize, value: T) {
+        match i.cmp(&self.count(self.nodes[node].left)) {
+            std::cmp::Ordering::Equal => {
+                self.nodes[node].cum = value.clone();
+                self.nodes[node].value = value;
+            }
+            std::cmp::Ordering::Less => self.set_impl(self.nodes[node].left.unwrap(), i, value),
+            std::cmp::Ordering::Greater => self.set_impl(
+                self.nodes[node].right.unwrap(),
+                i - (1 + self.count(self.nodes[node].left)),
+                value,
+            ),
+        }
+        self.update(node);
+    }
+    fn set(&mut self, i: usize, value: T) {
+        self.set_impl(self.root.unwrap(), i, value)
+    }
 }
 
 pub mod test {
