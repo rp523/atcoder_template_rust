@@ -177,10 +177,14 @@ impl<'a> Iterator for EdgeIterator<'a> {
     type Item = (usize, usize);
     fn next(&mut self) -> Option<Self::Item> {
         let (a, b) = self.vit.next()?;
-        if a == b {
-            return None;
+        if self.vit.hld.head[a] == a {
+            Some((a.saturating_sub(1), b - 1))
+        } else if a < b {
+            Some((a, b - 1))
+        } else {
+            debug_assert_eq!(a, b);
+            None
         }
-        Some((a - 1, b - 1))
     }
 }
 

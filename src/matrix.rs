@@ -1,7 +1,7 @@
 use cargo_snippet::snippet;
 
 #[snippet("Matrix")]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Matrix<T> {
     h: usize,
     w: usize,
