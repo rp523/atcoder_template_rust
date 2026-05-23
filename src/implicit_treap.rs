@@ -1,5 +1,8 @@
 use crate::xor_shift::XorShift64;
+use cargo_snippet::snippet;
 
+#[snippet("ImplicitTreap")]
+#[snippet(include = "XorShift64")]
 #[derive(Clone, Debug)]
 struct TreapNode<T: Clone + std::fmt::Debug> {
     // status
@@ -13,6 +16,7 @@ struct TreapNode<T: Clone + std::fmt::Debug> {
     priority: u32,
 }
 
+#[snippet("ImplicitTreap")]
 #[derive(Clone, Debug)]
 struct ImplicitTreap<T: Clone + std::fmt::Debug> {
     rng: XorShift64,
