@@ -54,32 +54,23 @@ where
                 (
                     self.nodes[left].sub_sz + 1 + self.nodes[right].sub_sz,
                     (self.op)(
-                        (self.op)(
-                            self.nodes[left].value.clone(),
-                            self.nodes[node].value.clone(),
-                        ),
-                        self.nodes[right].value.clone(),
+                        (self.op)(self.nodes[left].cum.clone(), self.nodes[node].cum.clone()),
+                        self.nodes[right].cum.clone(),
                     ),
                 )
             } else {
                 (
                     self.nodes[left].sub_sz + 1,
-                    (self.op)(
-                        self.nodes[left].value.clone(),
-                        self.nodes[node].value.clone(),
-                    ),
+                    (self.op)(self.nodes[left].cum.clone(), self.nodes[node].cum.clone()),
                 )
             }
         } else if let Some(right) = self.nodes[node].right {
             (
                 1 + self.nodes[right].sub_sz,
-                (self.op)(
-                    self.nodes[node].value.clone(),
-                    self.nodes[right].value.clone(),
-                ),
+                (self.op)(self.nodes[node].cum.clone(), self.nodes[right].cum.clone()),
             )
         } else {
-            (1, self.nodes[node].value.clone())
+            (1, self.nodes[node].cum.clone())
         };
         Some(node)
     }
@@ -158,6 +149,9 @@ where
         self.insert_at(self.len(), value);
     }
     fn pop(&mut self) -> Option<T> {
+        if self.is_empty() {
+            return None;
+        }
         self.remove_at(self.len() - 1)
     }
     fn get_impl(&self, node: usize, i: usize) -> T {
@@ -197,53 +191,63 @@ pub mod test {
     use rand::Rng;
 
     use super::ImplicitTreap;
-    const N: usize = 128;
-    const V: usize = 128;
-    const T: usize = 128;
-    pub fn get() {
+    const V: usize = 16;
+    const T: usize = 1024;
+    pub fn random() {
         use rand_chacha::{rand_core::SeedableRng, ChaChaRng};
         let mut rng = ChaChaRng::from_seed([0; 32]);
         for _ in 0..T {
             let mut expected = vec![];
             let mut actual = ImplicitTreap::new(|x, y| x + y);
-            for _ in 0..N {
-                let v = rng.random_range(0..V);
-                if rng.random_range(0..2) == 0 {
-                    let at = rng.random_range(0..=expected.len());
-                    actual.insert_at(at, v);
-                    expected = expected
-                        .iter()
-                        .copied()
-                        .take(at)
-                        .chain(vec![v])
-                        .chain(expected.iter().copied().skip(at))
-                        .collect::<Vec<_>>();
-                } else {
-                    expected.push(v);
-                    actual.push(v);
-                }
-                assert_eq!(expected.len(), actual.len());
-                for i in 0..actual.len() {
-                    let e = expected[i];
-                    let a = actual.get(i);
-                    assert_eq!(e, a);
-                }
-            }
-            for _ in 0..N {
-                if rng.random_range(0..2) == 0 {
-                    let at = rng.random_range(0..expected.len());
-                    expected.remove(at);
-                    actual.remove_at(at);
-                } else {
-                    assert_eq!(expected.pop(), actual.pop());
-                }
-                assert_eq!(expected.is_empty(), actual.is_empty());
-                if !expected.is_empty() {
-                    for i in 0..actual.len() {
-                        let e = expected[i];
-                        let a = actual.get(i);
-                        assert_eq!(e, a);
+            for _ in 0..T {
+                match rng.random_range(0..5) {
+                    0 => {
+                        // push
+                        let v = rng.random_range(0..V);
+                        expected.push(v);
+                        actual.push(v);
                     }
+                    1 => {
+                        // pop
+                        assert_eq!(expected.pop(), actual.pop());
+                    }
+                    2 => {
+                        // set
+                        if !expected.is_empty() {
+                            let at = rng.random_range(0..expected.len());
+                            let v = rng.random_range(0..V);
+                            expected[at] = v;
+                            actual.set(at, v);
+                        }
+                    }
+                    3 => {
+                        // remove_at
+                        if !expected.is_empty() {
+                            let at = rng.random_range(0..expected.len());
+                            expected.remove(at);
+                            actual.remove_at(at);
+                        }
+                    }
+                    4 => {
+                        // insert_at
+                        let at = rng.random_range(0..=expected.len());
+                        let v = rng.random_range(0..V);
+                        expected = expected
+                            .iter()
+                            .copied()
+                            .take(at)
+                            .chain(vec![v])
+                            .chain(expected.iter().copied().skip(at))
+                            .collect::<Vec<_>>();
+                        actual.insert_at(at, v);
+                    }
+                    _ => unreachable!(),
+                }
+                // check
+                assert_eq!(expected.len(), actual.len());
+                assert_eq!(expected.is_empty(), actual.is_empty());
+                for i in 0..expected.len() {
+                    assert_eq!(expected[i], actual.get(i));
                 }
             }
         }
