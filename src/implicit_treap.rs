@@ -172,42 +172,27 @@ where
         }
         self.remove_at(self.len() - 1)
     }
-    fn get_impl(&mut self, node: usize, i: usize) -> T {
-        self.push_down(node);
-        match i.cmp(&self.count(self.nodes[node].left)) {
-            std::cmp::Ordering::Equal => self.nodes[node].value.clone(),
-            std::cmp::Ordering::Less => self.get_impl(self.nodes[node].left.unwrap(), i),
-            std::cmp::Ordering::Greater => self.get_impl(
-                self.nodes[node].right.unwrap(),
-                i - (1 + self.count(self.nodes[node].left)),
-            ),
-        }
-    }
     pub fn get(&mut self, i: usize) -> T {
-        self.get_impl(self.root.unwrap(), i)
-    }
-    fn set_impl(&mut self, node: usize, i: usize, value: T) {
-        self.push_down(node);
-        match i.cmp(&self.count(self.nodes[node].left)) {
-            std::cmp::Ordering::Equal => {
-                self.nodes[node].value = value.clone();
-                self.nodes[node].cum = value;
-            }
-            std::cmp::Ordering::Less => self.set_impl(self.nodes[node].left.unwrap(), i, value),
-            std::cmp::Ordering::Greater => self.set_impl(
-                self.nodes[node].right.unwrap(),
-                i - (1 + self.count(self.nodes[node].left)),
-                value,
-            ),
-        }
-        self.update(node);
+        debug_assert!(i < self.len());
+        let (l, cr) = self.split(self.root, i);
+        let (c, r) = self.split(cr, 1);
+        let ret = self.nodes[c.unwrap()].cum.clone();
+        let cr = self.merge(c, r);
+        self.root = self.merge(l, cr);
+        ret
     }
     pub fn set(&mut self, i: usize, value: T) {
-        self.set_impl(self.root.unwrap(), i, value)
+        debug_assert!(i < self.len());
+        let (l, cr) = self.split(self.root, i);
+        let (c, r) = self.split(cr, 1);
+        self.nodes[c.unwrap()].value = value.clone();
+        self.nodes[c.unwrap()].cum = value;
+        let cr = self.merge(c, r);
+        self.root = self.merge(l, cr);
     }
-    // half-open
-    fn query_impl(&mut self, li: usize, ri: usize) -> T {
-        debug_assert!(li < ri);
+    pub fn query(&mut self, li: usize, ri: usize) -> T {
+        debug_assert!(li <= ri);
+        let ri = ri + 1; // closed interval -> half-open interval
         let (lc, r) = self.split(self.root, ri);
         let (l, c) = self.split(lc, li);
         let ret = self.nodes[c.unwrap()].cum.clone();
@@ -215,21 +200,24 @@ where
         self.root = self.merge(l, cr);
         ret
     }
-    pub fn query(&mut self, l: usize, r: usize) -> T {
-        self.query_impl(l, r + 1)
-    }
     fn push_down(&mut self, node: usize) {
         if let Some(lazy) = self.nodes[node].lazy.clone() {
             self.nodes[node].value = (self.update_op)(self.nodes[node].value.clone(), lazy.clone());
             if let Some(left) = self.nodes[node].left {
-                if let Some(lazy_l) = self.nodes[left].lazy.clone() {
-                    self.nodes[left].lazy = Some((self.update_concat)(lazy_l, lazy.clone()));
-                }
+                self.nodes[left].lazy =
+                    Some(if let Some(lazy_old) = self.nodes[left].lazy.clone() {
+                        (self.update_concat)(lazy_old, lazy.clone())
+                    } else {
+                        lazy.clone()
+                    });
             }
             if let Some(right) = self.nodes[node].right {
-                if let Some(lazy_l) = self.nodes[right].lazy.clone() {
-                    self.nodes[right].lazy = Some((self.update_concat)(lazy_l, lazy.clone()));
-                }
+                self.nodes[right].lazy =
+                    Some(if let Some(lazy_old) = self.nodes[right].lazy.clone() {
+                        (self.update_concat)(lazy_old, lazy.clone())
+                    } else {
+                        lazy.clone()
+                    });
             }
         }
     }
