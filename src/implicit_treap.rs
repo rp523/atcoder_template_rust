@@ -64,7 +64,10 @@ where
                 (
                     self.nodes[left].sub_sz + 1 + self.nodes[right].sub_sz,
                     (self.pair_op)(
-                        (self.pair_op)(self.nodes[left].cum.clone(), self.nodes[node].value.clone()),
+                        (self.pair_op)(
+                            self.nodes[left].cum.clone(),
+                            self.nodes[node].value.clone(),
+                        ),
                         self.nodes[right].cum.clone(),
                     ),
                 )
@@ -78,8 +81,8 @@ where
             (
                 1 + self.nodes[right].sub_sz,
                 (self.pair_op)(
-                    self.nodes[node].cum.clone(),
-                    self.nodes[right].value.clone(),
+                    self.nodes[node].value.clone(),
+                    self.nodes[right].cum.clone(),
                 ),
             )
         } else {
@@ -203,57 +206,17 @@ where
         self.set_impl(self.root.unwrap(), i, value)
     }
     // half-open
-    fn query_impl(&self, node: usize, l: usize, r: usize) -> T {
-        debug_assert!(l < r);
-        let left_sz = self.count(self.nodes[node].left);
-        if r <= left_sz {
-            self.query_impl(self.nodes[node].left.unwrap(), l, r)
-        } else if left_sz < l {
-            self.query_impl(
-                self.nodes[node].right.unwrap(),
-                l - (left_sz + 1),
-                r - (left_sz + 1),
-            )
-        } else {
-            if l < left_sz {
-                if left_sz + 1 < r {
-                    // l, c, r
-                    let left = self.nodes[node].left.unwrap();
-                    let right = self.nodes[node].right.unwrap();
-                    (self.pair_op)(
-                        (self.pair_op)(
-                            self.query_impl(left, l, left_sz),
-                            self.nodes[node].value.clone(),
-                        ),
-                        self.query_impl(right, 0, r - (left_sz + 1)),
-                    )
-                } else {
-                    debug_assert_eq!(r, left_sz + 1);
-                    // l, c
-                    let left = self.nodes[node].left.unwrap();
-                    (self.pair_op)(
-                        self.query_impl(left, l, left_sz),
-                        self.nodes[node].value.clone(),
-                    )
-                }
-            } else if left_sz + 1 < r {
-                debug_assert_eq!(l, left_sz);
-                // c, r
-                let right = self.nodes[node].right.unwrap();
-                (self.pair_op)(
-                    self.nodes[node].value.clone(),
-                    self.query_impl(right, 0, r - (left_sz + 1)),
-                )
-            } else {
-                debug_assert_eq!(l, left_sz);
-                debug_assert_eq!(r, left_sz + 1);
-                // c
-                self.nodes[node].value.clone()
-            }
-        }
+    fn query_impl(&mut self, li: usize, ri: usize) -> T {
+        debug_assert!(li < ri);
+        let (lc, r) = self.split(self.root, ri);
+        let (l, c) = self.split(lc, li);
+        let ret = self.nodes[c.unwrap()].cum.clone();
+        let cr = self.merge(c, r);
+        self.root = self.merge(l, cr);
+        ret
     }
-    pub fn query(&self, l: usize, r: usize) -> T {
-        self.query_impl(self.root.unwrap(), l, r + 1)
+    pub fn query(&mut self, l: usize, r: usize) -> T {
+        self.query_impl(l, r + 1)
     }
     fn push_down(&mut self, node: usize) {
         if let Some(lazy) = self.nodes[node].lazy.clone() {
@@ -273,8 +236,8 @@ where
 }
 
 pub mod test {
-    use rand::Rng;
     use super::ImplicitTreap;
+    use rand::Rng;
     const N: usize = 16;
     const V: usize = 16;
     const T: usize = 512;
@@ -283,7 +246,8 @@ pub mod test {
         let mut rng = ChaChaRng::from_seed([0; 32]);
         for _case in 0..T {
             let mut expected = vec![];
-            let mut actual = ImplicitTreap::<usize ,usize>::new(std::cmp::max, |x, y| x + y, |x, y| x + y);
+            let mut actual =
+                ImplicitTreap::<usize, usize>::new(std::cmp::max, |x, y| x + y, |x, y| x + y);
             for _ in 0..N {
                 let v = rng.random_range(0..V);
                 expected.push(v);
