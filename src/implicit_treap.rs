@@ -4,11 +4,12 @@ use cargo_snippet::snippet;
 #[snippet("ImplicitTreap")]
 #[snippet(include = "XorShift64")]
 #[derive(Clone, Debug)]
-struct TreapNode<T: Clone + std::fmt::Debug> {
+struct TreapNode<T: Clone + std::fmt::Debug, M: Clone + std::fmt::Debug> {
     // status
     value: T,
     cum: T,
     sub_sz: usize,
+    lazy: Option<M>,
     // connection
     left: Option<usize>,
     right: Option<usize>,
@@ -18,25 +19,34 @@ struct TreapNode<T: Clone + std::fmt::Debug> {
 
 #[snippet("ImplicitTreap")]
 #[derive(Clone, Debug)]
-pub struct ImplicitTreap<T: Clone + std::fmt::Debug> {
+pub struct ImplicitTreap<T: Clone + std::fmt::Debug, M: Clone + std::fmt::Debug> {
     root: Option<usize>,
-    nodes: Vec<TreapNode<T>>,
+    nodes: Vec<TreapNode<T, M>>,
     empties: Vec<usize>,
     rng: XorShift64,
-    op: fn(T, T) -> T,
+    pair_op: fn(T, T) -> T,
+    update_op: fn(T, M) -> T,
+    update_concat: fn(M, M) -> M,
 }
 
-impl<T> ImplicitTreap<T>
+impl<T, M> ImplicitTreap<T, M>
 where
     T: Clone + std::fmt::Debug,
+    M: Clone + std::fmt::Debug,
 {
-    pub fn new(op: fn(T, T) -> T) -> Self {
+    pub fn new(
+        pair_op: fn(T, T) -> T,
+        update_op: fn(T, M) -> T,
+        update_concat: fn(M, M) -> M,
+    ) -> Self {
         Self {
             root: None,
             nodes: vec![],
             empties: vec![],
             rng: XorShift64::new(),
-            op,
+            pair_op,
+            update_op,
+            update_concat,
         }
     }
     fn count(&self, node: Option<usize>) -> usize {
@@ -53,21 +63,21 @@ where
             if let Some(right) = self.nodes[node].right {
                 (
                     self.nodes[left].sub_sz + 1 + self.nodes[right].sub_sz,
-                    (self.op)(
-                        (self.op)(self.nodes[left].cum.clone(), self.nodes[node].value.clone()),
+                    (self.pair_op)(
+                        (self.pair_op)(self.nodes[left].cum.clone(), self.nodes[node].value.clone()),
                         self.nodes[right].cum.clone(),
                     ),
                 )
             } else {
                 (
                     self.nodes[left].sub_sz + 1,
-                    (self.op)(self.nodes[left].cum.clone(), self.nodes[node].value.clone()),
+                    (self.pair_op)(self.nodes[left].cum.clone(), self.nodes[node].value.clone()),
                 )
             }
         } else if let Some(right) = self.nodes[node].right {
             (
                 1 + self.nodes[right].sub_sz,
-                (self.op)(
+                (self.pair_op)(
                     self.nodes[node].cum.clone(),
                     self.nodes[right].value.clone(),
                 ),
@@ -82,6 +92,7 @@ where
         let Some(node) = node else {
             return (None, None);
         };
+        self.push_down(node);
         if at <= self.count(self.nodes[node].left) {
             let (nl, nr) = self.split(self.nodes[node].left, at);
             self.nodes[node].left = nr;
@@ -125,6 +136,7 @@ where
             value: value.clone(),
             cum: value,
             sub_sz: 1,
+            lazy: None,
             left: None,
             right: None,
             priority: (self.rng.next_usize() & 0x00000000ffffffff) as u32,
@@ -157,7 +169,8 @@ where
         }
         self.remove_at(self.len() - 1)
     }
-    fn get_impl(&self, node: usize, i: usize) -> T {
+    fn get_impl(&mut self, node: usize, i: usize) -> T {
+        self.push_down(node);
         match i.cmp(&self.count(self.nodes[node].left)) {
             std::cmp::Ordering::Equal => self.nodes[node].value.clone(),
             std::cmp::Ordering::Less => self.get_impl(self.nodes[node].left.unwrap(), i),
@@ -167,10 +180,11 @@ where
             ),
         }
     }
-    pub fn get(&self, i: usize) -> T {
+    pub fn get(&mut self, i: usize) -> T {
         self.get_impl(self.root.unwrap(), i)
     }
     fn set_impl(&mut self, node: usize, i: usize, value: T) {
+        self.push_down(node);
         match i.cmp(&self.count(self.nodes[node].left)) {
             std::cmp::Ordering::Equal => {
                 self.nodes[node].value = value.clone();
@@ -206,8 +220,8 @@ where
                     // l, c, r
                     let left = self.nodes[node].left.unwrap();
                     let right = self.nodes[node].right.unwrap();
-                    (self.op)(
-                        (self.op)(
+                    (self.pair_op)(
+                        (self.pair_op)(
                             self.query_impl(left, l, left_sz),
                             self.nodes[node].value.clone(),
                         ),
@@ -217,7 +231,7 @@ where
                     debug_assert_eq!(r, left_sz + 1);
                     // l, c
                     let left = self.nodes[node].left.unwrap();
-                    (self.op)(
+                    (self.pair_op)(
                         self.query_impl(left, l, left_sz),
                         self.nodes[node].value.clone(),
                     )
@@ -226,7 +240,7 @@ where
                 debug_assert_eq!(l, left_sz);
                 // c, r
                 let right = self.nodes[node].right.unwrap();
-                (self.op)(
+                (self.pair_op)(
                     self.nodes[node].value.clone(),
                     self.query_impl(right, 0, r - (left_sz + 1)),
                 )
@@ -241,6 +255,21 @@ where
     pub fn query(&self, l: usize, r: usize) -> T {
         self.query_impl(self.root.unwrap(), l, r + 1)
     }
+    fn push_down(&mut self, node: usize) {
+        if let Some(lazy) = self.nodes[node].lazy.clone() {
+            self.nodes[node].value = (self.update_op)(self.nodes[node].value.clone(), lazy.clone());
+            if let Some(left) = self.nodes[node].left {
+                if let Some(lazy_l) = self.nodes[left].lazy.clone() {
+                    self.nodes[left].lazy = Some((self.update_concat)(lazy_l, lazy.clone()));
+                }
+            }
+            if let Some(right) = self.nodes[node].right {
+                if let Some(lazy_l) = self.nodes[right].lazy.clone() {
+                    self.nodes[right].lazy = Some((self.update_concat)(lazy_l, lazy.clone()));
+                }
+            }
+        }
+    }
 }
 
 pub mod test {
@@ -254,7 +283,7 @@ pub mod test {
         let mut rng = ChaChaRng::from_seed([0; 32]);
         for _case in 0..T {
             let mut expected = vec![];
-            let mut actual = ImplicitTreap::new(|x, y| x + y);
+            let mut actual = ImplicitTreap::<usize ,usize>::new(std::cmp::max, |x, y| x + y, |x, y| x + y);
             for _ in 0..N {
                 let v = rng.random_range(0..V);
                 expected.push(v);
@@ -311,7 +340,7 @@ pub mod test {
                     assert_eq!(expected[i], actual.get(i));
                     for j in i..expected.len() {
                         assert_eq!(
-                            (i..=j).map(|k| expected[k]).sum::<usize>(),
+                            (i..=j).map(|k| expected[k]).max().unwrap(),
                             actual.query(i, j)
                         );
                     }
