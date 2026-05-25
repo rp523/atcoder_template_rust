@@ -244,31 +244,36 @@ where
     }
 }
 
-pub mod test {
+#[cfg(test)]
+mod test {
     use super::ImplicitTreap;
     use rand::Rng;
     const N: usize = 16;
     const V: usize = 16;
     const T: usize = 512;
-    pub fn random() {
+    #[test]
+    fn random() {
         use rand_chacha::{rand_core::SeedableRng, ChaChaRng};
         let mut rng = ChaChaRng::from_seed([0; 32]);
         for _case in 0..T {
             let mut expected = vec![];
-            let mut actual =
-                ImplicitTreap::<usize, usize>::new(std::cmp::max, std::cmp::max, std::cmp::max);
+            let mut actual = ImplicitTreap::<(usize, usize), usize>::new(
+                |x, y| (x.0 + y.0, x.1 + y.1),
+                |x, y| (x.0 + x.1 * y, x.1),
+                |x, y| x + y,
+            );
             for _ in 0..N {
                 let v = rng.random_range(0..V);
-                expected.push(v);
-                actual.push(v);
+                expected.push((v, 1));
+                actual.push((v, 1));
             }
             for _op in 0..T {
                 match rng.random_range(0..=5) {
                     0 => {
                         // push
                         let v = rng.random_range(0..V);
-                        expected.push(v);
-                        actual.push(v);
+                        expected.push((v, 1));
+                        actual.push((v, 1));
                     }
                     1 => {
                         // pop
@@ -279,8 +284,8 @@ pub mod test {
                         if !expected.is_empty() {
                             let at = rng.random_range(0..expected.len());
                             let v = rng.random_range(0..V);
-                            expected[at] = v;
-                            actual.set(at, v);
+                            expected[at] = (v, 1);
+                            actual.set(at, (v, 1));
                         }
                     }
                     3 => {
@@ -299,10 +304,10 @@ pub mod test {
                             .iter()
                             .copied()
                             .take(at)
-                            .chain(vec![v])
+                            .chain(vec![(v, 1)])
                             .chain(expected.iter().copied().skip(at))
                             .collect::<Vec<_>>();
-                        actual.insert_at(at, v);
+                        actual.insert_at(at, (v, 1));
                     }
                     5 => {
                         if !expected.is_empty() {
@@ -311,7 +316,7 @@ pub mod test {
                             let (l, r) = if l < r { (l, r) } else { (r, l) };
                             let v = rng.random_range(0..V);
                             for i in l..=r {
-                                expected[i] = std::cmp::max(expected[i], v);
+                                expected[i].0 += v;
                             }
                             actual.reserve(l, r, v);
                         }
@@ -325,7 +330,9 @@ pub mod test {
                     assert_eq!(expected[i], actual.get(i));
                     for j in i..expected.len() {
                         assert_eq!(
-                            (i..=j).map(|k| expected[k]).max().unwrap(),
+                            (i..=j)
+                                .map(|k| expected[k])
+                                .fold((0, 0), |x, y| (x.0 + y.0, x.1 + y.1)),
                             actual.query(i, j)
                         );
                     }
