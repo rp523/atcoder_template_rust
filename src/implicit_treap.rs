@@ -112,7 +112,9 @@ where
     }
     fn merge(&mut self, l: Option<usize>, r: Option<usize>) -> Option<usize> {
         if let Some(l) = l {
+            self.push_down(l);
             if let Some(r) = r {
+                self.push_down(r);
                 if self.nodes[l].priority > self.nodes[r].priority {
                     self.nodes[l].right = self.merge(self.nodes[l].right, Some(r));
                     self.update(l)
@@ -124,6 +126,7 @@ where
                 Some(l)
             }
         } else if let Some(r) = r {
+            self.push_down(r);
             Some(r)
         } else {
             None
@@ -201,9 +204,26 @@ where
         self.root = self.merge(l, cr);
         ret
     }
+    pub fn reserve(&mut self, li: usize, ri: usize, m: M) {
+        debug_assert!(li <= ri);
+        let ri = ri + 1; // closed interval -> half-open interval
+        let (lc, r) = self.split(self.root, ri);
+        let (l, c) = self.split(lc, li);
+        self.nodes[c.unwrap()].lazy = Some(
+            if let Some(lazy_old) = self.nodes[c.unwrap()].lazy.clone() {
+                (self.update_concat)(lazy_old, m)
+            } else {
+                m
+            },
+        );
+        let cr = self.merge(c, r);
+        self.root = self.merge(l, cr);
+    }
     fn push_down(&mut self, node: usize) {
         if let Some(lazy) = self.nodes[node].lazy.clone() {
+            self.nodes[node].lazy = None;
             self.nodes[node].value = (self.update_op)(self.nodes[node].value.clone(), lazy.clone());
+            self.nodes[node].cum = (self.update_op)(self.nodes[node].cum.clone(), lazy.clone());
             if let Some(left) = self.nodes[node].left {
                 self.nodes[left].lazy =
                     Some(if let Some(lazy_old) = self.nodes[left].lazy.clone() {
@@ -236,14 +256,14 @@ pub mod test {
         for _case in 0..T {
             let mut expected = vec![];
             let mut actual =
-                ImplicitTreap::<usize, usize>::new(std::cmp::max, |x, y| x + y, |x, y| x + y);
+                ImplicitTreap::<usize, usize>::new(std::cmp::max, std::cmp::max, std::cmp::max);
             for _ in 0..N {
                 let v = rng.random_range(0..V);
                 expected.push(v);
                 actual.push(v);
             }
             for _op in 0..T {
-                match rng.random_range(0..5) {
+                match rng.random_range(0..=5) {
                     0 => {
                         // push
                         let v = rng.random_range(0..V);
@@ -283,6 +303,18 @@ pub mod test {
                             .chain(expected.iter().copied().skip(at))
                             .collect::<Vec<_>>();
                         actual.insert_at(at, v);
+                    }
+                    5 => {
+                        if !expected.is_empty() {
+                            let l = rng.random_range(0..expected.len());
+                            let r = rng.random_range(0..expected.len());
+                            let (l, r) = if l < r { (l, r) } else { (r, l) };
+                            let v = rng.random_range(0..V);
+                            for i in l..=r {
+                                expected[i] = std::cmp::max(expected[i], v);
+                            }
+                            actual.reserve(l, r, v);
+                        }
                     }
                     _ => unreachable!(),
                 }
