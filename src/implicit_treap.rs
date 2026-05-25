@@ -195,8 +195,7 @@ where
     }
     pub fn query(&mut self, li: usize, ri: usize) -> T {
         debug_assert!(li <= ri);
-        let ri = ri + 1; // closed interval -> half-open interval
-        let (lc, r) = self.split(self.root, ri);
+        let (lc, r) = self.split(self.root, ri + 1);
         let (l, c) = self.split(lc, li);
         let ret = self.nodes[c.unwrap()].cum.clone();
         let cr = self.merge(c, r);
@@ -205,8 +204,7 @@ where
     }
     pub fn reserve(&mut self, li: usize, ri: usize, m: M) {
         debug_assert!(li <= ri);
-        let ri = ri + 1; // closed interval -> half-open interval
-        let (lc, r) = self.split(self.root, ri);
+        let (lc, r) = self.split(self.root, ri + 1);
         let (l, c) = self.split(lc, li);
         self.nodes[c.unwrap()].lazy = Some(
             if let Some(lazy_old) = self.nodes[c.unwrap()].lazy.clone() {
