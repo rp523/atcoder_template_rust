@@ -29,6 +29,7 @@ pub struct ImplicitTreap<T: Clone + std::fmt::Debug, M: Clone + std::fmt::Debug>
     update_concat: fn(M, M) -> M,
 }
 
+#[snippet("ImplicitTreap")]
 impl<T, M> ImplicitTreap<T, M>
 where
     T: Clone + std::fmt::Debug,
