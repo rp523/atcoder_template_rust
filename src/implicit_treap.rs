@@ -112,13 +112,13 @@ where
     }
     fn merge(&mut self, l: Option<usize>, r: Option<usize>) -> Option<usize> {
         if let Some(l) = l {
-            self.push_down(l);
             if let Some(r) = r {
-                self.push_down(r);
                 if self.nodes[l].priority > self.nodes[r].priority {
+                    self.push_down(l);
                     self.nodes[l].right = self.merge(self.nodes[l].right, Some(r));
                     self.update(l)
                 } else {
+                    self.push_down(r);
                     self.nodes[r].left = self.merge(Some(l), self.nodes[r].left);
                     self.update(r)
                 }
@@ -126,7 +126,6 @@ where
                 Some(l)
             }
         } else if let Some(r) = r {
-            self.push_down(r);
             Some(r)
         } else {
             None
