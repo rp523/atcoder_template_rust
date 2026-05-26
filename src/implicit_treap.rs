@@ -57,9 +57,43 @@ where
         a: Vec<T>,
     ) -> Self {
         let mut rng = XorShift64::new();
-        let mut nodes = vec![];
-        let root = Self::build_from_vec(0, a.len(), &a, pair_op, &mut rng, &mut nodes);
-        Self {
+        let mut nodes = a
+            .iter()
+            .cloned()
+            .map(|value| TreapNode {
+                value: value.clone(),
+                cum: value.clone(),
+                sub_sz: 1,
+                lazy: None,
+                left: None,
+                right: None,
+                priority: (rng.next_usize() & 0x00000000FFFFFFFF) as u32,
+            })
+            .collect::<Vec<_>>();
+
+        let n = a.len();
+        let mut stack = vec![0];
+        for i in 1..n {
+            let mut l = None;
+            while let Some(&j) = stack.iter().next_back() {
+                if nodes[j].priority > nodes[i].priority {
+                    stack.push(i);
+                    nodes[j].right = Some(i);
+                    break;
+                } else {
+                    l = stack.pop();
+                }
+            }
+            if let Some(l) = l {
+                nodes[i].left = Some(l);
+            }
+            if stack.is_empty() {
+                stack.push(i);
+            }
+        }
+        Self::dfs(stack[0], pair_op, &mut nodes);
+        let root = Some(stack[0]);
+        let ret = Self {
             root,
             nodes,
             empties: vec![],
@@ -67,34 +101,17 @@ where
             pair_op,
             update_op,
             update_concat,
-        }
+        };
+        ret
     }
-    fn build_from_vec(
-        l: usize,
-        r: usize,
-        a: &[T],
-        pair_op: fn(T, T) -> T,
-        rng: &mut XorShift64,
-        nodes: &mut Vec<TreapNode<T, M>>,
-    ) -> Option<usize> {
-        if l == r {
-            return None;
+    fn dfs(node: usize, pair_op: fn(T, T) -> T, nodes: &mut [TreapNode<T, M>]) {
+        if let Some(left) = nodes[node].left {
+            Self::dfs(left, pair_op, nodes);
         }
-        let at = (l + r) / 2;
-        let node = nodes.len();
-        nodes.push(TreapNode::<T, M> {
-            value: a[at].clone(),
-            cum: a[at].clone(),
-            sub_sz: 1,
-            lazy: None,
-            left: None,
-            right: None,
-            priority: (rng.next_usize() & 0x0000FFFF) as u32,
-        });
-        nodes[node].left = Self::build_from_vec(l, at, a, pair_op, rng, nodes);
-        nodes[node].right = Self::build_from_vec(at + 1, r, a, pair_op, rng, nodes);
+        if let Some(right) = nodes[node].right {
+            Self::dfs(right, pair_op, nodes);
+        }
         (nodes[node].sub_sz, nodes[node].cum) = Self::update_impl(nodes, node, pair_op);
-        Some(node)
     }
     fn count(&self, node: Option<usize>) -> usize {
         if let Some(node) = node {
