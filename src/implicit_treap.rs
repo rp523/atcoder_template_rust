@@ -50,6 +50,52 @@ where
             update_concat,
         }
     }
+    pub fn from_vec(
+        pair_op: fn(T, T) -> T,
+        update_op: fn(T, M) -> T,
+        update_concat: fn(M, M) -> M,
+        a: Vec<T>,
+    ) -> Self {
+        let mut rng = XorShift64::new();
+        let mut nodes = vec![];
+        let root = Self::build_from_vec(0, a.len(), &a, pair_op, &mut rng, &mut nodes);
+        Self {
+            root,
+            nodes,
+            empties: vec![],
+            rng,
+            pair_op,
+            update_op,
+            update_concat,
+        }
+    }
+    fn build_from_vec(
+        l: usize,
+        r: usize,
+        a: &[T],
+        pair_op: fn(T, T) -> T,
+        rng: &mut XorShift64,
+        nodes: &mut Vec<TreapNode<T, M>>,
+    ) -> Option<usize> {
+        if l == r {
+            return None;
+        }
+        let at = (l + r) / 2;
+        let node = nodes.len();
+        nodes.push(TreapNode::<T, M> {
+            value: a[at].clone(),
+            cum: a[at].clone(),
+            sub_sz: 1,
+            lazy: None,
+            left: None,
+            right: None,
+            priority: (rng.next_usize() & 0x0000FFFF) as u32,
+        });
+        nodes[node].left = Self::build_from_vec(l, at, a, pair_op, rng, nodes);
+        nodes[node].right = Self::build_from_vec(at + 1, r, a, pair_op, rng, nodes);
+        (nodes[node].sub_sz, nodes[node].cum) = Self::update_impl(nodes, node, pair_op);
+        Some(node)
+    }
     fn count(&self, node: Option<usize>) -> usize {
         if let Some(node) = node {
             self.nodes[node].sub_sz
@@ -57,38 +103,39 @@ where
             0
         }
     }
-    // calulate correct value of sub_size and value.
-    fn update(&mut self, node: usize) -> Option<usize> {
-        (self.nodes[node].sub_sz, self.nodes[node].cum) = if let Some(left) = self.nodes[node].left
-        {
-            if let Some(right) = self.nodes[node].right {
+    fn update_impl(
+        nodes: &mut [TreapNode<T, M>],
+        node: usize,
+        pair_op: fn(T, T) -> T,
+    ) -> (usize, T) {
+        if let Some(left) = nodes[node].left {
+            if let Some(right) = nodes[node].right {
                 (
-                    self.nodes[left].sub_sz + 1 + self.nodes[right].sub_sz,
-                    (self.pair_op)(
-                        (self.pair_op)(
-                            self.nodes[left].cum.clone(),
-                            self.nodes[node].value.clone(),
-                        ),
-                        self.nodes[right].cum.clone(),
+                    nodes[left].sub_sz + 1 + nodes[right].sub_sz,
+                    (pair_op)(
+                        (pair_op)(nodes[left].cum.clone(), nodes[node].value.clone()),
+                        nodes[right].cum.clone(),
                     ),
                 )
             } else {
                 (
-                    self.nodes[left].sub_sz + 1,
-                    (self.pair_op)(self.nodes[left].cum.clone(), self.nodes[node].value.clone()),
+                    nodes[left].sub_sz + 1,
+                    (pair_op)(nodes[left].cum.clone(), nodes[node].value.clone()),
                 )
             }
-        } else if let Some(right) = self.nodes[node].right {
+        } else if let Some(right) = nodes[node].right {
             (
-                1 + self.nodes[right].sub_sz,
-                (self.pair_op)(
-                    self.nodes[node].value.clone(),
-                    self.nodes[right].cum.clone(),
-                ),
+                1 + nodes[right].sub_sz,
+                (pair_op)(nodes[node].value.clone(), nodes[right].cum.clone()),
             )
         } else {
-            (1, self.nodes[node].value.clone())
-        };
+            (1, nodes[node].value.clone())
+        }
+    }
+    // calulate correct value of sub_size and value.
+    fn update(&mut self, node: usize) -> Option<usize> {
+        (self.nodes[node].sub_sz, self.nodes[node].cum) =
+            Self::update_impl(&mut self.nodes, node, self.pair_op);
         Some(node)
     }
     // split and return roots of left/right trees
@@ -254,16 +301,16 @@ mod test {
         let mut rng = ChaChaRng::from_seed([0; 32]);
         for _case in 0..T {
             let mut expected = vec![];
-            let mut actual = ImplicitTreap::<(usize, usize), usize>::new(
-                |x, y| (x.0 + y.0, x.1 + y.1),
-                |x, y| (x.0 + x.1 * y, x.1),
-                |x, y| x + y,
-            );
             for _ in 0..N {
                 let v = rng.random_range(0..V);
                 expected.push((v, 1));
-                actual.push((v, 1));
             }
+            let mut actual = ImplicitTreap::<(usize, usize), usize>::from_vec(
+                |x, y| (x.0 + y.0, x.1 + y.1),
+                |x, y| (x.0 + x.1 * y, x.1),
+                |x, y| x + y,
+                expected.clone(),
+            );
             for _op in 0..T {
                 match rng.random_range(0..=5) {
                     0 => {
