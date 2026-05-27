@@ -60,7 +60,12 @@ impl<T: Clone> PersistentSegmentTree<T> {
         }
     }
     pub fn set(&mut self, ver: usize, i: usize, new_val: T) -> usize {
-        assert!(i < self.n, "index out of bounds: the len is {} but the index is {}", self.n, i);
+        assert!(
+            i < self.n,
+            "index out of bounds: the len is {} but the index is {}",
+            self.n,
+            i
+        );
         let ver_toot_new = self.set_impl(self.ver_roots[ver], self.n2, i, &new_val);
         self.ver_roots.push(ver_toot_new);
         self.ver_roots.len() - 1
@@ -125,7 +130,12 @@ impl<T: Clone> PersistentSegmentTree<T> {
         }
     }
     pub fn get(&self, ver: usize, i: usize) -> T {
-        assert!(i < self.n, "index out of bounds: the len is {} but the index is {}", self.n, i);
+        assert!(
+            i < self.n,
+            "index out of bounds: the len is {} but the index is {}",
+            self.n,
+            i
+        );
         self.get_impl(self.ver_roots[ver], self.n2, i)
     }
     fn get_impl(&self, now: usize, node_size: usize, i: usize) -> T {

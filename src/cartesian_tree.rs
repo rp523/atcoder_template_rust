@@ -1,46 +1,34 @@
 use cargo_snippet::snippet;
 
 #[snippet("cartesian_tree")]
-#[derive(Clone, Debug, Copy, PartialEq)]
-#[allow(dead_code)]
-struct CartesianNode {
-    lc: Option<usize>,
-    rc: Option<usize>,
-}
-
-#[snippet("cartesian_tree")]
-#[allow(dead_code)]
-fn cartesian_tree<T>(a: &[T], op: fn(T, T) -> T) -> (usize, Vec<CartesianNode>)
+pub fn cartesian_tree<T>(a: &[T], op: fn(T, T) -> T) -> (usize, Vec<Vec<Option<usize>>>)
 where
     T: Clone + Copy + PartialEq + PartialOrd,
 {
     let n = a.len();
     let mut stack = vec![0];
-    let mut ret = vec![CartesianNode { lc: None, rc: None }; n];
+    let mut ret = vec![vec![None; 2]; n];
     for i in 1..n {
         let mut l = None;
         while let Some(&j) = stack.iter().next_back() {
             if op(a[j], a[i]) == a[j] {
-                stack.push(i);
-                ret[j].rc = Some(i);
+                ret[j][1] = Some(i);
                 break;
             } else {
                 l = stack.pop();
             }
         }
         if let Some(l) = l {
-            ret[i].lc = Some(l);
+            ret[i][0] = Some(l);
         }
-        if stack.is_empty() {
-            stack.push(i);
-        }
+        stack.push(i);
     }
     (stack[0], ret)
 }
 
 #[cfg(test)]
 pub mod test {
-    use super::{cartesian_tree, CartesianNode};
+    use super::cartesian_tree;
     #[test]
     pub fn random() {
         use rand::{Rng, SeedableRng};
@@ -52,7 +40,7 @@ pub mod test {
             for _ in 0..T {
                 for op in [std::cmp::min::<usize>, std::cmp::max::<usize>] {
                     let a = (0..n).map(|_| rng.random_range(0..V)).collect::<Vec<_>>();
-                    let mut expected = vec![CartesianNode { lc: None, rc: None }; n];
+                    let mut expected = vec![vec![None; 2]; n];
                     let expected_root = build(&a, 0, n - 1, &mut expected, op);
                     let (actual_root, actual) = cartesian_tree(&a, op);
                     assert_eq!(expected_root, actual_root);
@@ -61,7 +49,7 @@ pub mod test {
                         a: &[usize],
                         i0: usize,
                         i1: usize,
-                        expected: &mut Vec<CartesianNode>,
+                        expected: &mut Vec<Vec<Option<usize>>>,
                         op: fn(usize, usize) -> usize,
                     ) -> usize {
                         if i0 == i1 {
@@ -79,10 +67,10 @@ pub mod test {
                         }
                         let (_, i) = minv.unwrap();
                         if i0 < i {
-                            expected[i].lc = Some(build(a, i0, i - 1, expected, op));
+                            expected[i][0] = Some(build(a, i0, i - 1, expected, op));
                         }
                         if i < i1 {
-                            expected[i].rc = Some(build(a, i + 1, i1, expected, op));
+                            expected[i][1] = Some(build(a, i + 1, i1, expected, op));
                         }
                         i
                     }
