@@ -324,18 +324,20 @@ mod test {
     const T: usize = 512;
     #[test]
     fn random() {
+        use crate::modint::{ModIntTrait, StaticModInt};
         use rand_chacha::{rand_core::SeedableRng, ChaChaRng};
+        type Mint = StaticModInt<998244353>;
         let mut rng = ChaChaRng::from_seed([0; 32]);
         for _case in 0..T {
             let mut expected = vec![];
             for _ in 0..N {
                 let v = rng.random_range(0..V);
-                expected.push((v, 1));
+                expected.push((Mint::new(v), Mint::one()));
             }
-            let mut actual = ImplicitTreap::<(usize, usize), usize>::from_vec(
+            let mut actual = ImplicitTreap::<(Mint, Mint), (Mint, Mint)>::from_vec(
                 |x, y| (x.0 + y.0, x.1 + y.1),
-                |x, y| (x.0 + x.1 * y, x.1),
-                |x, y| x + y,
+                |x, y| (x.0 * y.0 + x.1 * y.1, x.1),
+                |x, y| (x.0 * y.0, x.1 * y.0 + y.1),
                 expected.clone(),
             );
             for _op in 0..T {
@@ -343,8 +345,8 @@ mod test {
                     0 => {
                         // push
                         let v = rng.random_range(0..V);
-                        expected.push((v, 1));
-                        actual.push((v, 1));
+                        expected.push((Mint::new(v), Mint::one()));
+                        actual.push((Mint::new(v), Mint::one()));
                     }
                     1 => {
                         // pop
@@ -355,8 +357,8 @@ mod test {
                         if !expected.is_empty() {
                             let at = rng.random_range(0..expected.len());
                             let v = rng.random_range(0..V);
-                            expected[at] = (v, 1);
-                            actual.set(at, (v, 1));
+                            expected[at] = (Mint::new(v), Mint::one());
+                            actual.set(at, (Mint::new(v), Mint::one()));
                         }
                     }
                     3 => {
@@ -375,21 +377,23 @@ mod test {
                             .iter()
                             .copied()
                             .take(at)
-                            .chain(vec![(v, 1)])
+                            .chain(vec![(Mint::new(v), Mint::one())])
                             .chain(expected.iter().copied().skip(at))
                             .collect::<Vec<_>>();
-                        actual.insert_at(at, (v, 1));
+                        actual.insert_at(at, (Mint::new(v), Mint::one()));
                     }
                     5 => {
+                        // linear
                         if !expected.is_empty() {
                             let l = rng.random_range(0..expected.len());
                             let r = rng.random_range(0..expected.len());
                             let (l, r) = if l < r { (l, r) } else { (r, l) };
-                            let v = rng.random_range(0..V);
+                            let a = Mint::one(); //Mint::new(rng.random_range(0..V));
+                            let b = Mint::new(rng.random_range(0..V));
                             for i in l..=r {
-                                expected[i].0 += v;
+                                expected[i].0 = a * expected[i].0 + b;
                             }
-                            actual.reserve(l, r, v);
+                            actual.reserve(l, r, (a, b));
                         }
                     }
                     _ => unreachable!(),
@@ -403,7 +407,7 @@ mod test {
                         assert_eq!(
                             (i..=j)
                                 .map(|k| expected[k])
-                                .fold((0, 0), |x, y| (x.0 + y.0, x.1 + y.1)),
+                                .fold((Mint::zero(), Mint::zero()), |x, y| (x.0 + y.0, x.1 + y.1)),
                             actual.query(i, j)
                         );
                     }
