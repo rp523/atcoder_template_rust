@@ -130,6 +130,10 @@ where
             0
         }
     }
+    #[inline(always)]
+    fn get_right_key(&self, node: usize, key: usize) -> usize {
+        key - self.get_key(node) - 1
+    }
     fn update_impl(
         nodes: &mut [TreapNode<T>],
         cum: &mut [T],
@@ -167,17 +171,17 @@ where
         Some(node)
     }
     // split and return roots of left/right trees
-    fn split(&mut self, node: Option<usize>, at: usize) -> (Option<usize>, Option<usize>) {
+    fn split(&mut self, node: Option<usize>, key: usize) -> (Option<usize>, Option<usize>) {
         let Some(node) = node else {
             return (None, None);
         };
         self.push_down(node);
-        if at <= self.get_key(node) {
-            let (nl, nr) = self.split(self.nodes[node].left, at);
+        if key <= self.get_key(node) {
+            let (nl, nr) = self.split(self.nodes[node].left, key);
             self.nodes[node].left = nr;
             (nl, self.update(node))
         } else {
-            let (nl, nr) = self.split(self.nodes[node].right, at - 1 - self.get_key(node));
+            let (nl, nr) = self.split(self.nodes[node].right, self.get_right_key(node, key));
             self.nodes[node].right = nl;
             (self.update(node), nr)
         }
