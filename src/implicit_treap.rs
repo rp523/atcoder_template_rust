@@ -120,7 +120,8 @@ where
         if let Some(right) = nodes[node].right {
             Self::dfs(right, pair_op, nodes, cum);
         }
-        (nodes[node].sub_sz, cum[node]) = Self::update_impl(nodes, cum, node, pair_op);
+        nodes[node].sub_sz = Self::update_sz(nodes, node);
+        cum[node] = Self::update_cum(nodes, cum, node, pair_op);
     }
     #[inline(always)]
     fn get_key(&self, node: usize) -> usize {
@@ -134,40 +135,44 @@ where
     fn get_right_key(&self, node: usize, key: usize) -> usize {
         key - self.get_key(node) - 1
     }
-    fn update_impl(
+    fn update_sz(nodes: &mut [TreapNode<T>], node: usize) -> usize {
+        if let Some(left) = nodes[node].left {
+            if let Some(right) = nodes[node].right {
+                nodes[left].sub_sz + 1 + nodes[right].sub_sz
+            } else {
+                nodes[left].sub_sz + 1
+            }
+        } else if let Some(right) = nodes[node].right {
+            1 + nodes[right].sub_sz
+        } else {
+            1
+        }
+    }
+    fn update_cum(
         nodes: &mut [TreapNode<T>],
         cum: &mut [T],
         node: usize,
         pair_op: fn(T, T) -> T,
-    ) -> (usize, T) {
+    ) -> T {
         if let Some(left) = nodes[node].left {
             if let Some(right) = nodes[node].right {
-                (
-                    nodes[left].sub_sz + 1 + nodes[right].sub_sz,
-                    (pair_op)(
-                        (pair_op)(cum[left].clone(), nodes[node].value.clone()),
-                        cum[right].clone(),
-                    ),
+                (pair_op)(
+                    (pair_op)(cum[left].clone(), nodes[node].value.clone()),
+                    cum[right].clone(),
                 )
             } else {
-                (
-                    nodes[left].sub_sz + 1,
-                    (pair_op)(cum[left].clone(), nodes[node].value.clone()),
-                )
+                (pair_op)(cum[left].clone(), nodes[node].value.clone())
             }
         } else if let Some(right) = nodes[node].right {
-            (
-                1 + nodes[right].sub_sz,
-                (pair_op)(nodes[node].value.clone(), cum[right].clone()),
-            )
+            (pair_op)(nodes[node].value.clone(), cum[right].clone())
         } else {
-            (1, nodes[node].value.clone())
+            nodes[node].value.clone()
         }
     }
     // calulate correct value of sub_size and value.
     fn update(&mut self, node: usize) -> Option<usize> {
-        (self.nodes[node].sub_sz, self.cum[node]) =
-            Self::update_impl(&mut self.nodes, &mut self.cum, node, self.pair_op);
+        self.nodes[node].sub_sz = Self::update_sz(&mut self.nodes, node);
+        self.cum[node] = Self::update_cum(&mut self.nodes, &mut self.cum, node, self.pair_op);
         Some(node)
     }
     // split and return roots of left/right trees
