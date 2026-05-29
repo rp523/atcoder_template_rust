@@ -1,8 +1,6 @@
-use crate::xor_shift::XorShift64;
 use cargo_snippet::snippet;
 
 #[snippet("ImplicitTreap")]
-#[snippet(include = "XorShift64")]
 #[derive(Clone, Debug)]
 struct TreapNode<T: Clone + std::fmt::Debug, M: Clone + std::fmt::Debug> {
     // status
@@ -23,7 +21,7 @@ pub struct ImplicitTreap<T: Clone + std::fmt::Debug, M: Clone + std::fmt::Debug>
     root: Option<usize>,
     nodes: Vec<TreapNode<T, M>>,
     empties: Vec<usize>,
-    rng: XorShift64,
+    rng: u32,
     pair_op: fn(T, T) -> T,
     update_op: fn(T, M) -> T,
     update_concat: fn(M, M) -> M,
@@ -44,11 +42,17 @@ where
             root: None,
             nodes: vec![],
             empties: vec![],
-            rng: XorShift64::new(),
+            rng: 0x11001100,
             pair_op,
             update_op,
             update_concat,
         }
+    }
+    fn random_trans(x: &mut u32) {
+        // xor shift
+        *x ^= *x << 13;
+        *x ^= *x >> 17;
+        *x ^= *x << 5;
     }
     pub fn from_vec(
         pair_op: fn(T, T) -> T,
@@ -56,7 +60,7 @@ where
         update_concat: fn(M, M) -> M,
         a: Vec<T>,
     ) -> Self {
-        let mut rng = XorShift64::new();
+        let mut rng = 11001100;
         let mut nodes = a
             .iter()
             .cloned()
@@ -67,7 +71,10 @@ where
                 lazy: None,
                 left: None,
                 right: None,
-                priority: (rng.next_usize() & 0x00000000FFFFFFFF) as u32,
+                priority: {
+                    Self::random_trans(&mut rng);
+                    rng
+                },
             })
             .collect::<Vec<_>>();
 
@@ -209,7 +216,10 @@ where
             lazy: None,
             left: None,
             right: None,
-            priority: (self.rng.next_usize() & 0x00000000ffffffff) as u32,
+            priority: {
+                Self::random_trans(&mut self.rng);
+                self.rng
+            },
         };
         let v = if let Some(v) = self.empties.pop() {
             self.nodes[v] = new_info;
