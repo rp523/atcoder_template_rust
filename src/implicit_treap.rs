@@ -12,6 +12,28 @@ struct TreapNode<T: Clone + std::fmt::Debug> {
     // static priosrity
     priority: u32,
 }
+#[snippet("ImplicitTreap")]
+impl<T> TreapNode<T>
+where
+    T: Clone + std::fmt::Debug,
+{
+    pub fn new(value: T, rng: &mut u32) -> Self {
+        Self::random_trans(rng);
+        Self {
+            value,
+            sub_sz: 1,
+            left: None,
+            right: None,
+            priority: *rng,
+        }
+    }
+    fn random_trans(x: &mut u32) {
+        // xor shift
+        *x ^= *x << 13;
+        *x ^= *x >> 17;
+        *x ^= *x << 5;
+    }
+}
 
 #[snippet("ImplicitTreap")]
 #[derive(Clone, Debug)]
@@ -50,12 +72,6 @@ where
             update_concat,
         }
     }
-    fn random_trans(x: &mut u32) {
-        // xor shift
-        *x ^= *x << 13;
-        *x ^= *x >> 17;
-        *x ^= *x << 5;
-    }
     pub fn from_vec(
         pair_op: fn(T, T) -> T,
         update_op: fn(T, M) -> T,
@@ -66,16 +82,7 @@ where
         let mut nodes = a
             .iter()
             .cloned()
-            .map(|value| TreapNode {
-                value: value.clone(),
-                sub_sz: 1,
-                left: None,
-                right: None,
-                priority: {
-                    Self::random_trans(&mut rng);
-                    rng
-                },
-            })
+            .map(|value| TreapNode::new(value.clone(), &mut rng))
             .collect::<Vec<_>>();
         let mut cum = a.clone();
         let n = a.len();
@@ -123,13 +130,21 @@ where
         nodes[node].sub_sz = Self::update_sz(nodes, node);
         cum[node] = Self::update_cum(nodes, cum, node, pair_op);
     }
-    #[inline(always)]
     fn get_key(node: usize, nodes: &[TreapNode<T>]) -> usize {
         if let Some(left) = nodes[node].left {
             nodes[left].sub_sz
         } else {
             0
         }
+    }
+    fn gen_nxt_key(org_key: usize, node: usize, nodes: &[TreapNode<T>]) -> usize {
+        org_key
+            - if let Some(left) = nodes[node].left {
+                nodes[left].sub_sz
+            } else {
+                0
+            }
+            - 1
     }
     fn update_sz(nodes: &mut [TreapNode<T>], node: usize) -> usize {
         if let Some(left) = nodes[node].left {
@@ -172,19 +187,30 @@ where
         Some(node)
     }
     // split and return roots of left/right trees
-    fn split(&mut self, node: Option<usize>, key: usize) -> (Option<usize>, Option<usize>) {
+    fn split<K>(
+        &mut self,
+        node: Option<usize>,
+        key: K,
+        get_key: fn(usize, &[TreapNode<T>]) -> K,
+        gen_nxt_key: fn(K, usize, &[TreapNode<T>]) -> K,
+    ) -> (Option<usize>, Option<usize>)
+    where
+        K: Clone + PartialEq + Eq + PartialOrd + Ord,
+    {
         let Some(node) = node else {
             return (None, None);
         };
         self.push_down(node);
-        if key <= Self::get_key(node, &self.nodes) {
-            let (nl, nr) = self.split(self.nodes[node].left, key);
+        if key <= get_key(node, &self.nodes) {
+            let (nl, nr) = self.split(self.nodes[node].left, key, get_key, gen_nxt_key);
             self.nodes[node].left = nr;
             (nl, self.update(node))
         } else {
             let (nl, nr) = self.split(
                 self.nodes[node].right,
-                key - Self::get_key(node, &self.nodes) - 1,
+                gen_nxt_key(key, node, &self.nodes),
+                get_key,
+                gen_nxt_key,
             );
             self.nodes[node].right = nl;
             (self.update(node), nr)
@@ -218,16 +244,7 @@ where
         self.root.is_none()
     }
     pub fn insert_at(&mut self, i: usize, value: T) {
-        let new_info = TreapNode {
-            value: value.clone(),
-            sub_sz: 1,
-            left: None,
-            right: None,
-            priority: {
-                Self::random_trans(&mut self.rng);
-                self.rng
-            },
-        };
+        let new_info = TreapNode::new(value.clone(), &mut self.rng);
         let v = if let Some(v) = self.empties.pop() {
             self.nodes[v] = new_info;
             self.cum[v] = value.clone();
@@ -239,13 +256,13 @@ where
             self.lazy.push(None);
             self.nodes.len() - 1
         };
-        let (left, right) = self.split(self.root, i);
+        let (left, right) = self.split(self.root, i, Self::get_key, Self::gen_nxt_key);
         let center_and_right = self.merge(Some(v), right);
         self.root = self.merge(left, center_and_right);
     }
     pub fn remove_at(&mut self, i: usize) -> Option<T> {
-        let (left, center_and_right) = self.split(self.root, i);
-        let (center, right) = self.split(center_and_right, 1);
+        let (left, center_and_right) = self.split(self.root, i, Self::get_key, Self::gen_nxt_key);
+        let (center, right) = self.split(center_and_right, 1, Self::get_key, Self::gen_nxt_key);
         let center = center.unwrap();
         self.empties.push(center);
         self.root = self.merge(left, right);
@@ -262,8 +279,8 @@ where
     }
     pub fn get(&mut self, i: usize) -> T {
         debug_assert!(i < self.len());
-        let (l, cr) = self.split(self.root, i);
-        let (c, r) = self.split(cr, 1);
+        let (l, cr) = self.split(self.root, i, Self::get_key, Self::gen_nxt_key);
+        let (c, r) = self.split(cr, 1, Self::get_key, Self::gen_nxt_key);
         let ret = self.cum[c.unwrap()].clone();
         let cr = self.merge(c, r);
         self.root = self.merge(l, cr);
@@ -271,8 +288,8 @@ where
     }
     pub fn set(&mut self, i: usize, value: T) {
         debug_assert!(i < self.len());
-        let (l, cr) = self.split(self.root, i);
-        let (c, r) = self.split(cr, 1);
+        let (l, cr) = self.split(self.root, i, Self::get_key, Self::gen_nxt_key);
+        let (c, r) = self.split(cr, 1, Self::get_key, Self::gen_nxt_key);
         self.nodes[c.unwrap()].value = value.clone();
         self.cum[c.unwrap()] = value;
         let cr = self.merge(c, r);
@@ -280,8 +297,8 @@ where
     }
     pub fn query(&mut self, li: usize, ri: usize) -> T {
         debug_assert!(li <= ri);
-        let (lc, r) = self.split(self.root, ri + 1);
-        let (l, c) = self.split(lc, li);
+        let (lc, r) = self.split(self.root, ri + 1, Self::get_key, Self::gen_nxt_key);
+        let (l, c) = self.split(lc, li, Self::get_key, Self::gen_nxt_key);
         let ret = self.cum[c.unwrap()].clone();
         let cr = self.merge(c, r);
         self.root = self.merge(l, cr);
@@ -289,8 +306,8 @@ where
     }
     pub fn reserve(&mut self, li: usize, ri: usize, m: M) {
         debug_assert!(li <= ri);
-        let (lc, r) = self.split(self.root, ri + 1);
-        let (l, c) = self.split(lc, li);
+        let (lc, r) = self.split(self.root, ri + 1, Self::get_key, Self::gen_nxt_key);
+        let (l, c) = self.split(lc, li, Self::get_key, Self::gen_nxt_key);
         let c = c.unwrap();
         self.lazy[c] = Some(if let Some(lazy_old) = self.lazy[c].clone() {
             (self.update_concat)(lazy_old, m)
