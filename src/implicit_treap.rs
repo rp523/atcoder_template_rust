@@ -124,16 +124,12 @@ where
         cum[node] = Self::update_cum(nodes, cum, node, pair_op);
     }
     #[inline(always)]
-    fn get_key(&self, node: usize) -> usize {
-        if let Some(left) = self.nodes[node].left {
-            self.nodes[left].sub_sz
+    fn get_key(node: usize, nodes: &[TreapNode<T>]) -> usize {
+        if let Some(left) = nodes[node].left {
+            nodes[left].sub_sz
         } else {
             0
         }
-    }
-    #[inline(always)]
-    fn get_right_key(&self, node: usize, key: usize) -> usize {
-        key - self.get_key(node) - 1
     }
     fn update_sz(nodes: &mut [TreapNode<T>], node: usize) -> usize {
         if let Some(left) = nodes[node].left {
@@ -181,12 +177,15 @@ where
             return (None, None);
         };
         self.push_down(node);
-        if key <= self.get_key(node) {
+        if key <= Self::get_key(node, &self.nodes) {
             let (nl, nr) = self.split(self.nodes[node].left, key);
             self.nodes[node].left = nr;
             (nl, self.update(node))
         } else {
-            let (nl, nr) = self.split(self.nodes[node].right, self.get_right_key(node, key));
+            let (nl, nr) = self.split(
+                self.nodes[node].right,
+                key - Self::get_key(node, &self.nodes) - 1,
+            );
             self.nodes[node].right = nl;
             (self.update(node), nr)
         }
