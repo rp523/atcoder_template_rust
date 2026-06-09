@@ -146,7 +146,7 @@ where
             }
             - 1
     }
-    fn update_sz(nodes: &mut [TreapNode<T>], node: usize) -> usize {
+    fn update_sz(nodes: &[TreapNode<T>], node: usize) -> usize {
         if let Some(left) = nodes[node].left {
             if let Some(right) = nodes[node].right {
                 nodes[left].sub_sz + 1 + nodes[right].sub_sz
@@ -159,12 +159,10 @@ where
             1
         }
     }
-    fn update_cum(
-        nodes: &mut [TreapNode<T>],
-        cum: &mut [T],
-        node: usize,
-        pair_op: fn(T, T) -> T,
-    ) -> T {
+    fn update_cum<F>(nodes: &[TreapNode<T>], cum: &[T], node: usize, pair_op: F) -> T
+    where
+        F: Fn(T, T) -> T,
+    {
         if let Some(left) = nodes[node].left {
             if let Some(right) = nodes[node].right {
                 (pair_op)(
