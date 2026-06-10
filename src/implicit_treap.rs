@@ -35,6 +35,295 @@ where
     }
 }
 
+#[snippet("TreapSet")]
+#[derive(Clone, Debug)]
+pub struct TreapSet<T: Clone + PartialEq + Eq + PartialOrd + Ord + std::fmt::Debug> {
+    root: Option<usize>,
+    nodes: Vec<TreapNode<T>>,
+    empties: Vec<usize>,
+    par: Vec<Option<usize>>,
+    rng: u32,
+}
+
+#[snippet("TreapSet")]
+impl<T> TreapSet<T>
+where
+    T: Clone + PartialEq + Eq + PartialOrd + Ord + std::fmt::Debug,
+{
+    pub fn new() -> Self {
+        Self {
+            root: None,
+            nodes: vec![],
+            empties: vec![],
+            par: vec![],
+            rng: 0x11001100,
+        }
+    }
+    fn update_sz(nodes: &[TreapNode<T>], node: usize) -> usize {
+        if let Some(left) = nodes[node].left {
+            if let Some(right) = nodes[node].right {
+                nodes[left].sub_sz + 1 + nodes[right].sub_sz
+            } else {
+                nodes[left].sub_sz + 1
+            }
+        } else if let Some(right) = nodes[node].right {
+            1 + nodes[right].sub_sz
+        } else {
+            1
+        }
+    }
+    // calulate correct value of sub_size and value.
+    fn update(&mut self, node: usize) -> Option<usize> {
+        self.nodes[node].sub_sz = Self::update_sz(&mut self.nodes, node);
+        Some(node)
+    }
+    // split and return roots of left/right trees
+    fn split_lower_bound(
+        &mut self,
+        node: Option<usize>,
+        key: &T,
+    ) -> (Option<usize>, Option<usize>) {
+        let Some(node) = node else {
+            return (None, None);
+        };
+        if key <= &self.nodes[node].value {
+            let (nl, nr) = self.split_lower_bound(self.nodes[node].left, key);
+            self.nodes[node].left = nr;
+            if let Some(nr) = nr {
+                self.par[nr] = Some(node);
+            }
+            (nl, self.update(node))
+        } else {
+            let (nl, nr) = self.split_lower_bound(self.nodes[node].right, key);
+            self.nodes[node].right = nl;
+            if let Some(nl) = nl {
+                self.par[nl] = Some(node);
+            }
+            (self.update(node), nr)
+        }
+    }
+    // split and return roots of left/right trees
+    fn split_upper_bound(
+        &mut self,
+        node: Option<usize>,
+        key: &T,
+    ) -> (Option<usize>, Option<usize>) {
+        let Some(node) = node else {
+            return (None, None);
+        };
+        if key < &self.nodes[node].value {
+            let (nl, nr) = self.split_upper_bound(self.nodes[node].left, key);
+            self.nodes[node].left = nr;
+            if let Some(nr) = nr {
+                self.par[nr] = Some(node);
+            }
+            (nl, self.update(node))
+        } else {
+            let (nl, nr) = self.split_upper_bound(self.nodes[node].right, key);
+            self.nodes[node].right = nl;
+            if let Some(nl) = nl {
+                self.par[nl] = Some(node);
+            }
+            (self.update(node), nr)
+        }
+    }
+    fn merge(&mut self, l: Option<usize>, r: Option<usize>) -> Option<usize> {
+        if let Some(l) = l {
+            if let Some(r) = r {
+                if self.nodes[l].priority > self.nodes[r].priority {
+                    self.nodes[l].right = self.merge(self.nodes[l].right, Some(r));
+                    if let Some(c) = self.nodes[l].right {
+                        self.par[c] = Some(l);
+                    }
+                    self.update(l)
+                } else {
+                    self.nodes[r].left = self.merge(Some(l), self.nodes[r].left);
+                    if let Some(c) = self.nodes[r].left {
+                        self.par[c] = Some(r);
+                    }
+                    self.update(r)
+                }
+            } else {
+                Some(l)
+            }
+        } else if let Some(r) = r {
+            Some(r)
+        } else {
+            None
+        }
+    }
+    fn get_first_node(&self) -> Option<usize> {
+        let Some(mut node) = self.root else {
+            return None;
+        };
+        while let Some(left) = self.nodes[node].left {
+            node = left;
+        }
+        Some(node)
+    }
+    pub fn first(&self) -> Option<&T> {
+        let Some(node) = self.get_first_node() else {
+            return None;
+        };
+        Some(&self.nodes[node].value)
+    }
+    pub fn len(&self) -> usize {
+        self.nodes.len() - self.empties.len()
+    }
+    pub fn is_empty(&self) -> bool {
+        self.root.is_none()
+    }
+    pub fn insert(&mut self, value: T) -> bool {
+        let (left, center_and_right) = self.split_lower_bound(self.root, &value);
+        let (center, right) = self.split_upper_bound(center_and_right, &value);
+        let contains = center.is_some();
+        if contains {
+            let center_and_right = self.merge(center, right);
+            self.root = self.merge(left, center_and_right);
+            if let Some(r) = self.root {
+                self.par[r] = None;
+            }
+        } else {
+            let new_info = TreapNode::new(value.clone(), &mut self.rng);
+            let v = if let Some(v) = self.empties.pop() {
+                self.nodes[v] = new_info;
+                v
+            } else {
+                self.nodes.push(new_info);
+                self.par.push(None);
+                self.nodes.len() - 1
+            };
+            self.par[v] = None;
+            let center_and_right = self.merge(Some(v), right);
+            self.root = self.merge(left, center_and_right);
+            if let Some(r) = self.root {
+                self.par[r] = None;
+            }
+        }
+        !contains
+    }
+    pub fn remove(&mut self, value: &T) -> bool {
+        let (left, center_and_right) = self.split_lower_bound(self.root, value);
+        let (center, right) = self.split_upper_bound(center_and_right, value);
+        let Some(center) = center else {
+            self.root = self.merge(left, right);
+            return false;
+        };
+        self.empties.push(center);
+        self.root = self.merge(left, right);
+        if let Some(r) = self.root {
+            self.par[r] = None;
+        }
+        true
+    }
+    pub fn contains_key(&mut self, value: &T) -> bool {
+        let (left, center_and_right) = self.split_lower_bound(self.root, value);
+        let (center, right) = self.split_upper_bound(center_and_right, value);
+        let ret = center.is_some();
+        let center_and_right = self.merge(center, right);
+        self.root = self.merge(left, center_and_right);
+        if let Some(r) = self.root {
+            self.par[r] = None;
+        }
+        ret
+    }
+    pub fn iter(&self) -> TreapSetIter<'_, T> {
+        TreapSetIter::new(self)
+    }
+}
+
+#[snippet("TreapSet")]
+enum State {
+    JustAfterEntering,
+    BackFromLeft,
+    BackFromRight,
+}
+#[snippet("TreapSet")]
+pub struct TreapSetIter<'a, T: Clone + PartialEq + Eq + PartialOrd + Ord + std::fmt::Debug> {
+    node: Option<usize>,
+    state: State,
+    treap_set: &'a TreapSet<T>,
+}
+#[snippet("TreapSet")]
+impl<'a, T: Clone + PartialEq + Eq + PartialOrd + Ord + std::fmt::Debug> TreapSetIter<'a, T> {
+    pub fn new(treap_set: &'a TreapSet<T>) -> Self {
+        let node = treap_set.get_first_node();
+        Self {
+            node,
+            state: State::JustAfterEntering,
+            treap_set,
+        }
+    }
+}
+#[snippet("TreapSet")]
+impl<'a, T: Clone + PartialEq + Eq + PartialOrd + Ord + std::fmt::Debug> Iterator
+    for TreapSetIter<'a, T>
+{
+    type Item = &'a T;
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some(node) = self.node {
+            match self.state {
+                State::JustAfterEntering => {
+                    // should output self
+                    if let Some(left) = self.treap_set.nodes[node].left {
+                        // has next left
+                        self.node = Some(left);
+                        self.state = State::JustAfterEntering;
+                    } else if let Some(right) = self.treap_set.nodes[node].right {
+                        // has next right
+                        self.node = Some(right);
+                        self.state = State::JustAfterEntering;
+                        return Some(&self.treap_set.nodes[node].value);
+                    } else if let Some(p) = self.treap_set.par[node] {
+                        // is terminal and has parent
+                        self.node = Some(p);
+                        if self.treap_set.nodes[p].left == Some(node) {
+                            self.state = State::BackFromLeft;
+                        } else {
+                            self.state = State::BackFromRight;
+                        }
+                        return Some(&self.treap_set.nodes[node].value);
+                    } else {
+                        // is terminal and has no parent
+                        self.node = None;
+                        return Some(&self.treap_set.nodes[node].value);
+                    }
+                }
+                State::BackFromLeft => {
+                    // should output right
+                    if let Some(right) = self.treap_set.nodes[node].right {
+                        // has next right
+                        self.node = Some(right);
+                        self.state = State::JustAfterEntering;
+                    } else if let Some(p) = self.treap_set.par[node] {
+                        self.node = Some(p);
+                        if self.treap_set.nodes[p].left == Some(node) {
+                            self.state = State::BackFromLeft;
+                        } else {
+                            self.state = State::BackFromRight;
+                        }
+                    } else {
+                        self.node = None;
+                    }
+                    return Some(&self.treap_set.nodes[node].value);
+                }
+                State::BackFromRight => {
+                    // should rise
+                    self.node = self.treap_set.par[node];
+                    if let Some(p) = self.treap_set.par[node] {
+                        if self.treap_set.nodes[p].left == Some(node) {
+                            self.state = State::BackFromLeft;
+                        } else {
+                            self.state = State::BackFromRight;
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+}
+
 #[snippet("ImplicitTreap")]
 #[derive(Clone, Debug)]
 pub struct ImplicitTreap<T: Clone + std::fmt::Debug, M: Clone + std::fmt::Debug> {
@@ -340,13 +629,45 @@ where
 
 #[cfg(test)]
 mod test {
-    use super::ImplicitTreap;
+    use super::{ImplicitTreap, TreapSet};
     use rand::Rng;
     const N: usize = 16;
     const V: usize = 16;
-    const T: usize = 512;
     #[test]
-    fn random() {
+    pub fn treap_set() {
+        const T: usize = 2048;
+        use rand_chacha::{rand_core::SeedableRng, ChaChaRng};
+        let mut rng = ChaChaRng::from_seed([0; 32]);
+        for _case in 0..T {
+            let mut expected = std::collections::BTreeSet::<usize>::new();
+            let mut actual = TreapSet::<usize>::new();
+            for _op in 0..T {
+                match rng.random_range(0..=1) {
+                    0 => {
+                        // remove
+                        let v = rng.random_range(0..V);
+                        assert_eq!(expected.remove(&v), actual.remove(&v));
+                    }
+                    1 => {
+                        // insert
+                        let v = rng.random_range(0..V);
+                        assert_eq!(expected.insert(v), actual.insert(v));
+                    }
+                    _ => unreachable!(),
+                }
+                // check
+                assert_eq!(expected.len(), actual.len());
+                assert_eq!(expected.is_empty(), actual.is_empty());
+                assert_eq!(expected.iter().count(), actual.iter().count());
+                expected.iter().zip(actual.iter()).for_each(|(e, a)| {
+                    assert_eq!(e, a);
+                });
+            }
+        }
+    }
+    #[test]
+    fn implicit_treap() {
+        const T: usize = 512;
         use crate::modint::{ModIntTrait, StaticModInt};
         use rand_chacha::{rand_core::SeedableRng, ChaChaRng};
         type Mint = StaticModInt<998244353>;
