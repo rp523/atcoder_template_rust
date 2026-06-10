@@ -294,6 +294,9 @@ where
         }
         ret
     }
+    pub fn into_iter(self) -> TreapSetIntoIter<T> {
+        TreapSetIntoIter::new(self)
+    }
     pub fn iter(&self) -> TreapSetIter<'_, T> {
         TreapSetIter::new(self)
     }
@@ -381,6 +384,92 @@ impl<'a, T: Clone + PartialEq + Eq + PartialOrd + Ord + std::fmt::Debug> Iterato
                         self.node = None;
                     }
                     return Some(&self.treap_set.nodes[node].value);
+                }
+                State::BackFromRight => {
+                    // should rise
+                    self.node = self.treap_set.par[node];
+                    if let Some(p) = self.treap_set.par[node] {
+                        if self.treap_set.nodes[p].left == Some(node) {
+                            self.state = State::BackFromLeft;
+                        } else {
+                            self.state = State::BackFromRight;
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }
+}
+
+#[snippet("TreapSet")]
+pub struct TreapSetIntoIter<T: Clone + PartialEq + Eq + PartialOrd + Ord + std::fmt::Debug> {
+    node: Option<usize>,
+    state: State,
+    treap_set: TreapSet<T>,
+}
+#[snippet("TreapSet")]
+impl<T: Clone + PartialEq + Eq + PartialOrd + Ord + std::fmt::Debug> TreapSetIntoIter<T> {
+    pub fn new(treap_set: TreapSet<T>) -> Self {
+        let node = treap_set.get_first_node();
+        Self {
+            node,
+            state: State::JustAfterEntering,
+            treap_set,
+        }
+    }
+}
+#[snippet("TreapSet")]
+impl<T: Clone + PartialEq + Eq + PartialOrd + Ord + std::fmt::Debug> Iterator
+    for TreapSetIntoIter<T>
+{
+    type Item = T;
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some(node) = self.node {
+            match self.state {
+                State::JustAfterEntering => {
+                    // should output self
+                    if let Some(left) = self.treap_set.nodes[node].left {
+                        // has next left
+                        self.node = Some(left);
+                        self.state = State::JustAfterEntering;
+                    } else if let Some(right) = self.treap_set.nodes[node].right {
+                        // has next right
+                        self.node = Some(right);
+                        self.state = State::JustAfterEntering;
+                        return Some(self.treap_set.nodes[node].value.clone());
+                    } else if let Some(p) = self.treap_set.par[node] {
+                        // is terminal and has parent
+                        self.node = Some(p);
+                        if self.treap_set.nodes[p].left == Some(node) {
+                            self.state = State::BackFromLeft;
+                        } else {
+                            self.state = State::BackFromRight;
+                        }
+                        return Some(self.treap_set.nodes[node].value.clone());
+                    } else {
+                        // is terminal and has no parent
+                        self.node = None;
+                        return Some(self.treap_set.nodes[node].value.clone());
+                    }
+                }
+                State::BackFromLeft => {
+                    // should output right
+                    if let Some(right) = self.treap_set.nodes[node].right {
+                        // has next right
+                        self.node = Some(right);
+                        self.state = State::JustAfterEntering;
+                    } else if let Some(p) = self.treap_set.par[node] {
+                        self.node = Some(p);
+                        if self.treap_set.nodes[p].left == Some(node) {
+                            self.state = State::BackFromLeft;
+                        } else {
+                            self.state = State::BackFromRight;
+                        }
+                    } else {
+                        self.node = None;
+                    }
+                    return Some(self.treap_set.nodes[node].value.clone());
                 }
                 State::BackFromRight => {
                     // should rise
@@ -734,9 +823,15 @@ mod test {
                 assert_eq!(expected.len(), actual.len());
                 assert_eq!(expected.is_empty(), actual.is_empty());
                 assert_eq!(expected.iter().count(), actual.iter().count());
-                expected.iter().zip(actual.iter()).for_each(|(e, a)| {
+                expected.iter().zip(actual.iter()).for_each(|(&e, &a)| {
                     assert_eq!(e, a);
                 });
+                expected
+                    .iter()
+                    .zip(actual.clone().into_iter())
+                    .for_each(|(&e, a)| {
+                        assert_eq!(e, a);
+                    });
                 for (i, &expected) in expected.iter().enumerate() {
                     assert_eq!(expected, actual.get_by_idx(i));
                 }
