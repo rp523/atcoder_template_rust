@@ -83,18 +83,72 @@ where
         node: Option<usize>,
         key: &T,
     ) -> (Option<usize>, Option<usize>) {
+        let get_node_key = |node: usize, nodes: &[TreapNode<T>]| nodes[node].value.clone();
+        let gen_next_key = |key: &T, _node: usize, _nodes: &[TreapNode<T>]| key.clone();
+        self.split_lower_bound_impl(node, key, get_node_key, gen_next_key)
+    }
+    fn split_upper_bound(
+        &mut self,
+        node: Option<usize>,
+        key: &T,
+    ) -> (Option<usize>, Option<usize>) {
+        let get_node_key = |node: usize, nodes: &[TreapNode<T>]| nodes[node].value.clone();
+        let gen_next_key = |key: &T, _node: usize, _nodes: &[TreapNode<T>]| key.clone();
+        self.split_upper_bound_impl(node, key, get_node_key, gen_next_key)
+    }
+    fn split_lower_bound_by_idx(
+        &mut self,
+        node: Option<usize>,
+        i: usize,
+    ) -> (Option<usize>, Option<usize>) {
+        let get_node_key = |node: usize, nodes: &[TreapNode<T>]| -> usize {
+            if let Some(left) = nodes[node].left {
+                nodes[left].sub_sz
+            } else {
+                0
+            }
+        };
+        self.split_lower_bound_impl(node, &i, get_node_key, Self::gen_next_key_by_idx)
+    }
+    fn gen_next_key_by_idx(org_key: &usize, node: usize, nodes: &[TreapNode<T>]) -> usize {
+        *org_key
+            - if let Some(left) = nodes[node].left {
+                nodes[left].sub_sz + 1
+            } else {
+                1
+            }
+    }
+    fn split_lower_bound_impl<K, F, G>(
+        &mut self,
+        node: Option<usize>,
+        key: &K,
+        get_node_key: F,
+        gen_next_key: G,
+    ) -> (Option<usize>, Option<usize>)
+    where
+        K: Clone + PartialEq + Eq + PartialOrd + Ord + std::fmt::Debug,
+        F: Fn(usize, &[TreapNode<T>]) -> K,
+        G: Fn(&K, usize, &[TreapNode<T>]) -> K,
+    {
         let Some(node) = node else {
             return (None, None);
         };
-        if key <= &self.nodes[node].value {
-            let (nl, nr) = self.split_lower_bound(self.nodes[node].left, key);
+        let node_key = get_node_key(node, &self.nodes);
+        if key <= &node_key {
+            let (nl, nr) =
+                self.split_lower_bound_impl(self.nodes[node].left, key, get_node_key, gen_next_key);
             self.nodes[node].left = nr;
             if let Some(nr) = nr {
                 self.par[nr] = Some(node);
             }
             (nl, self.update(node))
         } else {
-            let (nl, nr) = self.split_lower_bound(self.nodes[node].right, key);
+            let (nl, nr) = self.split_lower_bound_impl(
+                self.nodes[node].right,
+                &gen_next_key(key, node, &self.nodes),
+                get_node_key,
+                gen_next_key,
+            );
             self.nodes[node].right = nl;
             if let Some(nl) = nl {
                 self.par[nl] = Some(node);
@@ -102,24 +156,37 @@ where
             (self.update(node), nr)
         }
     }
-    // split and return roots of left/right trees
-    fn split_upper_bound(
+    fn split_upper_bound_impl<K, F, G>(
         &mut self,
         node: Option<usize>,
-        key: &T,
-    ) -> (Option<usize>, Option<usize>) {
+        key: &K,
+        get_node_key: F,
+        gen_next_key: G,
+    ) -> (Option<usize>, Option<usize>)
+    where
+        K: Clone + PartialEq + Eq + PartialOrd + Ord + std::fmt::Debug,
+        F: Fn(usize, &[TreapNode<T>]) -> K,
+        G: Fn(&K, usize, &[TreapNode<T>]) -> K,
+    {
         let Some(node) = node else {
             return (None, None);
         };
-        if key < &self.nodes[node].value {
-            let (nl, nr) = self.split_upper_bound(self.nodes[node].left, key);
+        let node_key = get_node_key(node, &self.nodes);
+        if key < &node_key {
+            let (nl, nr) =
+                self.split_upper_bound_impl(self.nodes[node].left, key, get_node_key, gen_next_key);
             self.nodes[node].left = nr;
             if let Some(nr) = nr {
                 self.par[nr] = Some(node);
             }
             (nl, self.update(node))
         } else {
-            let (nl, nr) = self.split_upper_bound(self.nodes[node].right, key);
+            let (nl, nr) = self.split_upper_bound_impl(
+                self.nodes[node].right,
+                &gen_next_key(key, node, &self.nodes),
+                get_node_key,
+                gen_next_key,
+            );
             self.nodes[node].right = nl;
             if let Some(nl) = nl {
                 self.par[nl] = Some(node);
@@ -229,6 +296,14 @@ where
     }
     pub fn iter(&self) -> TreapSetIter<'_, T> {
         TreapSetIter::new(self)
+    }
+    pub fn get_by_idx(&mut self, i: usize) -> T {
+        let (left, center_and_right) = self.split_lower_bound_by_idx(self.root, i);
+        let (center, right) = self.split_lower_bound_by_idx(center_and_right, 1);
+        let ret = self.nodes[center.unwrap()].value.clone();
+        let center_and_right = self.merge(center, right);
+        self.root = self.merge(left, center_and_right);
+        ret
     }
 }
 
@@ -634,7 +709,7 @@ mod test {
     const N: usize = 16;
     const V: usize = 16;
     #[test]
-    pub fn treap_set() {
+    fn treap_set() {
         const T: usize = 2048;
         use rand_chacha::{rand_core::SeedableRng, ChaChaRng};
         let mut rng = ChaChaRng::from_seed([0; 32]);
@@ -662,6 +737,9 @@ mod test {
                 expected.iter().zip(actual.iter()).for_each(|(e, a)| {
                     assert_eq!(e, a);
                 });
+                for (i, &expected) in expected.iter().enumerate() {
+                    assert_eq!(expected, actual.get_by_idx(i));
+                }
             }
         }
     }
