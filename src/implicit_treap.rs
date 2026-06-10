@@ -6,6 +6,7 @@ struct TreapNode<T: Clone + std::fmt::Debug> {
     // status
     value: T,
     sub_sz: usize,
+    cum: T,
     // connection
     left: Option<usize>,
     right: Option<usize>,
@@ -20,8 +21,9 @@ where
     pub fn new(value: T, rng: &mut u32) -> Self {
         Self::random_trans(rng);
         Self {
-            value,
+            value: value.clone(),
             sub_sz: 1,
+            cum: value,
             left: None,
             right: None,
             priority: *rng,
@@ -42,7 +44,6 @@ pub struct ImplicitTreap<T: Clone + std::fmt::Debug, M: Clone + std::fmt::Debug>
     nodes: Vec<TreapNode<T>>,
     empties: Vec<usize>,
     rng: u32,
-    cum: Vec<T>,
     lazy: Vec<Option<M>>,
     pair_op: fn(T, T) -> T,
     update_op: fn(T, M) -> T,
@@ -65,7 +66,6 @@ where
             nodes: vec![],
             empties: vec![],
             rng: 0x11001100,
-            cum: vec![],
             lazy: vec![],
             pair_op,
             update_op,
@@ -84,7 +84,6 @@ where
             .cloned()
             .map(|value| TreapNode::new(value.clone(), &mut rng))
             .collect::<Vec<_>>();
-        let mut cum = a.clone();
         let n = a.len();
         let mut stack = vec![0];
         for i in 1..n {
@@ -105,14 +104,13 @@ where
                 stack.push(i);
             }
         }
-        Self::dfs(stack[0], pair_op, &mut nodes, &mut cum);
+        Self::dfs(stack[0], pair_op, &mut nodes);
         let root = Some(stack[0]);
         let ret = Self {
             root,
             nodes,
             empties: vec![],
             rng,
-            cum: a.clone(),
             lazy: vec![None; n],
             pair_op,
             update_op,
@@ -120,15 +118,15 @@ where
         };
         ret
     }
-    fn dfs(node: usize, pair_op: fn(T, T) -> T, nodes: &mut [TreapNode<T>], cum: &mut [T]) {
+    fn dfs(node: usize, pair_op: fn(T, T) -> T, nodes: &mut [TreapNode<T>]) {
         if let Some(left) = nodes[node].left {
-            Self::dfs(left, pair_op, nodes, cum);
+            Self::dfs(left, pair_op, nodes);
         }
         if let Some(right) = nodes[node].right {
-            Self::dfs(right, pair_op, nodes, cum);
+            Self::dfs(right, pair_op, nodes);
         }
         nodes[node].sub_sz = Self::update_sz(nodes, node);
-        cum[node] = Self::update_cum(nodes, cum, node, pair_op);
+        nodes[node].cum = Self::update_cum(nodes, node, pair_op);
     }
     fn get_key(node: usize, nodes: &[TreapNode<T>]) -> usize {
         if let Some(left) = nodes[node].left {
@@ -159,21 +157,21 @@ where
             1
         }
     }
-    fn update_cum<F>(nodes: &[TreapNode<T>], cum: &[T], node: usize, pair_op: F) -> T
+    fn update_cum<F>(nodes: &[TreapNode<T>], node: usize, pair_op: F) -> T
     where
         F: Fn(T, T) -> T,
     {
         if let Some(left) = nodes[node].left {
             if let Some(right) = nodes[node].right {
                 (pair_op)(
-                    (pair_op)(cum[left].clone(), nodes[node].value.clone()),
-                    cum[right].clone(),
+                    (pair_op)(nodes[left].cum.clone(), nodes[node].value.clone()),
+                    nodes[right].cum.clone(),
                 )
             } else {
-                (pair_op)(cum[left].clone(), nodes[node].value.clone())
+                (pair_op)(nodes[left].cum.clone(), nodes[node].value.clone())
             }
         } else if let Some(right) = nodes[node].right {
-            (pair_op)(nodes[node].value.clone(), cum[right].clone())
+            (pair_op)(nodes[node].value.clone(), nodes[right].cum.clone())
         } else {
             nodes[node].value.clone()
         }
@@ -181,7 +179,7 @@ where
     // calulate correct value of sub_size and value.
     fn update(&mut self, node: usize) -> Option<usize> {
         self.nodes[node].sub_sz = Self::update_sz(&mut self.nodes, node);
-        self.cum[node] = Self::update_cum(&mut self.nodes, &mut self.cum, node, self.pair_op);
+        self.nodes[node].cum = Self::update_cum(&mut self.nodes, node, self.pair_op);
         Some(node)
     }
     // split and return roots of left/right trees
@@ -245,12 +243,11 @@ where
         let new_info = TreapNode::new(value.clone(), &mut self.rng);
         let v = if let Some(v) = self.empties.pop() {
             self.nodes[v] = new_info;
-            self.cum[v] = value.clone();
+            self.nodes[v].cum = value.clone();
             self.lazy[v] = None;
             v
         } else {
             self.nodes.push(new_info);
-            self.cum.push(value.clone());
             self.lazy.push(None);
             self.nodes.len() - 1
         };
@@ -279,7 +276,7 @@ where
         debug_assert!(i < self.len());
         let (l, cr) = self.split(self.root, i, Self::get_key, Self::gen_nxt_key);
         let (c, r) = self.split(cr, 1, Self::get_key, Self::gen_nxt_key);
-        let ret = self.cum[c.unwrap()].clone();
+        let ret = self.nodes[c.unwrap()].cum.clone();
         let cr = self.merge(c, r);
         self.root = self.merge(l, cr);
         ret
@@ -289,7 +286,7 @@ where
         let (l, cr) = self.split(self.root, i, Self::get_key, Self::gen_nxt_key);
         let (c, r) = self.split(cr, 1, Self::get_key, Self::gen_nxt_key);
         self.nodes[c.unwrap()].value = value.clone();
-        self.cum[c.unwrap()] = value;
+        self.nodes[c.unwrap()].cum = value;
         let cr = self.merge(c, r);
         self.root = self.merge(l, cr);
     }
@@ -297,7 +294,7 @@ where
         debug_assert!(li <= ri);
         let (lc, r) = self.split(self.root, ri + 1, Self::get_key, Self::gen_nxt_key);
         let (l, c) = self.split(lc, li, Self::get_key, Self::gen_nxt_key);
-        let ret = self.cum[c.unwrap()].clone();
+        let ret = self.nodes[c.unwrap()].cum.clone();
         let cr = self.merge(c, r);
         self.root = self.merge(l, cr);
         ret
@@ -319,7 +316,7 @@ where
         if let Some(lazy) = self.lazy[node].clone() {
             self.lazy[node] = None;
             self.nodes[node].value = (self.update_op)(self.nodes[node].value.clone(), lazy.clone());
-            self.cum[node] = (self.update_op)(self.cum[node].clone(), lazy.clone());
+            self.nodes[node].cum = (self.update_op)(self.nodes[node].cum.clone(), lazy.clone());
             if let Some(left) = self.nodes[node].left {
                 self.lazy[left] = Some(if let Some(lazy_old) = self.lazy[left].clone() {
                     (self.update_concat)(lazy_old, lazy.clone())
