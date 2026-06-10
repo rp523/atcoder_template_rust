@@ -1,6 +1,7 @@
 use cargo_snippet::snippet;
 
 #[snippet("ImplicitTreap")]
+#[snippet("TreapSet")]
 #[derive(Clone, Debug)]
 struct TreapNode<T: Clone + std::fmt::Debug> {
     // status
@@ -13,6 +14,7 @@ struct TreapNode<T: Clone + std::fmt::Debug> {
     priority: u32,
 }
 #[snippet("ImplicitTreap")]
+#[snippet("TreapSet")]
 impl<T> TreapNode<T>
 where
     T: Clone + std::fmt::Debug,
