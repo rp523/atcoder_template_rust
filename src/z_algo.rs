@@ -4,12 +4,13 @@ use cargo_snippet::snippet;
 pub fn z_algo(s: &[usize]) -> Vec<usize> {
     // https://www.youtube.com/watch?v=f6ct5PQHqM0
     let n = s.len();
-    if n == 0 {
-        return vec![];
-    }
+    if n == 0 {
+        return vec![];
+    }
     let mut last_match = None;
     let mut ret = vec![0; n];
     ret[0] = n;
+    for i in 1..n {
         let mut match_delta = 0;
         if let Some((m0, m1)) = last_match {
             if i < m1 {
