@@ -45,13 +45,13 @@ impl UnionFind {
         self.unite_with_delta(into, from, 0)
     }
     pub fn unite_with_delta(&mut self, into: usize, from: usize, delta: i64) -> bool {
-        self.graph[into].push(from);
-        self.graph[from].push(into);
         let r_into = self.root(into);
         let r_from = self.root(from);
         if r_into == r_from {
             return false;
         }
+        self.graph[into].push(from);
+        self.graph[from].push(into);
         self.parents[r_from] = r_into;
         self.potential[r_from] = self.potential[into] - self.potential[from] + delta;
         self.grp_sz[r_into] += self.grp_sz[r_from];

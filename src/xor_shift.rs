@@ -1,11 +1,13 @@
 use cargo_snippet::snippet;
 
 #[snippet("XorShift64")]
-pub struct XorShift64(usize);
+#[derive(Clone, Debug)]
+pub struct XorShift64(u64);
+
 #[snippet("XorShift64")]
 impl XorShift64 {
     pub fn new() -> Self {
-        Self(88172645463325252_usize)
+        Self(88_172_645_463_325_252u64)
     }
     fn next(&mut self) {
         self.0 ^= self.0 << 7;
@@ -13,7 +15,7 @@ impl XorShift64 {
     }
     pub fn next_usize(&mut self) -> usize {
         self.next();
-        self.0
+        self.0 as usize
     }
     pub fn next_f64(&mut self) -> f64 {
         self.next();

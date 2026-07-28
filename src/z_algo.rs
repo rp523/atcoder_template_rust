@@ -4,6 +4,9 @@ use cargo_snippet::snippet;
 pub fn z_algo(s: &[usize]) -> Vec<usize> {
     // https://www.youtube.com/watch?v=f6ct5PQHqM0
     let n = s.len();
+    if n == 0 {
+        return vec![];
+    }
     let mut last_match = None;
     let mut ret = vec![0; n];
     ret[0] = n;

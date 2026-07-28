@@ -355,11 +355,7 @@ type Mint6 = StaticModInt<1000010189>;
 #[snippet("HashNode")]
 type Mint7 = StaticModInt<1000010197>;
 #[snippet("HashNode")]
-type Mint8 = StaticModInt<1000010233>;
-#[snippet("HashNode")]
-type Mint9 = StaticModInt<1000010243>;
-#[snippet("HashNode")]
-#[snippet(include = "DnyModInt")]
+#[snippet(include = "DynModInt")]
 #[snippet(include = "StaticModInt")]
 #[snippet(include = "ModIntTrait")]
 #[derive(Clone, Debug, Copy, Eq, Hash, PartialEq)]
@@ -372,8 +368,6 @@ pub struct HashNode {
     x5: Mint5,
     x6: Mint6,
     x7: Mint7,
-    x8: Mint8,
-    x9: Mint9,
 }
 #[snippet("HashNode")]
 impl HashNode {
@@ -387,8 +381,6 @@ impl HashNode {
             x5: Mint5::new(x),
             x6: Mint6::new(x),
             x7: Mint7::new(x),
-            x8: Mint8::new(x),
-            x9: Mint9::new(x),
         }
     }
 }
@@ -406,8 +398,6 @@ impl std::ops::Add<Self> for HashNode {
             x5: self.x5 + rhs.x5,
             x6: self.x6 + rhs.x6,
             x7: self.x7 + rhs.x7,
-            x8: self.x8 + rhs.x8,
-            x9: self.x9 + rhs.x9,
         }
     }
 }
@@ -425,8 +415,6 @@ impl std::ops::Sub<Self> for HashNode {
             x5: self.x5 - rhs.x5,
             x6: self.x6 - rhs.x6,
             x7: self.x7 - rhs.x7,
-            x8: self.x8 - rhs.x8,
-            x9: self.x9 - rhs.x9,
         }
     }
 }
@@ -444,8 +432,6 @@ impl std::ops::Mul<Self> for HashNode {
             x5: self.x5 * rhs.x5,
             x6: self.x6 * rhs.x6,
             x7: self.x7 * rhs.x7,
-            x8: self.x8 * rhs.x8,
-            x9: self.x9 * rhs.x9,
         }
     }
 }
@@ -464,8 +450,6 @@ impl std::ops::Div<Self> for HashNode {
             x5: self.x5 / rhs.x5,
             x6: self.x6 / rhs.x6,
             x7: self.x7 / rhs.x7,
-            x8: self.x8 / rhs.x8,
-            x9: self.x9 / rhs.x9,
         }
     }
 }
@@ -512,6 +496,12 @@ impl std::str::FromStr for HashNode {
 impl std::iter::Sum for HashNode {
     fn sum<I: Iterator<Item = HashNode>>(iter: I) -> Self {
         iter.fold(Self::new(0), |cum, v| cum + v)
+    }
+}
+#[snippet("HashNode")]
+impl From<usize> for HashNode {
+    fn from(value: usize) -> Self {
+        Self::new(value)
     }
 }
 

@@ -95,10 +95,13 @@ impl<
     > std::ops::MulAssign<Matrix<T>> for Matrix<T>
 {
     fn mul_assign(&mut self, rhs: Matrix<T>) {
+        debug_assert!(self.w == rhs.h && self.w == rhs.w);
         let self0 = self.clone();
         for i in 0..self.h {
             for j in 0..self.w {
-                self[i][j] = (0..self.h).map(|k| self0[i][k] * rhs[k][j]).sum::<T>();
+                self[i][j] = (0..self.w)
+                    .map(|k| self0[i][k] * rhs[k][j])
+                    .sum::<T>();
             }
         }
     }
