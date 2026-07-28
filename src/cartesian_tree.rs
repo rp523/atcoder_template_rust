@@ -10,7 +10,7 @@ where
     let mut ret = vec![vec![None; 2]; n];
     for i in 1..n {
         let mut l = None;
-        while let Some(&j) = stack.iter().next_back() {
+        while let Some(&j) = stack.last() {
             if op(a[j], a[i]) == a[j] {
                 ret[j][1] = Some(i);
                 break;
