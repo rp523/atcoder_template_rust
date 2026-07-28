@@ -355,7 +355,7 @@ type Mint6 = StaticModInt<1000010189>;
 #[snippet("HashNode")]
 type Mint7 = StaticModInt<1000010197>;
 #[snippet("HashNode")]
-#[snippet(include = "DnyModInt")]
+#[snippet(include = "DynModInt")]
 #[snippet(include = "StaticModInt")]
 #[snippet(include = "ModIntTrait")]
 #[derive(Clone, Debug, Copy, Eq, Hash, PartialEq)]
