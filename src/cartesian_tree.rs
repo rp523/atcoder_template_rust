@@ -1,13 +1,13 @@
 use cargo_snippet::snippet;
 
 #[snippet("cartesian_tree")]
-pub fn cartesian_tree<T>(a: &[T], op: fn(T, T) -> T) -> (usize, Vec<Vec<Option<usize>>>)
+pub fn cartesian_tree<T>(a: &[T], op: fn(T, T) -> T) -> (usize, Vec<[Option<usize>; 2]>)
 where
     T: Clone + Copy + PartialEq + PartialOrd,
 {
     let n = a.len();
     let mut stack = vec![0];
-    let mut ret = vec![vec![None; 2]; n];
+    let mut ret = vec![[None; 2]; n];
     for i in 1..n {
         let mut l = None;
         while let Some(&j) = stack.last() {
@@ -40,7 +40,7 @@ pub mod test {
             for _ in 0..T {
                 for op in [std::cmp::min::<usize>, std::cmp::max::<usize>] {
                     let a = (0..n).map(|_| rng.random_range(0..V)).collect::<Vec<_>>();
-                    let mut expected = vec![vec![None; 2]; n];
+                    let mut expected = vec![[None; 2]; n];
                     let expected_root = build(&a, 0, n - 1, &mut expected, op);
                     let (actual_root, actual) = cartesian_tree(&a, op);
                     assert_eq!(expected_root, actual_root);
@@ -49,7 +49,7 @@ pub mod test {
                         a: &[usize],
                         i0: usize,
                         i1: usize,
-                        expected: &mut Vec<Vec<Option<usize>>>,
+                        expected: &mut Vec<[Option<usize>; 2]>,
                         op: fn(usize, usize) -> usize,
                     ) -> usize {
                         if i0 == i1 {
