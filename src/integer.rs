@@ -9,6 +9,7 @@ pub trait IntegerOperation {
     where
         Self: Sized;
     fn squared_length(&self, rhs: Self) -> Self;
+    fn is_prime(&self) -> bool;
 }
 #[snippet("IntegerOperation")]
 impl<
@@ -82,6 +83,11 @@ impl<
     }
     fn squared_length(&self, rhs: Self) -> Self {
         *self * *self + rhs * rhs
+    }
+    fn is_prime(&self) -> bool // O(N^0.5 x logN)
+    {
+        let primes = self.into_primes();
+        primes.len() == 1 && primes.iter().next().unwrap().1 == &1
     }
 }
 #[snippet("IntegerOperation")]
