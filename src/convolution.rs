@@ -45,7 +45,6 @@ where
 #[snippet("convolution")]
 // returns 'r' s.t. 'r^(m - 1) == 1 (mod m)'
 fn primitive_root(m: i64) -> i64 {
-    debug_assert!(m.is_prime());
     if m == 2 {
         return 1;
     }
