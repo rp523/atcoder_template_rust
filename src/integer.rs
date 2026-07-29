@@ -136,7 +136,7 @@ pub fn is_prime(n: u64) -> bool {
 mod test {
     #[test]
     fn is_prime() {
-        for x in 1..1e5 as u64 {
+        for x in 1..100_000u64 {
             let expected = (x >= 2) && (2..x).all(|px| x % px != 0);
             let actual = super::is_prime(x);
             assert_eq!(expected, actual);
