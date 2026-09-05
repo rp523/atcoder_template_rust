@@ -2,9 +2,12 @@ use cargo_snippet::snippet;
 
 // https://github.com/atcoder/ac-library/blob/master/atcoder/convolution.hpp
 use crate::integer::IntegerOperation;
+// Bundles StaticModInt/DynModInt so a single "convolution" extraction is self-contained and never duplicates ModIntTrait with them.
 #[snippet("convolution")]
 #[snippet(include = "IntegerOperation")]
 #[snippet(include = "ModIntTrait")]
+#[snippet(include = "StaticModInt")]
+#[snippet(include = "DynModInt")]
 pub fn convolution<Mint>(arga: &[Mint], argb: &[Mint]) -> Vec<Mint>
 where
     Mint: Clone
