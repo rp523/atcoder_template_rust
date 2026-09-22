@@ -258,15 +258,14 @@ where
     pub fn remove(&mut self, key: &K) -> Option<V> {
         let (left, center_and_right) = self.split_lower_bound(self.root, key);
         let (center, right) = self.split_upper_bound(center_and_right, key);
+        self.root = self.merge(left, right);
+        if let Some(r) = self.root {
+            self.par[r] = None;
+        }
         if let Some(center) = center {
             self.empties.push(center);
-            self.root = self.merge(left, right);
-            if let Some(r) = self.root {
-                self.par[r] = None;
-            }
             Some(self.values[center].clone())
         } else {
-            self.root = self.merge(left, right);
             None
         }
     }
@@ -280,6 +279,34 @@ where
             self.par[r] = None;
         }
         ret
+    }
+    pub fn get(&mut self, value: &K) -> Option<&V> {
+        let (left, center_and_right) = self.split_lower_bound(self.root, value);
+        let (center, right) = self.split_upper_bound(center_and_right, value);
+        let center_and_right = self.merge(center, right);
+        self.root = self.merge(left, center_and_right);
+        if let Some(r) = self.root {
+            self.par[r] = None;
+        }
+        if let Some(center) = center {
+            Some(&self.values[center])
+        } else {
+            None
+        }
+    }
+    pub fn get_mut(&mut self, value: &K) -> Option<&mut V> {
+        let (left, center_and_right) = self.split_lower_bound(self.root, value);
+        let (center, right) = self.split_upper_bound(center_and_right, value);
+        let center_and_right = self.merge(center, right);
+        self.root = self.merge(left, center_and_right);
+        if let Some(r) = self.root {
+            self.par[r] = None;
+        }
+        if let Some(center) = center {
+            Some(&mut self.values[center])
+        } else {
+            None
+        }
     }
     pub fn into_iter(self) -> TreapMapIntoIter<K, V> {
         TreapMapIntoIter::new(self)
@@ -875,6 +902,16 @@ mod test {
                     });
                 for (i, expected) in expected.iter().enumerate() {
                     assert_eq!(Some(expected), actual.get_by_idx(i));
+                }
+                for k in 0..K {
+                    assert_eq!(expected.get(&k), actual.get(&k));
+                    let ev = expected.get_mut(&k);
+                    let av = actual.get_mut(&k);
+                    if let Some(ev) = ev {
+                        assert_eq!(*ev, *av.unwrap())
+                    } else {
+                        assert!(av.is_none());
+                    }
                 }
             }
         }
