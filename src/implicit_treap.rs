@@ -210,8 +210,23 @@ where
         }
         Some(node)
     }
-    pub fn first(&self) -> Option<(&K, &V)> {
+    fn get_last_node(&self) -> Option<usize> {
+        let Some(mut node) = self.root else {
+            return None;
+        };
+        while let Some(right) = self.nodes[node].right {
+            node = right;
+        }
+        Some(node)
+    }
+    pub fn first_key_value(&self) -> Option<(&K, &V)> {
         let Some(node) = self.get_first_node() else {
+            return None;
+        };
+        Some((&self.nodes[node].key, &self.values[node]))
+    }
+    pub fn last_key_value(&self) -> Option<(&K, &V)> {
+        let Some(node) = self.get_last_node() else {
             return None;
         };
         Some((&self.nodes[node].key, &self.values[node]))
@@ -893,6 +908,8 @@ mod test {
                 expected.iter().zip(actual.iter()).for_each(|(e, a)| {
                     assert_eq!(e, a);
                 });
+                assert_eq!(expected.first_key_value(), actual.first_key_value());
+                assert_eq!(expected.last_key_value(), actual.last_key_value());
                 expected
                     .clone()
                     .into_iter()
