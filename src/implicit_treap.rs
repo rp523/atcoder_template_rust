@@ -87,7 +87,7 @@ where
     ) -> (Option<usize>, Option<usize>) {
         let get_node_key = |node: usize, nodes: &[TreapNode<T>]| nodes[node].value.clone();
         let gen_next_key = |key: &T, _node: usize, _nodes: &[TreapNode<T>]| key.clone();
-        self.split_lower_bound_impl(node, key, get_node_key, gen_next_key)
+        self.split_bound_impl(node, key, false, get_node_key, gen_next_key)
     }
     fn split_upper_bound(
         &mut self,
@@ -96,7 +96,7 @@ where
     ) -> (Option<usize>, Option<usize>) {
         let get_node_key = |node: usize, nodes: &[TreapNode<T>]| nodes[node].value.clone();
         let gen_next_key = |key: &T, _node: usize, _nodes: &[TreapNode<T>]| key.clone();
-        self.split_upper_bound_impl(node, key, get_node_key, gen_next_key)
+        self.split_bound_impl(node, key, true, get_node_key, gen_next_key)
     }
     fn split_lower_bound_by_idx(
         &mut self,
@@ -110,7 +110,7 @@ where
                 0
             }
         };
-        self.split_lower_bound_impl(node, &i, get_node_key, Self::gen_next_key_by_idx)
+        self.split_bound_impl(node, &i, false, get_node_key, Self::gen_next_key_by_idx)
     }
     fn gen_next_key_by_idx(org_key: &usize, node: usize, nodes: &[TreapNode<T>]) -> usize {
         *org_key
@@ -120,10 +120,11 @@ where
                 1
             }
     }
-    fn split_lower_bound_impl<K, F, G>(
+    fn split_bound_impl<K, F, G>(
         &mut self,
         node: Option<usize>,
-        key: &K,
+        search_key: &K,
+        is_upper_bound: bool,
         get_node_key: F,
         gen_next_key: G,
     ) -> (Option<usize>, Option<usize>)
@@ -136,56 +137,29 @@ where
             return (None, None);
         };
         let node_key = get_node_key(node, &self.nodes);
-        if key <= &node_key {
-            let (nl, nr) =
-                self.split_lower_bound_impl(self.nodes[node].left, key, get_node_key, gen_next_key);
-            self.nodes[node].left = nr;
-            if let Some(nr) = nr {
-                self.par[nr] = Some(node);
-            }
-            (nl, self.update(node))
-        } else {
-            let (nl, nr) = self.split_lower_bound_impl(
-                self.nodes[node].right,
-                &gen_next_key(key, node, &self.nodes),
+        let is_dig_right = match search_key.cmp(&node_key) {
+            std::cmp::Ordering::Less => false,
+            std::cmp::Ordering::Greater => true,
+            std::cmp::Ordering::Equal => is_upper_bound,
+        };
+        if !is_dig_right {
+            let (nl, nr) = self.split_bound_impl(
+                self.nodes[node].left,
+                search_key,
+                is_upper_bound,
                 get_node_key,
                 gen_next_key,
             );
-            self.nodes[node].right = nl;
-            if let Some(nl) = nl {
-                self.par[nl] = Some(node);
-            }
-            (self.update(node), nr)
-        }
-    }
-    fn split_upper_bound_impl<K, F, G>(
-        &mut self,
-        node: Option<usize>,
-        key: &K,
-        get_node_key: F,
-        gen_next_key: G,
-    ) -> (Option<usize>, Option<usize>)
-    where
-        K: Clone + PartialEq + Eq + PartialOrd + Ord + std::fmt::Debug,
-        F: Fn(usize, &[TreapNode<T>]) -> K,
-        G: Fn(&K, usize, &[TreapNode<T>]) -> K,
-    {
-        let Some(node) = node else {
-            return (None, None);
-        };
-        let node_key = get_node_key(node, &self.nodes);
-        if key < &node_key {
-            let (nl, nr) =
-                self.split_upper_bound_impl(self.nodes[node].left, key, get_node_key, gen_next_key);
             self.nodes[node].left = nr;
             if let Some(nr) = nr {
                 self.par[nr] = Some(node);
             }
             (nl, self.update(node))
         } else {
-            let (nl, nr) = self.split_upper_bound_impl(
+            let (nl, nr) = self.split_bound_impl(
                 self.nodes[node].right,
-                &gen_next_key(key, node, &self.nodes),
+                &gen_next_key(search_key, node, &self.nodes),
+                is_upper_bound,
                 get_node_key,
                 gen_next_key,
             );
