@@ -922,13 +922,7 @@ mod test {
                 }
                 for k in 0..K {
                     assert_eq!(expected.get(&k), actual.get(&k));
-                    let ev = expected.get_mut(&k);
-                    let av = actual.get_mut(&k);
-                    if let Some(ev) = ev {
-                        assert_eq!(*ev, *av.unwrap())
-                    } else {
-                        assert!(av.is_none());
-                    }
+                    assert_eq!(expected.get_mut(&k), actual.get_mut(&k));
                 }
             }
         }
