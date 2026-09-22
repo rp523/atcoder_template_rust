@@ -291,6 +291,10 @@ where
         let (left, center_and_right) = self.split_lower_bound_by_idx(self.root, i);
         let (center, right) = self.split_lower_bound_by_idx(center_and_right, 1);
         let Some(center) = center else {
+            self.root = self.merge(left, right);
+            if let Some(r) = self.root {
+                self.par[r] = None;
+            }
             return None;
         };
         let center_and_right = self.merge(Some(center), right);
