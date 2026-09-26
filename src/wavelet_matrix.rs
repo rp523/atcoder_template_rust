@@ -106,17 +106,23 @@ mod test {
 #[derive(Clone)]
 pub struct WaveletMatrix {
     bit_vectors: Vec<BitVector>,
+    cums: Vec<Vec<u64>>,
+    org_cum: Vec<u64>,
 }
-#[snippet("WaveletMatrix")]
 impl WaveletMatrix {
-    // construct. O(N * log(ValueMax))
     pub fn new(mut a: Vec<u64>) -> Self {
+        let n = a.len();
+        let mut org_cum = vec![0; n + 1];
+        for i in 0..n {
+            org_cum[i + 1] = org_cum[i] + a[i];
+        }
         let &mx = a.iter().max().unwrap();
         let mut d = 0;
         while mx & !((1u64 << d) - 1) != 0 {
             d += 1;
         }
         let mut bit_vectors = vec![];
+        let mut cums = vec![];
         for di in (0..d).rev() {
             // calc
             let bit_vector = BitVector::from_vec(&a, di);
@@ -127,11 +133,21 @@ impl WaveletMatrix {
                 .copied()
                 .chain(a.iter().filter(|&a| ((a >> di) & 1) != 0).copied())
                 .collect::<Vec<_>>();
+            let mut cum = vec![0; n + 1];
+            for i in 0..n {
+                cum[i + 1] = cum[i] + a[i];
+            }
             // record
             bit_vectors.push(bit_vector);
+            cums.push(cum);
         }
         bit_vectors.reverse();
-        Self { bit_vectors }
+        cums.reverse();
+        Self {
+            bit_vectors,
+            cums,
+            org_cum,
+        }
     }
     // get a[i]. O(log(ValueMax))
     pub fn get(&self, mut i: usize) -> u64 {
@@ -146,11 +162,11 @@ impl WaveletMatrix {
         }
         val
     }
-    // count value s.t. lower <= value < upper, in a[l..r]. O(log(ValueMax))
+    // count number of components s.t. index in [l, r) and value in [lower, value). O(log(ValueMax))
     pub fn range_freq(&self, lower: u64, upper: u64, l: usize, r: usize) -> usize {
         self.low_freq(upper, l, r) - self.low_freq(lower, l, r)
     }
-    // count value s.t. value < upper, in a[l..r]. O(log(ValueMax))
+    // count number of components s.t. index in [l, r) and value in [0, value). O(log(ValueMax))
     fn low_freq(&self, upper: u64, mut l: usize, mut r: usize) -> usize {
         if upper & !((1u64 << self.bit_vectors.len()) - 1) != 0 {
             return r - l;
@@ -178,7 +194,42 @@ impl WaveletMatrix {
         }
         lows
     }
-    // get k-th smallest value in a[l..r]. O(log(ValueMax))
+    // sum up components s.t. index in [l, r) and value in [lower, value). O(log(ValueMax))
+    pub fn range_sum(&self, lower: u64, upper: u64, l: usize, r: usize) -> u64 {
+        self.low_sum(upper, l, r) - self.low_sum(lower, l, r)
+    }
+    // sum up components s.t. index in [l, r) and value in [0, value). O(log(ValueMax))
+    fn low_sum(&self, upper: u64, mut l: usize, mut r: usize) -> u64 {
+        if upper & !((1u64 << self.bit_vectors.len()) - 1) != 0 {
+            return self.org_cum[r] - self.org_cum[l];
+        }
+        let mut lows = 0;
+        for (di, (bit_vector, cum)) in self
+            .bit_vectors
+            .iter()
+            .zip(self.cums.iter())
+            .enumerate()
+            .rev()
+        {
+            let c0_left = bit_vector.rank0(l);
+            let c1_left = bit_vector.rank1(l);
+            let c0_in = bit_vector.rank0(r) - c0_left;
+            let c1_in = bit_vector.rank1(r) - c1_left;
+            if ((upper >> di) & 1) == 0 {
+                l = c0_left;
+                r = c0_left + c0_in;
+            } else {
+                let zero_num = bit_vector.zero_num();
+                l = zero_num + c1_left;
+                r = zero_num + c1_left + c1_in;
+                lows += cum[c0_left + c0_in] - cum[c0_left];
+            }
+            if l >= r {
+                break;
+            }
+        }
+        lows
+    }
     pub fn range_kth_smallest(&self, mut l: usize, mut r: usize, mut k: usize) -> u64 {
         let mut val = 0;
         for (di, bit_vector) in self.bit_vectors.iter().enumerate().rev() {
@@ -264,6 +315,30 @@ mod wavelet_matrix_test {
                                 .filter(|&a| lower <= a && a < upper)
                                 .count();
                             let act = wm.range_freq(lower, upper, l, r);
+                            assert_eq!(act, exp);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    #[test]
+    fn range_sum() {
+        let mut rng = ChaChaRng::from_seed([0; 32]);
+        for _ in 0..T {
+            let a = (0..N)
+                .map(|_| rng.random_range(0..UPPER))
+                .collect::<Vec<_>>();
+            let wm = WaveletMatrix::new(a.clone());
+            for l in 0..N {
+                for r in l..N {
+                    for lower in 0..UPPER {
+                        for upper in lower..=UPPER {
+                            let exp = (l..r)
+                                .map(|i| a[i])
+                                .filter(|&a| lower <= a && a < upper)
+                                .sum();
+                            let act = wm.range_sum(lower, upper, l, r);
                             assert_eq!(act, exp);
                         }
                     }
