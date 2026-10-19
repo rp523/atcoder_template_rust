@@ -1,3 +1,4 @@
+// all libraries are public at: https://github.com/rp523/atcoder_template_rust
 #![allow(unused_macros, unused_imports, dead_code)]
 use std::cmp::{max, min, Ordering, Reverse};
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, VecDeque};
