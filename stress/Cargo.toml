@@ -1,0 +1,10 @@
+[package]
+name = "stress"
+version = "0.1.0"
+edition = "2021"
+
+# 外部クレート不要。src/bin/ 以下の main.rs / naive.rs / gen.rs がそれぞれバイナリになる。
+
+[profile.release]
+debug-assertions = true   # オーバーフロー等も検出したいので release でも有効化
+overflow-checks = true
