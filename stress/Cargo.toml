@@ -3,7 +3,8 @@ name = "stress"
 version = "0.1.0"
 edition = "2021"
 
-# 外部クレート不要。src/bin/ 以下の main.rs / naive.rs / gen.rs がそれぞれバイナリになる。
+# 外部クレート不要。src/bin/ 以下の naive.rs / gen.rs (/ checker.rs) がそれぞれバイナリになる。
+# 提出コードは親の atcoder パッケージの src/main.rs を stress.py がビルドして使う。
 
 [profile.release]
 debug-assertions = true   # オーバーフロー等も検出したいので release でも有効化

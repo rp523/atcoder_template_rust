@@ -2,7 +2,7 @@
 """
 ランダムテスト(ストレステスト)ランナー。Windows / Mac / Linux 共通。
 
-  src/bin/main.rs   … 提出コード(テストしたい解)
+  ../src/main.rs    … 提出コード(テストしたい解)。親の atcoder パッケージの main をそのまま使う
   src/bin/naive.rs  … 愚直解(遅くていいので確実に正しいもの)
   src/bin/gen.rs    … 入力生成器 (gen <seed> で入力を1つ出力)
   src/bin/checker.rs… (任意) 答えが複数ありうる問題用。
@@ -25,20 +25,25 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 EXE = ".exe" if os.name == "nt" else ""
 BIN = ROOT / "target" / "release"
+MAIN_ROOT = ROOT.parent                     # 提出コード (../src/main.rs) を持つ atcoder パッケージ
+MAIN_BIN = MAIN_ROOT / "target" / "release" / ("atcoder" + EXE)
 
 
 def build():
     print("building...", flush=True)
     r = subprocess.run(["cargo", "build", "--release", "--bins", "-q"], cwd=ROOT)
     if r.returncode != 0:
-        sys.exit("build failed")
+        sys.exit("build failed (stress: gen/naive/checker)")
+    r = subprocess.run(["cargo", "build", "--release", "--bin", "atcoder", "-q"], cwd=MAIN_ROOT)
+    if r.returncode != 0:
+        sys.exit("build failed (../src/main.rs)")
 
 
 def run(name, args=(), stdin="", timeout=5.0):
     """(stdout, エラー文字列 or None) を返す"""
     try:
         r = subprocess.run(
-            [str(BIN / (name + EXE)), *map(str, args)],
+            [str(MAIN_BIN if name == "main" else BIN / (name + EXE)), *map(str, args)],
             input=stdin, capture_output=True, text=True, timeout=timeout,
         )
     except subprocess.TimeoutExpired:
@@ -60,6 +65,24 @@ def save_fail(inp, out_main, out_naive, why):
         print("[main]\n" + out_main.rstrip())
         print("[naive]\n" + out_naive.rstrip())
     print(f"\n保存先: {d}")
+    if OPEN_FAIL:
+        open_file(d / "input.txt")
+
+
+OPEN_FAIL = True  # --no-open で無効化
+
+
+def open_file(path):
+    """反例の入力ファイルを OS の既定のアプリで開く"""
+    try:
+        if os.name == "nt":
+            os.startfile(str(path))
+        elif sys.platform == "darwin":
+            subprocess.Popen(["open", str(path)])
+        else:
+            subprocess.Popen(["xdg-open", str(path)])
+    except Exception as e:
+        print(f"(ファイルを自動で開けませんでした: {e})")
 
 
 def check_one(seed, use_checker, timeout):
@@ -99,7 +122,10 @@ def main():
     ap.add_argument("--seed-only", type=int, help="このseedだけ実行")
     ap.add_argument("-t", "--timeout", type=float, default=5.0, help="main の制限秒")
     ap.add_argument("--no-build", action="store_true")
+    ap.add_argument("--no-open", action="store_true", help="反例が出ても input.txt を自動で開かない")
     a = ap.parse_args()
+    global OPEN_FAIL
+    OPEN_FAIL = not a.no_open
 
     if not a.no_build:
         build()
